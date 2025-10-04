@@ -1,5 +1,19 @@
 <p align="center">
-  <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1759568840/firsttx_logo_text_kkovjs.png" alt="FirstTx Logo" width="720" />
+  <picture>
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://res.cloudinary.com/dx25hswix/image/upload/b_rgb:111827,r_16,w_720,q_auto,f_png/v1759568840/firsttx_logo_text_kkovjs.png"
+    />
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://res.cloudinary.com/dx25hswix/image/upload/v1759568840/firsttx_logo_text_kkovjs.png"
+    />
+    <img
+      src="https://res.cloudinary.com/dx25hswix/image/upload/b_rgb:111827,r_16,w_720,q_auto,f_png/v1759568840/firsttx_logo_text_kkovjs.png"
+      alt="FirstTx Logo"
+      width="720"
+    />
+  </picture>
 </p>
 
 # FirstTx
