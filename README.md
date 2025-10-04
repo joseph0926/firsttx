@@ -35,7 +35,7 @@ Optimistic updates, rollbacks, and cache invalidation must be managed separately
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22+
 - React 18+
 - Supported browsers: Chrome/Edge/Safari (IndexedDB required)
 

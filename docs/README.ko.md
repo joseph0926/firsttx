@@ -33,7 +33,7 @@
 
 ## 요구사항
 
-- Node.js 18+
+- Node.js 22+
 - React 18+
 - 지원 브라우저: Chrome/Edge/Safari (IndexedDB 필요)
 
