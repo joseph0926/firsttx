@@ -11,7 +11,17 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@fristtx/prepaint": ["packages/prepaint/src/index.ts"],
+      "@fristtx/prepaint/*": ["packages/prepaint/src/*"],
+      "@fristtx/local-first": ["packages/local-first/src/index.ts"],
+      "@fristtx/local-first/*": ["packages/local-first/src/*"],
+      "@fristtx/tx": ["packages/tx/src/index.ts"],
+      "@fristtx/tx/*": ["packages/tx/src/*"]
+    }
   },
   "exclude": ["node_modules", "dist", "coverage", ".turbo"]
 }
