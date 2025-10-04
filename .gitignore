@@ -1,0 +1,35 @@
+# Node / package managers
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build & caches
+dist/
+out/
+build/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+.turborepo/
+
+# Frameworks
+.next/
+storybook-static/
+.vite/
+apps/**/.vite/
+
+# Env & secrets
+.env
+.env.*.local
+
+# Editors & OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

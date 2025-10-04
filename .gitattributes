@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+*.bat eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.mp4 binary
+*.mp3 binary
+*.woff binary
+*.woff2 binary
+
+packages/*/dist/** linguist-generated
+apps/**/dist/** linguist-generated
+.turbo/** linguist-generated

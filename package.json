@@ -1,0 +1,56 @@
+{
+  "name": "firsttx",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prepaint CSR x Local-First x Transaction Graph is a single flow that removes blank screens, preserves continuity offline, and commits user actions atomically. The result is a faster first impression and a safer, more predictable app—without leaning on SSR.",
+  "license": "MIT",
+  "author": "joseph0926",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22.20.0"
+  },
+  "keywords": [
+    "prepaint",
+    "local-first",
+    "transaction",
+    "optimistic-ui",
+    "offline-first",
+    "react",
+    "csr",
+    "undo-redo",
+    "indexeddb",
+    "atomic-transactions",
+    "state-management",
+    "view-transitions",
+    "client-side-rendering",
+    "hydration",
+    "crdt"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "clean": "turbo run clean && rimraf node_modules **/node_modules **/dist --glob",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "release": "changeset version && pnpm -r install && turbo run build && changeset publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joseph0926/firsttx.git"
+  },
+  "bugs": {
+    "url": "https://github.com/joseph0926/firsttx/issues"
+  },
+  "homepage": "https://github.com/joseph0926/firsttx#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "eslint": "^9.37.0",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.45.0"
+  }
+}
