@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1759568840/firsttx_logo_text_kkovjs.png" alt="FirstTx Logo" width="720" />
+</p>
+
 # FirstTx
 
 **Make your CSR app's return visits feel like SSR**

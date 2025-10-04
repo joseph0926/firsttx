@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1759568840/firsttx_logo_text_kkovjs.png" alt="FirstTx Logo" width="720" />
+</p>
+
 # FirstTx
 
 **CSR 앱의 재방문 경험을 SSR 수준으로 만드는 통합 시스템**
