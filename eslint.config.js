@@ -11,6 +11,7 @@ export default defineConfig(
       'coverage/**',
       '**/.next/**',
       '**/*.d.ts',
+      '**/vite.config.ts',
     ],
   },
 
