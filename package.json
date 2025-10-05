@@ -34,7 +34,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "release": "changeset version && pnpm -r install && turbo run build && changeset publish",
+    "release:version": "changeset version && pnpm -w install --no-frozen-lockfile",
+    "release:publish": "pnpm build && changeset publish",
     "tree": "tree -I 'node_modules|.git|.turbo|dist|build'"
   },
   "repository": {
