@@ -1,5 +1,5 @@
 {
-  "name": "@fristtx/tx",
+  "name": "@firsttx/tx",
   "version": "0.0.0",
   "description": "Transaction Graph runtime for FirstTx: atomic mutations, optimistic updates, compensation, and navigation timeline.",
   "license": "MIT",

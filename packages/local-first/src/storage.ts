@@ -1,7 +1,7 @@
 import type { StoredModel } from './types';
 
 const STORAGE_CONFIG = {
-  DB_NAME: 'fristtx',
+  DB_NAME: 'firsttx',
   DB_VERSION: 1,
   STORE_MODELS: 'models',
 } as const;

@@ -1,6 +1,6 @@
 {
-  "name": "@fristtx/local-first",
-  "version": "0.0.0",
+  "name": "@firsttx/local-first",
+  "version": "0.0.1",
   "description": "Local-first model layer for FirstTx: IndexedDB persistence, multi-tab sync, snapshots, and simple merge policies.",
   "license": "MIT",
   "author": "joseph0926",

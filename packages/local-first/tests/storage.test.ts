@@ -6,7 +6,7 @@ describe('Storage', () => {
   let storage: Storage;
 
   beforeEach(() => {
-    indexedDB.deleteDatabase('fristtx');
+    indexedDB.deleteDatabase('firsttx');
     Storage.setInstance(undefined);
     storage = Storage.getInstance();
   });

@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 describe('Model', () => {
   beforeEach(() => {
-    indexedDB.deleteDatabase('fristtx');
+    indexedDB.deleteDatabase('firsttx');
     Storage.setInstance(undefined);
   });
 

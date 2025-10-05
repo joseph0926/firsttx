@@ -15,12 +15,12 @@
 
     "baseUrl": ".",
     "paths": {
-      "@fristtx/prepaint": ["packages/prepaint/src/index.ts"],
-      "@fristtx/prepaint/*": ["packages/prepaint/src/*"],
-      "@fristtx/local-first": ["packages/local-first/src/index.ts"],
-      "@fristtx/local-first/*": ["packages/local-first/src/*"],
-      "@fristtx/tx": ["packages/tx/src/index.ts"],
-      "@fristtx/tx/*": ["packages/tx/src/*"]
+      "@firsttx/prepaint": ["packages/prepaint/src/index.ts"],
+      "@firsttx/prepaint/*": ["packages/prepaint/src/*"],
+      "@firsttx/local-first": ["packages/local-first/src/index.ts"],
+      "@firsttx/local-first/*": ["packages/local-first/src/*"],
+      "@firsttx/tx": ["packages/tx/src/index.ts"],
+      "@firsttx/tx/*": ["packages/tx/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "coverage", ".turbo"]

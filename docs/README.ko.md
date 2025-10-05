@@ -57,7 +57,7 @@ IndexedDB 기반 모델로 상태를 저장하고, **멀티탭에서 자동 동�
 ### 설치
 
 ```bash
-pnpm add @fristtx/prepaint @fristtx/local-first @fristtx/tx
+pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
 ### 1. Vite 플러그인 설정
@@ -65,7 +65,7 @@ pnpm add @fristtx/prepaint @fristtx/local-first @fristtx/tx
 ```typescript
 // vite.config.ts
 import { defineConfig } from 'vite';
-import prepaint from '@fristtx/prepaint/plugin/vite';
+import prepaint from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
   plugins: [prepaint()],
@@ -76,7 +76,7 @@ export default defineConfig({
 
 ```typescript
 // models/cart.ts
-import { defineModel } from '@fristtx/local-first';
+import { defineModel } from '@firsttx/local-first';
 import { z } from 'zod';
 
 export const CartModel = defineModel('cart', {
@@ -99,7 +99,7 @@ export const CartModel = defineModel('cart', {
 ```tsx
 // routes/cart.prepaint.tsx
 'use prepaint';
-import { prepaint } from '@fristtx/prepaint';
+import { prepaint } from '@firsttx/prepaint';
 
 export default prepaint((ctx) => {
   const items = ctx.snap?.cart?.items ?? [];
@@ -123,7 +123,7 @@ export default prepaint((ctx) => {
 ### 4. 트랜잭션으로 낙관 업데이트
 
 ```typescript
-import { startTransaction } from '@fristtx/tx';
+import { startTransaction } from '@firsttx/tx';
 import { CartModel } from './models/cart';
 
 async function addToCart(product) {
@@ -165,7 +165,7 @@ async function addToCart(product) {
 
 ```typescript
 // main.tsx
-import { handoff } from '@fristtx/prepaint'
+import { handoff } from '@firsttx/prepaint'
 
 handoff({ mode: 'auto', transition: true }).then((strategy) => {
   const container = document.getElementById('root')!
