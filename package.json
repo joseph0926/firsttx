@@ -47,6 +47,7 @@
   "homepage": "https://github.com/joseph0926/firsttx#readme",
   "devDependencies": {
     "@eslint/js": "^9.37.0",
+    "@types/node": "^24.6.2",
     "esbuild": "^0.25.10",
     "eslint": "^9.37.0",
     "prettier": "^3.6.2",

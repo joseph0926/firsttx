@@ -1,54 +1,137 @@
-import type { Model, ModelOptions, SnapshotResult, StoredModel } from './types';
-import { getModelSnapshot, saveModelSnapshot } from './db';
+import type { z } from 'zod';
+import type { ModelOptions } from './types';
+import { Storage } from './storage';
 
-class ModelImpl<T> implements Model<T> {
-  constructor(
-    public readonly name: string,
-    public readonly options: ModelOptions<T>,
-  ) {}
+export type Model<T> = {
+  name: string;
+  schema: z.ZodType<T>;
+  ttl: number;
+  merge: (current: T, incoming: T) => T;
+  patch: (mutator: (draft: T) => void) => Promise<void>;
+  getSnapshot: () => Promise<T | null>;
+  replace: (data: T) => Promise<void>;
+  // TODO: Phase 1 - markConflicted, clearConflict,,,
+};
 
-  async getSnapshot(): Promise<SnapshotResult<T>> {
-    const stored = await getModelSnapshot<T>(this.name);
-
-    if (!stored) {
-      return { data: null, age: 0, expired: false };
-    }
-
-    const now = Date.now();
-    const age = now - stored.updatedAt;
-
-    const parseResult = this.options.schema.safeParse(stored.data);
-    if (!parseResult.success) {
-      return { data: null, age: 0, expired: true };
-    }
-
-    const expired = this.options.ttl !== undefined && age > this.options.ttl;
-
-    return {
-      data: parseResult.data,
-      age,
-      expired,
-    };
-  }
-
-  async saveSnapshot(data: T): Promise<void> {
-    const redacted = this.options.redact ? this.options.redact(data) : data;
-
-    const validated = this.options.schema.parse(redacted);
-
-    const stored: StoredModel<T> = {
-      _v: 1, // TODO: version management
-      updatedAt: Date.now(),
-      data: validated,
-    };
-
-    await saveModelSnapshot(this.name, stored);
-  }
-}
-
-/**
- * Define a model with schema and policies
- */
+export function defineModel<T>(
+  name: string,
+  options: {
+    version: number;
+    initialData: T;
+    schema: z.ZodType<T>;
+    ttl: number;
+    merge?: (current: T, incoming: T) => T;
+  },
+): Model<T>;
+export function defineModel<T>(
+  name: string,
+  options: {
+    version?: never;
+    initialData?: T;
+    schema: z.ZodType<T>;
+    ttl: number;
+    merge?: (current: T, incoming: T) => T;
+  },
+): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
-  return new ModelImpl(name, options);
+  const model: Model<T> = {
+    name,
+    schema: options.schema,
+    ttl: options.ttl,
+    merge: options.merge ?? ((_, next) => next),
+
+    /**
+     * getSnapshot
+     * @description Returns a validated snapshot for use in the main app.
+     * @returns Promise<T | null>
+     */
+    getSnapshot: async () => {
+      const storage = Storage.getInstance();
+      const stored = await storage.get<T>(name);
+
+      if (!stored) {
+        return null;
+      }
+
+      const parseResult = options.schema.safeParse(stored.data);
+      if (!parseResult.success) {
+        await storage.delete(name);
+
+        if (process.env.NODE_ENV !== 'production') {
+          throw new Error(`[FirstTx] Invalid data for model "${name}" - removed corrupted data`, {
+            cause: parseResult.error,
+          });
+        }
+
+        return null;
+      }
+
+      return parseResult.data ?? null;
+    },
+
+    /**
+     * replace
+     * @description Replaces the entire stored data with server data
+     * @param data Server data to store
+     */
+    replace: async (data: T): Promise<void> => {
+      const parseResult = options.schema.safeParse(data);
+      if (!parseResult.success) {
+        throw new Error(`[FirstTx] Invalid data for model "${name}"`, {
+          cause: parseResult.error,
+        });
+      }
+
+      const storage = Storage.getInstance();
+      await storage.set(name, {
+        _v: options.version ?? 1,
+        updatedAt: Date.now(),
+        data: parseResult.data,
+      });
+    },
+
+    /**
+     * patch
+     * @description Mutates the draft object to update stored data
+     * @param mutator Function that receives a draft and modifies it directly
+     * @example
+     * await model.patch(draft => {
+     *   draft.items.push(newItem)
+     * })
+     */
+    patch: async (mutator: (draft: T) => void): Promise<void> => {
+      const storage = Storage.getInstance();
+      let current: T | null = await model.getSnapshot();
+
+      if (current === null) {
+        if (options.initialData) {
+          current = options.initialData;
+        } else {
+          throw new Error(
+            `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
+          );
+        }
+      }
+
+      const next = structuredClone(current);
+      mutator(next);
+
+      const parseResult = options.schema.safeParse(next);
+      if (!parseResult.success) {
+        throw new Error(`[FirstTx] Patch validation failed for model "${name}"`, {
+          cause: parseResult.error,
+        });
+      }
+
+      await storage.set<T>(name, {
+        _v: options.version ?? 1,
+        updatedAt: Date.now(),
+        data: parseResult.data,
+      });
+
+      // TODO: Phase 1 - BroadcastChannel
+    },
+  };
+
+  return model;
 }
