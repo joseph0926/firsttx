@@ -1,7 +1,6 @@
 import type { z } from 'zod';
 
 /**
-/**
  * StoredModel
  * @description Model type persisted to IndexedDB.
  */
