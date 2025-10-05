@@ -1,58 +1,59 @@
 import type { z } from 'zod';
 
-/** Format stored in IndexedDB */
-export interface StoredModel<T = unknown> {
+/**
+/**
+ * StoredModel
+ * @description Model type persisted to IndexedDB.
+ */
+export type StoredModel<T> = {
+  /** Internal schema version for migrations. Updated by the system; read-only to consumers. */
   _v: number;
+  /** Unix timestamp in milliseconds (epoch ms). */
   updatedAt: number;
   data: T;
-}
+};
 
+/**
+ * ModelOptions
+ * @description Options you can pass to `defineModel()` when declaring a model.
+ */
 export interface ModelOptions<T> {
-  /** Zod schema for validation */
-  schema: z.ZodSchema<T>;
-  /** TTL in milliseconds */
-  ttl?: number;
-  /** Multi-tab merge strategy (default: LWW) */
-  merge?: (prev: T, next: T) => T;
-  /** PII redaction before storage */
-  redact?: (data: T) => T;
+  /** Zod schema used for validation (parse/transform). */
+  schema: z.ZodType<T>;
+  /**
+   * User-bumped version to force a refresh/re-fetch.
+   * When provided, `initialData` should also be provided (to be enforced via overloads).
+   */
+  version?: number;
+  /**
+   * Initial value written at first creation or when `version` changes.
+   * Required if `version` is set (to be enforced via overloads).
+   */
+  initialData?: T;
+  /**
+   * Time-to-live in milliseconds. `Infinity` is allowed for "never expires".
+   */
+  ttl: number;
+  /**
+   * Conflict-resolution function. Receives the current value and an incoming value,
+   * and must return the resolved value to persist.
+   */
+  merge?: (current: T, incoming: T) => T;
+
+  // TODO: Phase 1
+  // redact?: Record<string, boolean>
+  // migrate?: (old: unknown, fromVersion: number) => T
 }
 
-/** Snapshot retrieval result */
-export interface SnapshotResult<T> {
-  data: T | null;
+/**
+ * ModelHistory
+ * @description Metadata about a model's state, returned by `useModel` hook.
+ */
+export interface ModelHistory {
+  /** Unix timestamp in milliseconds when this model was last updated. */
+  updatedAt: number;
+  /** Milliseconds since last update (calculated as Date.now() - updatedAt). */
   age: number;
-  expired: boolean;
-}
-
-export interface Model<T> {
-  readonly name: string;
-  readonly options: ModelOptions<T>;
-
-  getSnapshot(): Promise<SnapshotResult<T>>;
-  saveSnapshot(data: T): Promise<void>;
-}
-
-/** IndexedDB schema */
-export interface FirstTxDBSchema {
-  models: {
-    key: string;
-    value: StoredModel;
-  };
-  tx_journal: {
-    key: string;
-    value: TxRecord;
-  };
-  settings: {
-    key: string;
-    value: unknown;
-  };
-}
-
-/** Tx journal record (minimal type for Local-First layer) */
-export interface TxRecord {
-  id: string;
-  label: string;
-  createdAt: number;
-  status: 'open' | 'committing' | 'committed' | 'rolledback';
+  /** Whether this model is in a conflicted state (multi-tab collision). */
+  isConflicted: boolean; // TODO: Phase 1 - implement conflict detection
 }
