@@ -20,7 +20,7 @@ class Storage {
   }
 
   /** For tests: inject a custom instance (e.g., an in-memory stub). */
-  static setInstance(storage: Storage): void {
+  static setInstance(storage: Storage | undefined): void {
     this.instance = storage;
   }
 
@@ -42,7 +42,15 @@ class Storage {
             reject(new Error('Unknown IndexedDB error'));
           }
         };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+          const db = request.result;
+          db.onversionchange = () => {
+            try {
+              db.close();
+            } catch {}
+          };
+          resolve(db);
+        };
 
         request.onupgradeneeded = (event) => {
           const db = (event.target as IDBOpenDBRequest).result;

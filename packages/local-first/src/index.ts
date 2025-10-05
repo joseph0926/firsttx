@@ -1,3 +1,6 @@
 export { defineModel } from './model';
+export type { Model } from './model';
 
-export type { Model, ModelOptions, SnapshotResult, StoredModel } from './types';
+export { Storage } from './storage';
+
+export type { StoredModel, ModelOptions, ModelHistory } from './types';
