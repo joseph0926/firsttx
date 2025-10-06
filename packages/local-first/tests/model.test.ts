@@ -55,7 +55,7 @@ describe('Model', () => {
 
       const invalidData = { items: [123, 456] };
 
-      // @ts-expect-error — intentional: we’re testing an error case, so ignore the type error here
+      // @ts-expect-error — intentional: we're testing an error case, so ignore the type error here
       await expect(TestModel.replace(invalidData)).rejects.toThrow();
     });
 
@@ -184,10 +184,78 @@ describe('Model', () => {
 
       await expect(
         TestModel.patch((draft) => {
-          // @ts-expect-error — intentional: we’re testing an error case, so ignore the type error here
+          // @ts-expect-error — intentional: we're testing an error case, so ignore the type error here
           draft.items.push(123);
         }),
       ).rejects.toThrow('[FirstTx] Patch validation failed');
+    });
+  });
+
+  describe('getHistory', () => {
+    it('should return default values when no data exists', async () => {
+      const TestModel = defineModel('cart', {
+        schema: z.object({
+          items: z.array(z.string()),
+        }),
+        ttl: 5000,
+      });
+
+      const history = await TestModel.getHistory();
+
+      expect(history.updatedAt).toBe(0);
+      expect(history.age).toBe(Infinity);
+      expect(history.isStale).toBe(true);
+      expect(history.isConflicted).toBe(false);
+    });
+
+    it('should return isStale=false when data is fresh', async () => {
+      const TestModel = defineModel('cart', {
+        schema: z.object({
+          items: z.array(z.string()),
+        }),
+        ttl: 5000,
+      });
+
+      const storage = Storage.getInstance();
+      const now = Date.now();
+
+      await storage.set('cart', {
+        _v: 1,
+        updatedAt: now - 2000,
+        data: { items: ['apple'] },
+      });
+
+      const history = await TestModel.getHistory();
+
+      expect(history.updatedAt).toBe(now - 2000);
+      expect(history.age).toBeCloseTo(2000, -2);
+      expect(history.isStale).toBe(false);
+      expect(history.isConflicted).toBe(false);
+    });
+
+    it('should return isStale=true when data exceeds TTL', async () => {
+      const TestModel = defineModel('cart', {
+        schema: z.object({
+          items: z.array(z.string()),
+        }),
+        ttl: 5000,
+      });
+
+      const storage = Storage.getInstance();
+      const now = Date.now();
+
+      await storage.set('cart', {
+        _v: 1,
+        updatedAt: now - 8000,
+        data: { items: ['apple'] },
+      });
+
+      const history = await TestModel.getHistory();
+
+      expect(history.updatedAt).toBe(now - 8000);
+      expect(history.age).toBeCloseTo(8000, -2);
+      expect(history.isStale).toBe(true);
+      expect(history.isConflicted).toBe(false);
     });
   });
 });

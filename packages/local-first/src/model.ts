@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { ModelOptions } from './types';
+import type { ModelHistory, ModelOptions } from './types';
 import { Storage } from './storage';
 
 export type Model<T> = {
@@ -8,6 +8,7 @@ export type Model<T> = {
   ttl: number;
   merge: (current: T, incoming: T) => T;
   patch: (mutator: (draft: T) => void) => Promise<void>;
+  getHistory: () => Promise<ModelHistory>;
   getSnapshot: () => Promise<T | null>;
   replace: (data: T) => Promise<void>;
   // TODO: Phase 1 - markConflicted, clearConflict,,,
@@ -53,6 +54,16 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         return null;
       }
 
+      if (options.version && stored._v !== options.version) {
+        await storage.delete(name);
+
+        if (!options.initialData) {
+          throw new Error('[FirstTx] Unreachable: version set but no initialData');
+        }
+        await model.replace(options.initialData);
+        return options.initialData;
+      }
+
       const parseResult = options.schema.safeParse(stored.data);
       if (!parseResult.success) {
         await storage.delete(name);
@@ -67,6 +78,34 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       }
 
       return parseResult.data ?? null;
+    },
+
+    /**
+     * getHistory
+     * @description Returns metadata about the model's state (age, staleness, conflicts).
+     * @returns Promise<ModelHistory>
+     */
+    getHistory: async (): Promise<ModelHistory> => {
+      const storage = Storage.getInstance();
+      const stored = await storage.get<T>(name);
+
+      if (!stored) {
+        return {
+          updatedAt: 0,
+          age: Infinity,
+          isStale: true,
+          isConflicted: false,
+        };
+      }
+
+      const age = Date.now() - stored.updatedAt;
+
+      return {
+        updatedAt: stored.updatedAt,
+        age,
+        isStale: age > options.ttl,
+        isConflicted: false, // TODO: Phase 1
+      };
     },
 
     /**

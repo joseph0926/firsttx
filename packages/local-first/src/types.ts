@@ -53,6 +53,8 @@ export interface ModelHistory {
   updatedAt: number;
   /** Milliseconds since last update (calculated as Date.now() - updatedAt). */
   age: number;
+  /** age > ttl */
+  isStale: boolean;
   /** Whether this model is in a conflicted state (multi-tab collision). */
   isConflicted: boolean; // TODO: Phase 1 - implement conflict detection
 }
