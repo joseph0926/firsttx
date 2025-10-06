@@ -11,6 +11,8 @@ export type Model<T> = {
   getHistory: () => Promise<ModelHistory>;
   getSnapshot: () => Promise<T | null>;
   replace: (data: T) => Promise<void>;
+  getCachedSnapshot: () => T | null;
+  subscribe: (callback: () => void) => () => void;
   // TODO: Phase 1 - markConflicted, clearConflict,,,
 };
 
@@ -35,6 +37,13 @@ export function defineModel<T>(
   },
 ): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
+  let cache: T | null = null;
+  const subscribers = new Set<() => void>();
+
+  const notifySubscribers = () => {
+    subscribers.forEach((fn) => fn());
+  };
+
   const model: Model<T> = {
     name,
     schema: options.schema,
@@ -127,6 +136,9 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         updatedAt: Date.now(),
         data: parseResult.data,
       });
+
+      cache = parseResult.data;
+      notifySubscribers();
     },
 
     /**
@@ -168,7 +180,39 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         data: parseResult.data,
       });
 
+      cache = parseResult.data;
+      notifySubscribers();
+
       // TODO: Phase 1 - BroadcastChannel
+    },
+
+    getCachedSnapshot: () => cache,
+
+    /**
+     * Subscribes to model changes for React integration.
+     * Initializes cache on first subscription.
+     * @param callback - Function called when model data changes
+     * @returns Unsubscribe function
+     */
+    subscribe: (callback) => {
+      subscribers.add(callback);
+
+      if (subscribers.size === 1 && cache === null) {
+        model
+          .getSnapshot()
+          .then((data) => {
+            cache = data;
+            notifySubscribers();
+          })
+          .catch((error) => {
+            console.error(`[FirstTx] Failed to load model "${name}":`, error);
+            notifySubscribers();
+          });
+      }
+
+      return () => {
+        subscribers.delete(callback);
+      };
     },
   };
 
