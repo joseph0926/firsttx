@@ -38,10 +38,14 @@
     "persistence"
   ],
   "peerDependencies": {
+    "react": "^18.2.0 || ^19.2.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.2.0",
     "fake-indexeddb": "^6.2.2",
+    "happy-dom": "^19.0.2",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
     "vitest": "^3.2.4",
