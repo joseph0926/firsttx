@@ -1,3 +1,7 @@
-export default function App() {
-  return <div>APP</div>;
+import { CartPage } from './pages/cart-page';
+
+function App() {
+  return <CartPage />;
 }
+
+export default App;
