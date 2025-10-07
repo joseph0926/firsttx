@@ -16,15 +16,6 @@
 
 ---
 
-## What’s new in v3.2 — Tx layer integrated
-
-- **Transaction integration**: optimistic update → server confirmation → on failure, **automatic rollback (atomic)**
-- **ViewTransition wiring**: smooth transitions for server sync and rollback
-- **Built‑in retry**: a sensible default **1 retry** for transient network errors (configurable)
-- **Journal awareness**: boot checks for **in‑flight transactions** (extensible for reapply/abort policies)
-
----
-
 ## Problems FirstTx solves
 
 - **Blank screen** on every return visit (2–3s)
@@ -342,5 +333,5 @@ MIT
 ## Browser/Runtime requirements
 
 - View Transitions: **Chrome 111+** recommended (fallbacks provided)
-- React 18+, Node 18+
+- React 18+, Node 22+
 - IndexedDB‑capable environment
