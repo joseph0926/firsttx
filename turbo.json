@@ -21,7 +21,11 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**", "test-results/**"]
+      "outputs": []
+    },
+    "test:run": {
+      "dependsOn": ["^build"],
+      "outputs": []
     },
     "clean": {
       "cache": false
