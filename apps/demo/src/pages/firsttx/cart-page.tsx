@@ -1,7 +1,7 @@
 import { useModel } from '@firsttx/local-first';
-import { CartModel } from '../models/cart-model';
 import { startTransaction } from '@firsttx/tx';
 import { cartApi } from '@/api/mock-cart-api';
+import { CartModel } from '@/models/cart-model';
 
 const MOCK_PRODUCTS = [
   { id: '1', name: 'MacBook Pro 16"', price: 2500000 },
