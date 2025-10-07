@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@firsttx/tx", "@firsttx/prepaint"]
+  "ignore": ["@firsttx/prepaint", "demo-cart"]
 }
