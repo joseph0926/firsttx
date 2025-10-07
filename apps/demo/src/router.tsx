@@ -13,10 +13,12 @@ import { CartPage as RQCartPage } from './pages/react-query/cart-page';
 
 import { ProductsPage as LoaderProductsPage, productsLoader } from './pages/loader/products-page';
 import { CartPage as LoaderCartPage } from './pages/loader/cart-page';
+import LandingPage from './pages/landing-page';
 
 export const router = createBrowserRouter([
+  { path: '/', element: <LandingPage /> },
   {
-    path: '/',
+    path: '/demo',
     element: <Layout />,
     children: [
       {
