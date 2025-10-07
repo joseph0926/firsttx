@@ -20,11 +20,11 @@ export type StepOptions = {
   retry?: RetryConfig;
 };
 
-export type TxStep = {
+export type TxStep<T = void> = {
   /** Unique step identifier */
   id: string;
   /** Function to execute */
-  run: () => Promise<void>;
+  run: () => Promise<T>;
   /** Compensation function to run on rollback */
   compensate?: () => Promise<void>;
   /** Retry configuration */

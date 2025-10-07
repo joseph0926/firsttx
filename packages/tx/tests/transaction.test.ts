@@ -235,7 +235,7 @@ describe('Transaction - Rollback', () => {
     } catch {}
 
     await expect(tx.run(async () => {})).rejects.toThrow(
-      'Cannot add step to rolled-back transaction',
+      'Cannot add step: transaction is rolled-back',
     );
   });
 });

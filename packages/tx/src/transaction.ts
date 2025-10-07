@@ -3,7 +3,7 @@ import { CompensationFailedError } from './errors';
 import { executeWithRetry } from './retry';
 
 export class Transaction {
-  private steps: TxStep[] = [];
+  private steps: TxStep<unknown>[] = [];
   private completedSteps = 0;
   private status: TxStatus = 'pending';
   private readonly id: string;
@@ -18,25 +18,26 @@ export class Transaction {
     };
   }
 
-  async run(fn: () => Promise<void>, options?: StepOptions): Promise<void> {
-    if (this.status !== 'pending') {
-      throw new Error(`[FirstTx] Cannot add step to ${this.status} transaction`);
+  async run<T = void>(fn: () => Promise<T>, options?: StepOptions): Promise<T> {
+    if (this.status !== 'pending' && this.status !== 'running') {
+      throw new Error(`Cannot add step: transaction is ${this.status}`);
     }
 
     this.status = 'running';
 
-    const step: TxStep = {
-      id: crypto.randomUUID(),
+    const step: TxStep<T> = {
+      id: `step-${this.steps.length}`,
       run: fn,
       compensate: options?.compensate,
       retry: options?.retry,
     };
+
     this.steps.push(step);
 
     try {
-      await executeWithRetry(fn, options?.retry);
+      const result = await executeWithRetry(fn, options?.retry);
       this.completedSteps++;
-      this.status = 'pending';
+      return result;
     } catch (error) {
       await this.rollback();
       throw error;
@@ -50,7 +51,7 @@ export class Transaction {
       return;
     }
 
-    if (this.status !== 'pending') {
+    if (this.status !== 'pending' && this.status !== 'running') {
       throw new Error(`[FirstTx] Cannot commit ${this.status} transaction`);
     }
 

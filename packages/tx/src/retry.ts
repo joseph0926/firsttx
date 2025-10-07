@@ -2,10 +2,7 @@ import type { RetryConfig } from './types';
 import { DEFAULT_RETRY_CONFIG } from './types';
 import { RetryExhaustedError } from './errors';
 
-export async function executeWithRetry(
-  fn: () => Promise<void>,
-  config?: RetryConfig,
-): Promise<void> {
+export async function executeWithRetry<T>(fn: () => Promise<T>, config?: RetryConfig): Promise<T> {
   const { maxAttempts, delayMs, backoff } = {
     ...DEFAULT_RETRY_CONFIG,
     ...config,
@@ -15,8 +12,8 @@ export async function executeWithRetry(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      await fn();
-      return;
+      const result = await fn();
+      return result;
     } catch (error) {
       lastError = error as Error;
 
@@ -32,6 +29,7 @@ export async function executeWithRetry(
       await sleep(delay);
     }
   }
+  throw new Error('[FirstTx] Unexpected: retry loop ended without return or throw');
 }
 
 function calculateDelay(
