@@ -1,21 +1,23 @@
 # @firsttx/local-first
 
-> [Main README](https://github.com/joseph0926/firsttx/blob/main/README.md)
-
-Local‑First models for React that **bridge IndexedDB (async)** and **React state (sync)** using `useSyncExternalStore` + an in‑memory cache. Zero‑server return visits with snapshot handoff; offline resilient by design.
+**Local‑First models for React.** Bridge **IndexedDB (async)** and **React state (sync)** via `useSyncExternalStore` and an in‑memory cache. Works hand‑in‑hand with Prepaint (snapshot handoff) and Tx (atomic commits/rollbacks).
 
 - **Hook**: `useModel(model) → [state, patch, history]`
-- **Cache**: in‑memory cache provides synchronous reads
-- **History**: `isStale`, `age`, `updatedAt`
-- **Multi‑tab sync**: planned (BroadcastChannel, Phase 1)
+- **History**: `isStale`, `age`, `updatedAt` for UI hints/badges
+- **Planned**: multi‑tab sync via BroadcastChannel (Phase 1)
+- **Requirements**: React 18+, Node 18+
 
-### Install
+---
+
+## Install
 
 ```bash
 pnpm add @firsttx/local-first zod
 ```
 
-### Define a model
+---
+
+## Define a model
 
 ```ts
 // models/cart.ts
@@ -38,12 +40,16 @@ export const CartModel = defineModel('cart', {
   // optional:
   // version: 1,
   // initialData: { items: [], updatedAt: 0 },
+  // merge: (current, incoming) => incoming,
 });
 ```
 
-### Use in React
+---
+
+## Use in React
 
 ```tsx
+// routes/CartPage.tsx
 import { useEffect } from 'react';
 import { useModel } from '@firsttx/local-first';
 import { CartModel } from '../models/cart';
@@ -51,9 +57,9 @@ import { CartModel } from '../models/cart';
 export default function CartPage() {
   const [cart, patch, history] = useModel(CartModel);
 
-  if (!cart) return <CartSkeleton />; // cache warming
+  if (!cart) return <CartSkeleton />; // in‑memory cache warming
 
-  // server → smooth stale→fresh transition
+  // server sync → smooth stale→fresh transition
   useEffect(() => {
     (async () => {
       const server = await api.getCart();
@@ -63,8 +69,11 @@ export default function CartPage() {
             d.items = server.items;
             d.updatedAt = server.updatedAt;
           });
-        if (document.startViewTransition) document.startViewTransition(apply);
-        else await apply();
+        if ('startViewTransition' in document) {
+          document.startViewTransition(apply);
+        } else {
+          await apply();
+        }
       }
     })();
   }, [cart, patch]);
@@ -80,10 +89,45 @@ export default function CartPage() {
 }
 ```
 
-### API (at a glance)
+---
 
-- `defineModel(name, { schema, ttl, version?, initialData? })`
-- Model methods:
-  `getSnapshot(): Promise<T|null>` · `replace(data): Promise<void>` ·
-  `patch(mutator): Promise<void>` · `getHistory(): Promise<ModelHistory>` ·
-  `getCachedSnapshot(): T|null` · `subscribe(fn): () => void`
+## API (at a glance)
+
+**Model definition**
+
+```ts
+defineModel<T>(name: string, options: {
+  schema: ZodSchema<T>;
+  ttl?: number;
+  version?: number;
+  initialData?: T;
+  merge?: (current: T, incoming: T) => T;
+})
+```
+
+**Model methods**
+
+- `getSnapshot(): Promise<T|null>`
+- `replace(data: T): Promise<void>`
+- `patch(mutator: (draft: T) => void): Promise<void>`
+- `getHistory(): Promise<ModelHistory>`
+- `getCachedSnapshot(): T|null` (sync)
+- `subscribe(fn: () => void): () => void`
+
+**React hook**
+
+- `useModel(model) → [state: T|null, patch: Function, history: ModelHistory]`
+
+---
+
+## Tips
+
+- Initial renders may receive `null` while the cache warms—render a skeleton.
+- Keep PII out of persistent storage or encrypt at rest.
+- Pair with `@firsttx/tx` for **atomic** optimistic updates and automatic rollback.
+
+---
+
+## License
+
+MIT

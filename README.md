@@ -4,78 +4,79 @@
 
 # FirstTx
 
-**Make your CSR app’s return visits feel like SSR**
+**Make CSR return visits feel like SSR—with a faster first impression**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)]()
 
-> Instantly restore the last state on return visits and surface clear “stale → fresh” transitions.
-> Built on **Instant Replay (Render)** + **Local‑First (React‑integrated)**, with **Tx (atomic rollback)** planned.
+> **Instant Replay × Local‑First × Transaction Graph**
+> Restore the last state instantly on return visits, preserve continuity offline, and commit user actions **atomically** with automatic rollback.
+> Achieve a consistent, predictable CSR experience **without SSR**. _(Optional SSR‑Lite shell for cold starts.)_
 
 ---
 
-## The Problem FirstTx Solves
+## What’s new in v3.2 — Tx layer integrated
 
-**Chronic issues in CSR apps:**
-
-```
-❌ Blank screen on every return visit (2–3s wait)
-❌ Lost work state on refresh
-❌ Partial or inconsistent rollbacks when optimistic updates fail
-```
-
-**FirstTx’s approach (v3.1):**
-
-```
-✅ 0ms blank-screen on return visits via Instant Replay (snapshot)
-✅ Preserve last work state even offline
-✅ Explicit “stale → fresh” visuals with smooth View Transitions
-```
-
-> Info: **Atomic rollback (Tx layer)** is **planned/experimental** at this stage.
-> Today, you can use optimistic `patch` + compensation. A dedicated Tx API will follow.
+- **Transaction integration**: optimistic update → server confirmation → on failure, **automatic rollback (atomic)**
+- **ViewTransition wiring**: smooth transitions for server sync and rollback
+- **Built‑in retry**: a sensible default **1 retry** for transient network errors (configurable)
+- **Journal awareness**: boot checks for **in‑flight transactions** (extensible for reapply/abort policies)
 
 ---
 
-## Core Idea (Three Layers)
+## Problems FirstTx solves
 
-### 1) Instant Replay (Render Layer)
+- **Blank screen** on every return visit (2–3s)
+- **Lost progress** on refresh
+- **Partial rollbacks** when optimistic updates fail
 
-A tiny inline boot script reads local snapshots and **paints real UI immediately**, before your main bundle loads. If no snapshot is available, fall back to **SSR‑Lite shell or CSR skeleton**.
+**Outcomes with FirstTx**
 
-- Target boot size: **< 2KB gzip**
-- Shows **age badges** (e.g., “23h old data”) until server sync arrives.
-- Hydration-first: tries to **hydrate and reuse** the prepainted DOM; falls back to replace with **View Transitions**.
+- **0ms blank screen** on return (snapshot injection)
+- Clear **stale → fresh** handoff with badges and smooth animation
+- **Atomic rollback** on failure (UI/state stay consistent)
+- **Offline** continuity of last state
 
-### 2) Local‑First (Data Layer)
+---
 
-Models are stored in IndexedDB and exposed to React via **`useSyncExternalStore + in‑memory cache`** so components can read **synchronously**.
+## Core idea (3 layers)
 
-- **`useModel(model)` → `[state, patch, history]`**
-- `history.isStale`, `history.age` help drive UI (badges, hints)
-- **Multi‑tab sync via BroadcastChannel is planned (Phase 1)**
+### 1) Instant Replay (Render)
 
-### 3) Tx (Execution Layer) — _Planned / Experimental_
+Before the main bundle arrives, render the actual UI from a local snapshot.
 
-One‑transaction bundling of optimistic updates, routing, and cache invalidation with **atomic commit/rollback** and a **journal** for retries.
+- Boot script target: **< 2KB gzip**
+- Hydrate if the DOM matches, otherwise **replace**
+- Show a data‑age badge (e.g., “23h old data”) until fresh data arrives
 
-- Not part of the stable v3.1 baseline yet.
-- Early adopters may experiment; APIs may change.
+### 2) Local‑First (Data)
+
+Expose IndexedDB models to React **synchronously** via `useSyncExternalStore + in‑memory cache`.
+
+- `useModel(model) → [state, patch, history]`
+- `history.isStale`, `history.age` help drive badges/hints
+- **Multi‑tab sync** (BroadcastChannel) planned for a later phase
+
+### 3) Tx (Execution)
+
+Group optimistic changes, server effects, and compensation into **one transaction** for **atomic** semantics.
+
+- `run(fn, { compensate, retry })`
+- On failure: **automatic rollback** with optional ViewTransition
+- Retry defaults to 1 (tunable)
 
 ---
 
 ## Quick Start
 
-### Installation
+### Install
 
 ```bash
-pnpm add @firsttx/prepaint @firsttx/local-first
-# (optional, experimental)
-# pnpm add @firsttx/tx
+pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-### 1) Vite Plugin (Prepaint)
+### 1) Prepaint (Vite plugin)
 
 ```ts
 // vite.config.ts
@@ -87,7 +88,7 @@ export default defineConfig({
 });
 ```
 
-### 2) Define a Model
+### 2) Define a model (Local‑First)
 
 ```ts
 // models/cart.ts
@@ -107,13 +108,13 @@ export const CartModel = defineModel('cart', {
     updatedAt: z.number().default(0),
   }),
   ttl: 5 * 60 * 1000, // 5 minutes
-  // (optional) versioning helps with migrations
+  // optional
   // version: 1,
   // initialData: { items: [], updatedAt: 0 },
 });
 ```
 
-### 3) Prepaint Template (Instant Replay UI)
+### 3) Prepaint template (Instant Replay)
 
 ```tsx
 // routes/cart.prepaint.tsx
@@ -124,69 +125,20 @@ export default prepaint((ctx) => {
   const items = ctx.snap?.cart?.items ?? [];
   const ageHours = Math.floor((ctx.snapAge ?? 0) / 3600000);
 
-  if (items.length === 0) {
-    return <CartSkeleton />;
-  }
+  if (items.length === 0) return <CartSkeleton />;
 
   return (
     <div className="cart">
-      {ageHours > 0 && <span className="text-gray-500">{ageHours}h old data</span>}
-      {items.map((item) => (
-        <CartItem key={item.id} {...item} />
+      {ageHours > 0 && <span className="muted">{ageHours}h old data</span>}
+      {items.map((it) => (
+        <CartItem key={it.id} {...it} />
       ))}
     </div>
   );
 });
 ```
 
-### 4) Use the Model in React (v3.1)
-
-```tsx
-// routes/CartPage.tsx
-import { useEffect } from 'react';
-import { useModel } from '@firsttx/local-first';
-import { CartModel } from '../models/cart';
-
-export default function CartPage() {
-  const [cart, patch, history] = useModel(CartModel);
-
-  // Show skeleton while the in-memory cache warms up
-  if (!cart) return <CartSkeleton />;
-
-  // Server sync → smooth stale→fresh transition
-  useEffect(() => {
-    (async () => {
-      const server = await api.getCart();
-      if (!cart || server.updatedAt > cart.updatedAt) {
-        const apply = () =>
-          patch((draft) => {
-            draft.items = server.items;
-            draft.updatedAt = server.updatedAt;
-          });
-        if (document.startViewTransition) {
-          document.startViewTransition(apply);
-        } else {
-          await apply();
-        }
-      }
-    })();
-  }, [cart, patch]);
-
-  return (
-    <div>
-      {history.isStale && (
-        <Badge variant="warning">{Math.floor(history.age / 3600000)}h old data</Badge>
-      )}
-
-      {cart.items.map((item) => (
-        <CartItem key={item.id} {...item} />
-      ))}
-    </div>
-  );
-}
-```
-
-### 5) App Handoff
+### 4) App handoff
 
 ```ts
 // main.tsx
@@ -195,127 +147,182 @@ import { createRoot, hydrateRoot } from 'react-dom/client';
 import App from './App';
 
 handoff({ mode: 'auto', transition: true }).then((strategy) => {
-  const container = document.getElementById('root')!;
+  const root = document.getElementById('root')!;
   if (strategy === 'hydrate-match') {
-    hydrateRoot(container, <App />);
+    hydrateRoot(root, <App />);
   } else {
-    createRoot(container).render(<App />);
+    createRoot(root).render(<App />);
   }
 });
 ```
 
----
+### 5) Optimistic update + atomic rollback with Tx
 
-## Optimistic Updates Today (without Tx)
+```tsx
+// routes/CartPage.tsx
+import { useEffect } from 'react';
+import { useModel } from '@firsttx/local-first';
+import { startTransaction } from '@firsttx/tx';
+import { CartModel } from '../models/cart';
 
-Until the Tx layer stabilizes, use **optimistic `patch` + compensation**:
+export default function CartPage() {
+  const [cart, patch, history] = useModel(CartModel);
 
-```ts
-async function addToCart(product) {
-  // optimistic UI
-  await CartModel.patch((draft) => {
-    const existing = draft.items.find((x) => x.id === product.id);
-    if (existing) existing.qty += 1;
-    else draft.items.push({ ...product, qty: 1 });
-    draft.updatedAt = Date.now();
-  });
+  if (!cart) return <CartSkeleton />; // cache warming
 
-  try {
-    await api.post('/cart/add', { id: product.id });
-  } catch (e) {
-    // compensate
-    await CartModel.patch((draft) => {
-      const item = draft.items.find((x) => x.id === product.id);
-      if (!item) return;
-      item.qty -= 1;
-      if (item.qty <= 0) {
-        draft.items = draft.items.filter((x) => x.id !== product.id);
+  // server sync → smooth stale→fresh transition
+  useEffect(() => {
+    (async () => {
+      const server = await api.getCart();
+      if (!cart || server.updatedAt > cart.updatedAt) {
+        const apply = () =>
+          patch((d) => {
+            d.items = server.items;
+            d.updatedAt = server.updatedAt;
+          });
+        if ('startViewTransition' in document) {
+          document.startViewTransition(apply);
+        } else {
+          await apply();
+        }
       }
-      draft.updatedAt = Date.now();
-    });
-    toast.error('Add failed');
-  }
+    })();
+  }, [cart, patch]);
+
+  // Tx for "+1"
+  const addOne = async (product: { id: string }) => {
+    const tx = startTransaction({ transition: true });
+
+    try {
+      // Step 1: optimistic patch
+      await tx.run(
+        async () => {
+          await patch((d) => {
+            const it = d.items.find((x) => x.id === product.id);
+            if (it) it.qty += 1;
+            else d.items.push({ ...product, title: '', price: 0, qty: 1 });
+            d.updatedAt = Date.now();
+          });
+        },
+        {
+          compensate: async () => {
+            await patch((d) => {
+              const it = d.items.find((x) => x.id === product.id);
+              if (!it) return;
+              it.qty -= 1;
+              if (it.qty <= 0) d.items = d.items.filter((x) => x.id !== product.id);
+              d.updatedAt = Date.now();
+            });
+          },
+        },
+      );
+
+      // Step 2: server confirmation (with retry)
+      await tx.run(() => api.post('/cart/add', { id: product.id }), {
+        retry: { maxAttempts: 3, delayMs: 200, backoff: 'exponential' },
+      });
+
+      await tx.commit();
+      toast.success('Added');
+    } catch {
+      // Tx performs automatic rollback on failure
+      toast.error('Add failed');
+    }
+  };
+
+  return (
+    <div>
+      {history.isStale && (
+        <Badge variant="warning">{Math.floor(history.age / 3600000)}h old data</Badge>
+      )}
+
+      {cart.items.map((item) => (
+        <CartItem key={item.id} {...item} onAdd={() => addOne(item)} />
+      ))}
+    </div>
+  );
 }
 ```
 
-> Experimental Tx API
-> If you want to try atomic transactions early:
->
-> ```bash
-> pnpm add @firsttx/tx
-> ```
->
-> APIs are subject to change; expect breaking changes before stable release.
+---
+
+## Performance targets
+
+| Metric                    | Target       | Notes                                  |
+| ------------------------- | ------------ | -------------------------------------- |
+| BlankScreenTime           | 0ms (return) | Snapshot DOM injection during boot     |
+| Prepaint Boot Size        | < 2KB gzip   | Inline boot script                     |
+| Hydration Success         | > 95%        | Fallback to replace on mismatch        |
+| React Sync Latency        | < 50ms       | subscribe → render via in‑memory cache |
+| ViewTransition Smoothness | > 90% @60fps | Applied for sync/rollback              |
+| Tx Rollback Time          | < 100ms      | Error → UI restored                    |
 
 ---
 
-## Performance Targets (v3.1)
+## Feature Matrix (text‑only)
 
-| Metric                    | Target       | Notes                               |
-| ------------------------- | ------------ | ----------------------------------- |
-| BlankScreenTime           | 0ms (return) | Snapshot injected during boot       |
-| Prepaint Boot Size        | < 2KB gzip   | Inline boot script                  |
-| Hydration Success         | > 95%        | Fallback to replace on mismatch     |
-| React Sync Latency        | < 50ms       | subscribe → render via in‑mem cache |
-| ViewTransition Smoothness | > 90% @60fps | When supported (Chrome 111+)        |
-
----
-
-## Feature Matrix
-
-| Scenario/Feature    | Traditional CSR | SSR/RSC | FirstTx (v3.1)           |
-| ------------------- | --------------- | ------- | ------------------------ |
-| First Visit         | 2–3s            | Instant | 2–3s (skeleton/SSR‑Lite) |
-| Return Visit        | 2–3s            | Instant | 0ms (snapshot)           |
-| Offline last state  | No              | No      | Yes                      |
-| Server requirement  | None            | High    | None                     |
-| Optimistic rollback | Fragmented      | Complex | Experimental / Planned   |
+| Item                | Traditional CSR | SSR/RSC      | FirstTx (v3.2)                  |
+| ------------------- | --------------- | ------------ | ------------------------------- |
+| First visit         | 2–3s            | Instant      | 2–3s (Skeleton/SSR‑Lite option) |
+| Return visit        | 2–3s            | Instant      | 0ms (Snapshot)                  |
+| Data freshness      | Fresh post‑load | Always fresh | Stale→Fresh transition          |
+| Offline last state  | No              | No           | Yes                             |
+| Optimistic rollback | Fragmented      | Complex      | Atomic                          |
+| Server requirement  | None            | Required     | None                            |
 
 ---
 
-## When to Use
+## When to use
 
 **Great fit**
 
-- B2B SaaS dashboards accessed dozens of times daily
-  → _2s × 50 visits ≈ 33 min/month saved_
-- Internal admin/ops tools (unstable/cellular networks)
-- Field apps (construction/healthcare/logistics) needing offline resilience
+- **B2B dashboards/admin tools** visited dozens of times per day
+- Apps needing **offline resilience** on unstable networks (field/mobile)
+- Workflows where **continuity across refresh/tab switches** matters
 
 **Not ideal**
 
-- SEO‑critical surfaces (LPs/blogs) → consider SSR/RSC
-- Ultra‑low‑latency trading/streaming → specialized stacks
-- Static content → SSG
+- **SEO‑critical** surfaces (landing/blog) → prefer SSR/RSC
+- **Ultra‑low‑latency** trading/streaming → specialized stacks
+- **Static content** → SSG
 
 ---
 
-## Architecture (High‑Level)
+## Architecture (high level)
 
 ```
 ┌─────────────────────────────────────┐
-│ Instant Replay (Render Layer)       │
+│ Instant Replay (Render)             │
 │ Boot → Snapshot → DOM               │
 └─────────────────────────────────────┘
                  ↓ read
 ┌─────────────────────────────────────┐
-│ Local‑First (Data Layer)            │
-│ IndexedDB + in‑memory cache (React) │
-│ (Multi‑tab sync: Phase 1 planned)   │
+│ Local‑First (Data)                  │
+│ IndexedDB + In‑mem cache (React)    │
+│ (Multi‑tab sync planned)            │
 └─────────────────────────────────────┘
                  ↑ write
 ┌─────────────────────────────────────┐
-│ Tx (Execution Layer)                │
-│ Optimistic → Atomic rollback (exp.) │
+│ Tx (Execution)                      │
+│ Optimistic → Atomic rollback        │
+│ Retry + ViewTransition              │
 └─────────────────────────────────────┘
 ```
 
-**Data Flow**
+**Flow recap**
 
-1. **Boot**: HTML → boot script → read snapshot/journal → paint DOM (0ms blank)
-2. **Handoff**: main bundle → hydrate (reuse DOM) or replace (View Transition)
-3. **Sync**: server data arrives → patch model → subscribers update → smooth transition
-4. **Interaction**: optimistic patch; Tx layer will provide atomicity (planned)
+1. **Boot**: read snapshot/journal and paint instantly → 0ms blank screen
+2. **Handoff**: attempt hydration; replace with ViewTransition on mismatch
+3. **Sync**: apply server data inside a transition for a smooth update
+4. **Interaction**: Tx handles optimistic patch → server effect → auto‑rollback on failure
+
+---
+
+## Security note (PII)
+
+- FirstTx does **not** ship built‑in encryption/access control.
+- IndexedDB relies on same‑origin protections.
+- Store sensitive data **encrypted** or keep it **in memory only**.
 
 ---
 
@@ -332,7 +339,8 @@ MIT
 
 ---
 
-### Note on Browser Support
+## Browser/Runtime requirements
 
-- View Transitions require **Chrome 111+**; graceful fallbacks are provided.
-- `useSyncExternalStore` requires **React 18+**.
+- View Transitions: **Chrome 111+** recommended (fallbacks provided)
+- React 18+, Node 18+
+- IndexedDB‑capable environment
