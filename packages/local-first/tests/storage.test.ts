@@ -1,6 +1,13 @@
+// @vitest-environment happy-dom
+
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Storage } from '../src/storage';
 import type { StoredModel } from '../src/types';
+import { ValidationError } from '../src/errors';
+import { defineModel } from '../src/model';
+import { useModel } from '../src/hooks';
+import { renderHook, waitFor } from '@testing-library/react';
+import z from 'zod';
 
 describe('Storage', () => {
   let storage: Storage;
@@ -91,6 +98,83 @@ describe('Storage', () => {
 
       expect(result1?.data.type).toBe('A');
       expect(result2?.data.type).toBe('B');
+    });
+  });
+
+  // 기존 테스트들...
+
+  describe('useModel - Error Handling', () => {
+    beforeEach(() => {
+      indexedDB.deleteDatabase('firsttx');
+      Storage.setInstance(undefined);
+    });
+
+    it('should expose error through useModel', async () => {
+      const TestModel = defineModel('test-hook-error', {
+        schema: z.object({ count: z.number() }),
+        ttl: 5000,
+      });
+
+      const storage = Storage.getInstance();
+      await storage.set('test-hook-error', {
+        _v: 1,
+        updatedAt: Date.now(),
+        data: { count: 'invalid' },
+      });
+
+      const { result } = renderHook(() => useModel(TestModel));
+
+      await waitFor(() => {
+        const [state, , , error] = result.current;
+        expect(state).toBeNull();
+        expect(error).toBeInstanceOf(ValidationError);
+      });
+    });
+
+    it('should return null error when data is valid', async () => {
+      const TestModel = defineModel('test-hook-no-error', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      await TestModel.replace({ value: 'test' });
+
+      const { result } = renderHook(() => useModel(TestModel));
+
+      await waitFor(() => {
+        const [state, , , error] = result.current;
+        expect(state).toEqual({ value: 'test' });
+        expect(error).toBeNull();
+      });
+    });
+
+    it('should handle ValidationError with detailed info', async () => {
+      const TestModel = defineModel('test-hook-validation-detail', {
+        schema: z.object({
+          name: z.string(),
+          age: z.number(),
+        }),
+        ttl: 5000,
+      });
+
+      const storage = Storage.getInstance();
+      await storage.set('test-hook-validation-detail', {
+        _v: 1,
+        updatedAt: Date.now(),
+        data: { name: 123, age: 'invalid' },
+      });
+
+      const { result } = renderHook(() => useModel(TestModel));
+
+      await waitFor(() => {
+        const [, , , error] = result.current;
+        if (error instanceof ValidationError) {
+          expect(error.modelName).toBe('test-hook-validation-detail');
+          expect(error.getUserMessage()).toContain('validation failed');
+          expect(error.getDebugInfo()).toContain('name');
+          expect(error.getDebugInfo()).toContain('age');
+        }
+      });
     });
   });
 });

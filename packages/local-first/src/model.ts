@@ -1,6 +1,16 @@
 import type { z } from 'zod';
 import type { ModelHistory, ModelOptions } from './types';
 import { Storage } from './storage';
+import { FirstTxError, StorageError, ValidationError } from './errors';
+
+/**
+ * CacheState
+ * @description Internal cache state for Model
+ */
+export type CacheState<T> =
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: FirstTxError };
 
 export type Model<T> = {
   name: string;
@@ -12,6 +22,7 @@ export type Model<T> = {
   getSnapshot: () => Promise<T | null>;
   replace: (data: T) => Promise<void>;
   getCachedSnapshot: () => T | null;
+  getCachedError: () => FirstTxError | null;
   subscribe: (callback: () => void) => () => void;
   // TODO: Phase 1 - markConflicted, clearConflict,,,
 };
@@ -37,7 +48,7 @@ export function defineModel<T>(
   },
 ): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
-  let cache: T | null = null;
+  let cacheState: CacheState<T> = { status: 'loading' };
   const subscribers = new Set<() => void>();
 
   const notifySubscribers = () => {
@@ -78,9 +89,11 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         await storage.delete(name);
 
         if (process.env.NODE_ENV !== 'production') {
-          throw new Error(`[FirstTx] Invalid data for model "${name}" - removed corrupted data`, {
-            cause: parseResult.error,
-          });
+          throw new ValidationError(
+            `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
+            name,
+            parseResult.error,
+          );
         }
 
         return null;
@@ -125,9 +138,11 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     replace: async (data: T): Promise<void> => {
       const parseResult = options.schema.safeParse(data);
       if (!parseResult.success) {
-        throw new Error(`[FirstTx] Invalid data for model "${name}"`, {
-          cause: parseResult.error,
-        });
+        throw new ValidationError(
+          `[FirstTx] Invalid data for model "${name}"`,
+          name,
+          parseResult.error,
+        );
       }
 
       const storage = Storage.getInstance();
@@ -137,7 +152,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         data: parseResult.data,
       });
 
-      cache = parseResult.data;
+      cacheState = { status: 'success', data: parseResult.data };
       notifySubscribers();
     },
 
@@ -169,9 +184,11 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
       const parseResult = options.schema.safeParse(next);
       if (!parseResult.success) {
-        throw new Error(`[FirstTx] Patch validation failed for model "${name}"`, {
-          cause: parseResult.error,
-        });
+        throw new ValidationError(
+          `[FirstTx] Patch validation failed for model "${name}"`,
+          name,
+          parseResult.error,
+        );
       }
 
       await storage.set<T>(name, {
@@ -180,13 +197,19 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         data: parseResult.data,
       });
 
-      cache = parseResult.data;
+      cacheState = { status: 'success', data: parseResult.data };
       notifySubscribers();
 
       // TODO: Phase 1 - BroadcastChannel
     },
 
-    getCachedSnapshot: () => cache,
+    getCachedSnapshot: () => {
+      return cacheState.status === 'success' ? cacheState.data : null;
+    },
+
+    getCachedError: () => {
+      return cacheState.status === 'error' ? cacheState.error : null;
+    },
 
     /**
      * Subscribes to model changes for React integration.
@@ -197,15 +220,27 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     subscribe: (callback) => {
       subscribers.add(callback);
 
-      if (subscribers.size === 1 && cache === null) {
+      if (subscribers.size === 1 && cacheState.status === 'loading') {
         model
           .getSnapshot()
           .then((data) => {
-            cache = data;
+            cacheState = data ? { status: 'success', data } : { status: 'loading' };
             notifySubscribers();
           })
-          .catch((error) => {
-            console.error(`[FirstTx] Failed to load model "${name}":`, error);
+          .catch((error: unknown) => {
+            if (error instanceof FirstTxError) {
+              cacheState = { status: 'error', error };
+            } else {
+              cacheState = {
+                status: 'error',
+                error: new StorageError(
+                  error instanceof Error ? error.message : String(error),
+                  'UNKNOWN',
+                  true,
+                  { key: name, operation: 'get' },
+                ),
+              };
+            }
             notifySubscribers();
           });
       }

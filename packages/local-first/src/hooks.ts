@@ -9,6 +9,8 @@ export function useModel<T>(model: Model<T>) {
     model.getCachedSnapshot,
   );
 
+  const error = useSyncExternalStore(model.subscribe, model.getCachedError, model.getCachedError);
+
   const [history, setHistory] = useState<ModelHistory>({
     updatedAt: 0,
     age: Infinity,
@@ -39,5 +41,5 @@ export function useModel<T>(model: Model<T>) {
     }
   };
 
-  return [state, patch, history] as const;
+  return [state, patch, history, error] as const;
 }

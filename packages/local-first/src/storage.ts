@@ -1,3 +1,4 @@
+import { convertDOMException, StorageError } from './errors';
 import type { StoredModel } from './types';
 
 const STORAGE_CONFIG = {
@@ -45,9 +46,9 @@ class Storage {
         request.onsuccess = () => {
           const db = request.result;
           db.onversionchange = () => {
-            try {
-              db.close();
-            } catch {}
+            console.log('[FirstTx] Database version changed, closing connection');
+            db.close();
+            this.dbPromise = undefined;
           };
           resolve(db);
         };
@@ -82,9 +83,14 @@ class Storage {
         const err = request.error;
 
         if (err) {
-          reject(new Error(`Failed to get key "${key}": ${err.message}`, { cause: err }));
+          reject(convertDOMException(err, { key, operation: 'get' }));
         } else {
-          reject(new Error(`Failed to get key "${key}": Unknown error`));
+          reject(
+            new StorageError(`Failed to get key "${key}": Unknown error`, 'UNKNOWN', true, {
+              key,
+              operation: 'get',
+            }),
+          );
         }
       };
     });
@@ -106,9 +112,14 @@ class Storage {
         const err = request.error;
 
         if (err) {
-          reject(new Error(`Failed to set key "${key}": ${err.message}`, { cause: err }));
+          reject(convertDOMException(err, { key, operation: 'set' }));
         } else {
-          reject(new Error(`Failed to set key "${key}": Unknown error`));
+          reject(
+            new StorageError(`Failed to set key "${key}": Unknown error`, 'UNKNOWN', true, {
+              key,
+              operation: 'set',
+            }),
+          );
         }
       };
     });
@@ -130,9 +141,14 @@ class Storage {
         const err = request.error;
 
         if (err) {
-          reject(new Error(`Failed to delete key "${key}": ${err.message}`, { cause: err }));
+          reject(convertDOMException(err, { key, operation: 'delete' }));
         } else {
-          reject(new Error(`Failed to delete key "${key}": Unknown error`));
+          reject(
+            new StorageError(`Failed to delete key "${key}": Unknown error`, 'UNKNOWN', true, {
+              key,
+              operation: 'delete',
+            }),
+          );
         }
       };
     });

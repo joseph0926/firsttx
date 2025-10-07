@@ -6,3 +6,6 @@ export { Storage } from './storage';
 export type { StoredModel, ModelOptions, ModelHistory } from './types';
 
 export { useModel } from './hooks';
+
+export { FirstTxError, StorageError, ValidationError } from './errors';
+export type { StorageErrorCode } from './errors';
