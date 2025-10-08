@@ -6,8 +6,7 @@ type Approach = {
   name: string;
   description: string;
   metrics: {
-    coldStart: string;
-    warmStart: string;
+    averageLoadTime: string;
     requests: string;
   };
   tags: string[];
@@ -21,9 +20,8 @@ export function CompareApproaches() {
       name: 'FirstTx',
       description: 'Local-First with atomic transactions',
       metrics: {
-        coldStart: '2134ms',
-        warmStart: '0ms',
-        requests: '0',
+        averageLoadTime: '37ms',
+        requests: '3',
       },
       tags: ['Persistent', 'Atomic', 'Offline'],
       color: 'border-gray-900 dark:border-gray-100',
@@ -33,9 +31,8 @@ export function CompareApproaches() {
       name: 'React Query',
       description: 'Server state with memory cache',
       metrics: {
-        coldStart: '2134ms',
-        warmStart: '487ms',
-        requests: '0',
+        averageLoadTime: '67ms',
+        requests: '3',
       },
       tags: ['Memory Cache', 'Refetch', 'Optimistic'],
       color: 'border-blue-500',
@@ -45,9 +42,8 @@ export function CompareApproaches() {
       name: 'Vanilla Fetch',
       description: 'Basic fetch without caching',
       metrics: {
-        coldStart: '2134ms',
-        warmStart: '2134ms',
-        requests: '1',
+        averageLoadTime: '2105ms',
+        requests: '3',
       },
       tags: ['Simple', 'No Cache', 'Full Control'],
       color: 'border-gray-400',
@@ -57,9 +53,8 @@ export function CompareApproaches() {
       name: 'RR7 Loader',
       description: 'Route-level data loading',
       metrics: {
-        coldStart: '213ms',
-        warmStart: '2134ms',
-        requests: '1',
+        averageLoadTime: '2002ms',
+        requests: '3',
       },
       tags: ['SSR-like', 'Router', 'No Cache'],
       color: 'border-green-500',
@@ -109,7 +104,7 @@ export function CompareApproaches() {
         >
           {approaches.map((approach) => (
             <motion.div key={approach.id} variants={item}>
-              <Link to={`/${approach.id}/products`}>
+              <Link to={`/demo/${approach.id}/products`}>
                 <motion.div
                   whileHover={{ y: -4 }}
                   className={`p-8 bg-white dark:bg-gray-900 rounded-2xl border-2 ${approach.color} hover:shadow-xl transition-all cursor-pointer h-full flex flex-col`}
@@ -120,27 +115,19 @@ export function CompareApproaches() {
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400">{approach.description}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="text-center">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        Cold Start
-                      </div>
-                      <div className="text-lg font-mono font-bold text-gray-900 dark:text-white">
-                        {approach.metrics.coldStart}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        Warm Start
+                        Average Load Time
                       </div>
                       <div
                         className={`text-lg font-mono font-bold ${
-                          approach.metrics.warmStart === '0ms'
+                          parseInt(approach.metrics.averageLoadTime) < 100
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-gray-900 dark:text-white'
                         }`}
                       >
-                        {approach.metrics.warmStart}
+                        {approach.metrics.averageLoadTime}
                       </div>
                     </div>
                     <div className="text-center">

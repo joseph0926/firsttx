@@ -11,6 +11,7 @@ const ProductSchema = z.object({
   stock: z.number(),
   rating: z.number(),
   reviewCount: z.number(),
+  createdAt: z.number(),
 });
 
 const ProductsDataSchema = z.object({
@@ -23,7 +24,7 @@ export type ProductsData = z.infer<typeof ProductsDataSchema>;
 
 export const ProductsModel = defineModel('products', {
   schema: ProductsDataSchema,
-  version: 1,
+  version: 2,
   initialData: {
     items: [],
     lastSync: 0,

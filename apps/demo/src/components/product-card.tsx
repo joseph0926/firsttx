@@ -9,6 +9,7 @@ interface ProductCardProps {
   rating: number;
   reviewCount: number;
   stock: number;
+  createdAt: number;
   onAddToCart?: () => void;
   cartDisabled?: boolean;
 }
@@ -20,18 +21,39 @@ export function ProductCard({
   rating,
   reviewCount,
   stock,
+  createdAt,
   onAddToCart,
   cartDisabled = false,
 }: ProductCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  const ageInMinutes = Math.floor((Date.now() - createdAt) / (60 * 1000));
+  const isNew = ageInMinutes < 5;
+
   return (
     <motion.div
+      initial={isNew ? { scale: 0.95, opacity: 0 } : false}
+      animate={isNew ? { scale: 1, opacity: 1 } : {}}
+      transition={{ duration: 0.5, type: 'spring' }}
       whileHover={{ y: -4 }}
-      className="border rounded-lg p-4 hover:shadow-xl transition-all bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+      className={`border rounded-lg p-4 hover:shadow-xl transition-all bg-white dark:bg-gray-800 ${
+        isNew
+          ? 'ring-2 ring-green-500 border-green-500 dark:border-green-400'
+          : 'border-gray-200 dark:border-gray-700'
+      }`}
     >
       <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-700 rounded mb-4 overflow-hidden">
+        {isNew && (
+          <motion.div
+            initial={{ scale: 0, rotate: -12 }}
+            animate={{ scale: 1, rotate: -12 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
+            className="absolute top-2 right-2 z-10 bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1 text-xs font-bold rounded-full shadow-lg"
+          >
+            🆕 NEW
+          </motion.div>
+        )}
         {!imageLoaded && !imageError && (
           <div className="absolute inset-0 flex items-center justify-center">
             <motion.div
@@ -72,6 +94,16 @@ export function ProductCard({
         ${price.toLocaleString()}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Stock: {stock}</p>
+      {isNew && (
+        <motion.p
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="text-xs text-green-600 dark:text-green-400 font-medium mb-2"
+        >
+          ✨ Added {ageInMinutes === 0 ? 'just now' : `${ageInMinutes}m ago`}
+        </motion.p>
+      )}
       <motion.button
         whileHover={cartDisabled ? {} : { scale: 1.02 }}
         whileTap={cartDisabled ? {} : { scale: 0.98 }}
@@ -79,11 +111,11 @@ export function ProductCard({
         disabled={cartDisabled}
         className={`w-full py-2 rounded font-medium transition-colors ${
           cartDisabled
-            ? 'bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white'
+            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+            : 'bg-blue-600 text-white hover:bg-blue-700'
         }`}
       >
-        {cartDisabled ? 'Cart not implemented' : 'Add to Cart'}
+        {cartDisabled ? 'View Only' : 'Add to Cart'}
       </motion.button>
     </motion.div>
   );

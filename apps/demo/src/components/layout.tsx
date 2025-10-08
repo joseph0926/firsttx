@@ -15,8 +15,9 @@ const APPROACHES: { value: ApproachType; label: string }[] = [
 export function Layout() {
   const location = useLocation();
   const [cart] = useModel(CartModel);
-  const currentApproach = location.pathname.split('/')[1] as ApproachType | undefined;
-  const currentPage = location.pathname.split('/')[2] as 'products' | 'cart' | undefined;
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const currentApproach = pathSegments[1] as ApproachType | undefined;
+  const currentPage = pathSegments[2] as 'products' | 'cart' | undefined;
   const cartItemCount = cart?.items.reduce((sum, item) => sum + item.qty, 0) ?? 0;
   const isHomePage = location.pathname === '/';
 
@@ -54,17 +55,17 @@ export function Layout() {
                   <div className="h-6 w-px bg-gray-200 dark:bg-gray-800" />
                   <div className="flex gap-4">
                     <Link
-                      to={`/demo`}
+                      to="/demo"
                       className={`text-sm font-medium ${
                         currentPage === 'products'
                           ? 'text-gray-900 dark:text-white'
                           : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                       }`}
                     >
-                      Products
+                      Dashboard
                     </Link>
                     <Link
-                      to={`/${currentApproach}/cart`}
+                      to={`/demo/${currentApproach}/cart`}
                       className={`text-sm font-medium flex items-center gap-2 ${
                         currentPage === 'cart'
                           ? 'text-gray-900 dark:text-white'
