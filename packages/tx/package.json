@@ -40,9 +40,6 @@
     "navigation"
   ],
   "peerDependencies": {},
-  "dependencies": {
-    "@firsttx/local-first": "workspace:*"
-  },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
     "fake-indexeddb": "^6.2.2",
