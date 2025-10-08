@@ -21,35 +21,42 @@ interface PerformanceChartProps {
   data: ApproachData[];
 }
 
+type CustomTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    payload: ApproachData;
+  }>;
+};
+
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-xl">
+        <p className="font-bold text-gray-900 dark:text-white mb-2">{data.name}</p>
+        <div className="space-y-1 text-sm">
+          <p className="text-gray-600 dark:text-gray-400">
+            Average:{' '}
+            <span className="font-mono font-bold text-gray-900 dark:text-white">
+              {data.average}ms
+            </span>
+          </p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Samples:{' '}
+            <span className="font-medium text-gray-900 dark:text-white">{data.samples}</span>
+          </p>
+          {data.average < 100 && (
+            <p className="text-green-600 dark:text-green-400 font-medium mt-2">⚡ Instant load</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export function PerformanceChart({ data }: PerformanceChartProps) {
   const maxValue = Math.max(...data.map((d) => d.average));
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-xl">
-          <p className="font-bold text-gray-900 dark:text-white mb-2">{data.name}</p>
-          <div className="space-y-1 text-sm">
-            <p className="text-gray-600 dark:text-gray-400">
-              Average:{' '}
-              <span className="font-mono font-bold text-gray-900 dark:text-white">
-                {data.average}ms
-              </span>
-            </p>
-            <p className="text-gray-600 dark:text-gray-400">
-              Samples:{' '}
-              <span className="font-medium text-gray-900 dark:text-white">{data.samples}</span>
-            </p>
-            {data.average < 100 && (
-              <p className="text-green-600 dark:text-green-400 font-medium mt-2">⚡ Instant load</p>
-            )}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <motion.div

@@ -27,8 +27,7 @@ export function ProductCard({
 }: ProductCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  const ageInMinutes = Math.floor((Date.now() - createdAt) / (60 * 1000));
+  const [ageInMinutes] = useState(() => Math.floor((Date.now() - createdAt) / (60 * 1000)));
   const isNew = ageInMinutes < 5;
 
   return (

@@ -76,5 +76,8 @@ class BenchmarkManager {
 export const benchmarkManager = new BenchmarkManager();
 
 if (typeof window !== 'undefined') {
-  (window as any).__benchmarkManager = benchmarkManager;
+  interface WindowWithBenchmark {
+    __benchmarkManager?: BenchmarkManager;
+  }
+  (window as WindowWithBenchmark).__benchmarkManager = benchmarkManager;
 }

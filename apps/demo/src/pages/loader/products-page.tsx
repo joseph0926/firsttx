@@ -10,10 +10,9 @@ import { ButtonWithSpinner } from '@/components/loading-spinner';
 
 type TimerStatus = 'idle' | 'loading' | 'loaded' | 'cached';
 
-let loadStartTime = 0;
-
+// eslint-disable-next-line
 export async function productsLoader() {
-  loadStartTime = performance.now();
+  const loadStartTime = performance.now();
   console.log('[Loader] Fetching from server...');
   const products = await productsApi.getProducts({ network: 'slow' });
   const duration = Math.floor(performance.now() - loadStartTime);
@@ -133,13 +132,13 @@ export function ProductsPage() {
       {revalidator.state === 'loading' && products.length === 0 ? (
         <ProductsGridSkeleton count={12} />
       ) : products.length > 0 ? (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <ProductCard key={product.id} {...product} />
+            <ProductCard key={product.id} {...product} createdAt={product.createdAt} />
           ))}
         </div>
       ) : (
-        <p className="text-gray-500 dark:text-gray-400">No products available.</p>
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">No products found</div>
       )}
     </div>
   );

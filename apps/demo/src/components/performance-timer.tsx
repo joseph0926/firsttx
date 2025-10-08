@@ -25,26 +25,26 @@ export function PerformanceTimer({ approach, status, onComplete }: PerformanceTi
     'react-query': 'bg-blue-500',
     loader: 'bg-green-500',
   };
+
   useEffect(() => {
     if (status === 'loading') {
       startTimeRef.current = performance.now();
-      setDuration(0);
       timerRef.current = setInterval(() => {
         if (startTimeRef.current) {
           setDuration(Math.floor(performance.now() - startTimeRef.current));
         }
-      }, 10);
-    } else if (status === 'loaded' || status === 'cached') {
+      }, 50);
+    } else if (status === 'loaded' && startTimeRef.current) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      if (startTimeRef.current) {
-        const finalDuration = Math.floor(performance.now() - startTimeRef.current);
-        setDuration(finalDuration);
-        onComplete?.(finalDuration);
-        startTimeRef.current = null;
+      const finalDuration = Math.floor(performance.now() - startTimeRef.current);
+      setDuration(finalDuration);
+      if (onComplete) {
+        onComplete(finalDuration);
       }
+      startTimeRef.current = null;
     }
     return () => {
       if (timerRef.current) {
@@ -52,6 +52,7 @@ export function PerformanceTimer({ approach, status, onComplete }: PerformanceTi
       }
     };
   }, [status, onComplete]);
+
   const getBadgeColor = () => {
     if (status === 'cached') return 'bg-green-500';
     if (status === 'loading') return 'bg-yellow-500';

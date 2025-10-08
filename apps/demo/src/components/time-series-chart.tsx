@@ -17,6 +17,40 @@ const mockPerformanceData = {
   loader: [2002, 1998, 2008, 1995, 2005, 2001, 2010, 1999, 2003, 2007],
 };
 
+type TooltipPayload = {
+  name: string;
+  value: number;
+  color: string;
+};
+
+type CustomTooltipProps = {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+};
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-xl">
+        <p className="font-bold text-gray-900 dark:text-white mb-2">{label} visit</p>
+        <div className="space-y-1">
+          {payload.map((entry, index) => (
+            <div key={index} className="flex items-center gap-2 text-sm">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="text-gray-600 dark:text-gray-400">{entry.name}:</span>
+              <span className="font-mono font-bold text-gray-900 dark:text-white">
+                {entry.value}ms
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export function TimeSeriesChart() {
   const cachedData = mockPerformanceData.firsttx.map((value, index) => ({
     visit: `${index + 1}${index === 0 ? 'st' : index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'}`,
@@ -29,28 +63,6 @@ export function TimeSeriesChart() {
     Vanilla: value,
     Loader: mockPerformanceData.loader[index],
   }));
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-xl">
-          <p className="font-bold text-gray-900 dark:text-white mb-2">{label} visit</p>
-          <div className="space-y-1">
-            {payload.map((entry: any, index: number) => (
-              <div key={index} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                <span className="text-gray-600 dark:text-gray-400">{entry.name}:</span>
-                <span className="font-mono font-bold text-gray-900 dark:text-white">
-                  {entry.value}ms
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <motion.div

@@ -127,6 +127,7 @@ export function CartPage() {
 
   const totalAmount = cart?.items.reduce((sum, item) => sum + item.price * item.qty, 0) ?? 0;
   const totalItems = cart?.items.reduce((sum, item) => sum + item.qty, 0) ?? 0;
+  // eslint-disable-next-line
   const ageInSeconds = cart ? Math.floor((Date.now() - cart.updatedAt) / 1000) : 0;
   const isStale = history.isStale;
 

@@ -146,5 +146,8 @@ class MockProductsAPI {
 export const productsApi = new MockProductsAPI();
 
 if (typeof window !== 'undefined') {
-  (window as any).__productsApi = productsApi;
+  interface WindowWithAPI {
+    __productsApi?: MockProductsAPI;
+  }
+  (window as WindowWithAPI).__productsApi = productsApi;
 }
