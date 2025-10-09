@@ -1,6 +1,9 @@
 'area: demo':
   - 'apps/demo/**'
 
+'area: playground':
+  - 'apps/playground/**'
+
 'area: tx':
   - 'packages/tx/**'
 
