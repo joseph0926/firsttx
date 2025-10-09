@@ -1,4 +1,3 @@
-# .github/workflows/require-pr-labels.yml
 name: Require PR labels
 on:
   pull_request:

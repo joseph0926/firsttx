@@ -1,26 +1,26 @@
-'area: demo':
+area-demo:
   - 'apps/demo/**'
 
-'area: playground':
+area-playground:
   - 'apps/playground/**'
 
-'area: tx':
+area-tx:
   - 'packages/tx/**'
 
-'area: prepaint':
+area-prepaint:
   - 'packages/prepaint/**'
 
-'area: local-first':
+area-local-first:
   - 'packages/local-first/**'
 
-'type: docs':
+type-docs:
   - 'docs/**'
   - '**/*.md'
   - '**/*.mdx'
   - 'README*'
 
-'type: test':
+type-test:
   - '**/*.{spec,test}.{js,jsx,ts,tsx}'
 
-'type: chore':
+type-chore:
   - '.github/**'
