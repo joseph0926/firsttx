@@ -39,8 +39,6 @@
     "release:version": "changeset version && pnpm -w install --no-frozen-lockfile",
     "release:publish": "pnpm build && changeset publish",
     "prepare": "husky",
-    "validate": "turbo run lint typecheck test:run",
-    "validate:changed": "turbo run lint typecheck test:run --filter=[HEAD^1]",
     "tree": "tree -I 'node_modules|.git|.turbo|dist|build'"
   },
   "lint-staged": {

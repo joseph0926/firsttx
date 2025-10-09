@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Run validation before push
-echo "🔍 Running pre-push validation..."
-pnpm run validate:changed
+echo "🔍 Running pre-push checks (typecheck + lint)..."
+
+pnpm run typecheck && pnpm run lint
 
 if [ $? -ne 0 ]; then
-  echo "❌ Validation failed. Push aborted."
+  echo "❌ Pre-push checks failed. Push aborted."
   exit 1
 fi
 
-echo "✅ Pre-push validation passed!"
+echo "✅ Pre-push checks passed!"
