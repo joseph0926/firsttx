@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.1.2
+
+### Patch Changes
+
+- modify the build script to include boot.js in the build
+
 ## 0.1.1
 
 ### Patch Changes
