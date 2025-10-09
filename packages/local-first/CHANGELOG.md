@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.1.1
+
+### Patch Changes
+
+- resolve IndexedDB store name collision
+
 ## 0.1.0
 
 ### Minor Changes

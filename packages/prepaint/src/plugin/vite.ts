@@ -44,9 +44,9 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
       try {
         const currentDir = dirname(fileURLToPath(import.meta.url));
 
-        const srcDir = resolve(currentDir, '..');
-        const bootFilename = 'boot.ts';
-        const bootPath = resolve(srcDir, bootFilename);
+        const distDir = resolve(currentDir, '..');
+
+        const bootPath = resolve(distDir, 'boot.js');
 
         console.log(`[FirstTx] Building boot script from: ${bootPath}`);
 
@@ -54,19 +54,17 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
           entryPoints: [bootPath],
           bundle: true,
           write: false,
-          format: 'esm',
+          format: 'iife',
           minify,
           target: 'es2020',
           platform: 'browser',
-          external: [],
-
-          absWorkingDir: srcDir,
+          globalName: '__firsttx_boot__',
         });
 
         if (result.outputFiles && result.outputFiles[0]) {
           const code = result.outputFiles[0].text;
 
-          bootScriptCode = `(async()=>{${code};await boot();})();`;
+          bootScriptCode = code;
 
           console.log(
             `[FirstTx] Boot script generated (${(bootScriptCode.length / 1024).toFixed(2)}KB)`,
