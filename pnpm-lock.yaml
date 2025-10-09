@@ -78,6 +78,9 @@ importers:
       '@firsttx/local-first':
         specifier: workspace:*
         version: link:../../packages/local-first
+      '@firsttx/prepaint':
+        specifier: workspace:*
+        version: link:../../packages/prepaint
       '@firsttx/tx':
         specifier: workspace:*
         version: link:../../packages/tx

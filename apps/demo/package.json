@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@firsttx/prepaint": "workspace:*",
     "@firsttx/local-first": "workspace:*",
     "@firsttx/tx": "workspace:*",
     "@tailwindcss/vite": "^4.1.14",
