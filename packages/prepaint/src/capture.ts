@@ -32,7 +32,7 @@ function collectStyles(): string[] {
   return styles;
 }
 
-async function captureSnapshot(): Promise<void> {
+export async function captureSnapshot(): Promise<void> {
   try {
     const route = window.location.pathname;
     const body = document.body.innerHTML;
