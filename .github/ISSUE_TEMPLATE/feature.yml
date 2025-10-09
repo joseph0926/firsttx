@@ -13,6 +13,7 @@ body:
         - 'area: local-first'
         - 'area: tx'
         - 'area: demo'
+        - 'area: playground'
     validations:
       required: true
 
