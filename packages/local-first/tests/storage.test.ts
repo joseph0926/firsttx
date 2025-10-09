@@ -13,7 +13,7 @@ describe('Storage', () => {
   let storage: Storage;
 
   beforeEach(() => {
-    indexedDB.deleteDatabase('firsttx');
+    indexedDB.deleteDatabase('firsttx-local-first');
     Storage.setInstance(undefined);
     storage = Storage.getInstance();
   });
@@ -105,7 +105,7 @@ describe('Storage', () => {
 
   describe('useModel - Error Handling', () => {
     beforeEach(() => {
-      indexedDB.deleteDatabase('firsttx');
+      indexedDB.deleteDatabase('firsttx-local-first');
       Storage.setInstance(undefined);
     });
 

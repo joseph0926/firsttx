@@ -6,7 +6,7 @@ import { ValidationError } from '../src/errors';
 
 describe('Model', () => {
   beforeEach(() => {
-    indexedDB.deleteDatabase('firsttx');
+    indexedDB.deleteDatabase('firsttx-local-first');
     Storage.setInstance(undefined);
   });
 

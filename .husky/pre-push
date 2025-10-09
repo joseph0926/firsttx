@@ -3,7 +3,7 @@
 
 echo "🔍 Running pre-push checks (typecheck + lint)..."
 
-pnpm run typecheck && pnpm run lint
+pnpm run typecheck && pnpm run lint && pnpm run test:run
 
 if [ $? -ne 0 ]; then
   echo "❌ Pre-push checks failed. Push aborted."

@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.1.1
+
+### Patch Changes
+
+- fix test and fix some patch bugs
+
 ## 0.1.0
 
 ### Minor Changes

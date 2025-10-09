@@ -8,7 +8,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 describe('useModel', () => {
   beforeEach(() => {
-    indexedDB.deleteDatabase('firsttx');
+    indexedDB.deleteDatabase('firsttx-local-first');
     Storage.setInstance(undefined);
   });
 

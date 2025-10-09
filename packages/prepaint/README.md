@@ -353,7 +353,7 @@ export const STORAGE_CONFIG = {
 
 ```tsx
 // Open DevTools console
-indexedDB.open('firsttx').onsuccess = (e) => {
+indexedDB.open('firsttx-prepaint').onsuccess = (e) => {
   const db = e.target.result;
   const tx = db.transaction('snapshots', 'readonly');
   const store = tx.objectStore('snapshots');

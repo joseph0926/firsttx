@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.1.2
+
+### Patch Changes
+
+- fix test and fix some patch bugs
+
 ## 0.1.1
 
 ### Patch Changes
