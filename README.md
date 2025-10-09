@@ -4,82 +4,74 @@
 
 # FirstTx
 
-> 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요
+**Making CSR App Revisits Feel Like SSR**
 
-**Make CSR revisits feel like SSR, with a better first impression.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/)
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
-[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)]()
-
-> **Instant Replay × Local‑First × Transaction Graph**
->
-> On revisits, restore the last state instantly. Maintain continuity offline. Commit user actions **atomically**—all without server-side rendering. The result: a faster first impression, plus a safer, more predictable app. _(Optional SSR‑Lite shell for cold starts.)_
+> From the second visit onwards, instantly restore the last state and safely rollback optimistic updates—delivering fast, consistent experiences without server infrastructure.
 
 ---
 
-## What FirstTx Solves
+## 📋 Table of Contents
 
-Traditional CSR apps suffer from
-
-- **Blank screen on every visit** (2–3s waiting for bundle + API)
-- **Lost state on refresh** (progress disappears)
-- **Inconsistent rollbacks** (partial state corruption when optimistic updates fail)
-
-**FirstTx delivers:**
-
-- **0ms blank screen** on revisits (instant snapshot replay)
-- **Explicit transitions** from stale → fresh data (badges + smooth animations)
-- **Atomic rollbacks** on failure (UI and state stay consistent)
-- **Offline continuity** (last state always available)
+- [Core Value](#-core-value)
+- [Quick Start](#-quick-start)
+- [Architecture](#-architecture)
+- [Packages](#-packages)
+- [Key Features](#-key-features)
+- [Performance Targets](#-performance-targets)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
-## Architecture Overview
+## 🎯 Core Value
 
-FirstTx is built on three complementary layers
+### The Problem: CSR Revisit Experience
 
 ```
-┌──────────────────────────────────────────┐
-│   Render Layer (Instant Replay)         │
-│   - 0ms boot with cached DOM snapshot    │
-│   - <2KB inline boot script              │
-│   - Hydration-first, fallback to replace │
-└──────────────────────────────────────────┘
-                     ↓
-┌──────────────────────────────────────────┐
-│   Data Layer (@firsttx/local-first)      │
-│   - IndexedDB models + React sync        │
-│   - useSyncExternalStore pattern         │
-│   - TTL, versioning, staleness tracking  │
-└──────────────────────────────────────────┘
-                     ↑
-┌──────────────────────────────────────────┐
-│   Execution Layer (@firsttx/tx)          │
-│   - Atomic transaction semantics         │
-│   - Optimistic updates + auto rollback   │
-│   - ViewTransition integration           │
-│   - Network retry (configurable)         │
-└──────────────────────────────────────────┘
+Every visit: blank screen → API wait → data display
+Refresh loses progress
+Optimistic update failures cause partial rollback inconsistencies
 ```
+
+### The Solution: FirstTx = Prepaint + Local-First + Tx
+
+```
+[Revisit Scenario]
+1. Revisit /cart → instantly show yesterday's 3 items (0ms)
+2. Main app loads → React hydration → reuse snapshot DOM
+3. Server sync → smooth update via ViewTransition (3 → 5 items)
+4. "+1" click → Tx starts → optimistic patch → server error
+5. Auto rollback → smooth return to original state via ViewTransition
+```
+
+**Results:**
+
+- ⚡ Blank screen time on revisit = 0ms
+- 🎨 Smooth animations when transitioning from snapshot to fresh data
+- 🔄 Consistent atomic rollback on optimistic update failures
+- 📴 Last state persists even offline
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
 ```bash
-# Core packages (prepaint coming in v1.1)
-pnpm add @firsttx/local-first @firsttx/tx zod
+pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-### 1. Define a Model
+### Basic Usage (Zero-Config)
 
-Models provide type-safe, validated IndexedDB storage with React integration
+#### 1. Define Model
 
-```ts
-// models/cart.ts
+```tsx
+// models/cart-model.ts
 import { defineModel } from '@firsttx/local-first';
 import { z } from 'zod';
 
@@ -93,32 +85,36 @@ export const CartModel = defineModel('cart', {
         qty: z.number(),
       }),
     ),
-    updatedAt: z.number(),
   }),
   ttl: 5 * 60 * 1000, // 5 minutes
-  version: 1,
-  initialData: { items: [], updatedAt: 0 },
 });
 ```
 
-### 2. Use in React Components
+#### 2. Main App Entry Point
 
 ```tsx
+// main.tsx
+import { createFirstTxRoot } from '@firsttx/prepaint';
+import App from './App';
+
+createFirstTxRoot(document.getElementById('root')!, <App />);
+```
+
+#### 3. React Component
+
+```tsx
+// pages/cart-page.tsx
 import { useModel } from '@firsttx/local-first';
-import { CartModel } from './models/cart';
+import { CartModel } from '@/models/cart-model';
 
 function CartPage() {
   const [cart, patch, history] = useModel(CartModel);
 
-  // Handle loading state
-  if (!cart) return <CartSkeleton />;
-
-  // Show data age indicator
-  const ageHours = Math.floor(history.age / 3600000);
+  if (!cart) return <Skeleton />;
 
   return (
     <div>
-      {history.isStale && <Badge variant="warning">{ageHours}h old data</Badge>}
+      <p>Last updated: {new Date(history.updatedAt).toLocaleString()}</p>
       {cart.items.map((item) => (
         <CartItem key={item.id} {...item} />
       ))}
@@ -127,311 +123,317 @@ function CartPage() {
 }
 ```
 
-### 3. Optimistic Updates with Atomic Rollback
+#### 4. Optimistic Updates (Tx)
 
 ```tsx
+// actions/add-to-cart.ts
 import { startTransaction } from '@firsttx/tx';
-import { CartModel } from './models/cart';
+import { CartModel } from '@/models/cart-model';
 
-async function addToCart(product: { id: string; name: string; price: number }) {
+async function addItem(product: Product) {
   const tx = startTransaction({ transition: true });
 
-  try {
-    // Step 1: Optimistic UI update
-    await tx.run(
-      async () => {
-        await CartModel.patch((draft) => {
-          const existing = draft.items.find((item) => item.id === product.id);
-          if (existing) {
-            existing.qty += 1;
-          } else {
-            draft.items.push({ ...product, qty: 1 });
-          }
-          draft.updatedAt = Date.now();
-        });
-      },
-      {
-        // Define rollback compensation
-        compensate: async () => {
-          await CartModel.patch((draft) => {
-            const item = draft.items.find((i) => i.id === product.id);
-            if (item) {
-              item.qty -= 1;
-              if (item.qty <= 0) {
-                draft.items = draft.items.filter((i) => i.id !== product.id);
-              }
-            }
-          });
-        },
-      },
-    );
+  // Step 1: Optimistic patch
+  await tx.run(
+    () =>
+      CartModel.patch((draft) => {
+        draft.items.push({ ...product, qty: 1 });
+      }),
+    {
+      // Compensation function executed on rollback
+      compensate: () =>
+        CartModel.patch((draft) => {
+          draft.items.pop();
+        }),
+    },
+  );
 
-    // Step 2: Server confirmation with retry
-    await tx.run(() => api.post('/cart/add', { id: product.id }), {
-      retry: { maxAttempts: 3, delayMs: 200, backoff: 'exponential' },
-    });
+  // Step 2: Server request
+  await tx.run(() => api.post('/cart/add', { id: product.id }));
 
-    // Success: commit the transaction
-    await tx.commit();
-  } catch (error) {
-    // Automatic rollback already happened
-    console.error('Failed to add item:', error);
-  }
+  // Commit (on success) or auto rollback (on failure)
+  await tx.commit();
 }
 ```
 
-### 4. Server Sync with ViewTransition
+---
+
+## 🏗️ Architecture
+
+### Three-Layer System
+
+```
+┌──────────────────────────────────────────┐
+│   Render Layer (Prepaint)                │
+│   - Instant Replay (0ms restoration)     │
+│   - beforeunload capture                 │
+│   - React delegated hydration            │
+└──────────────────────────────────────────┘
+                     ↓ read
+┌──────────────────────────────────────────┐
+│   Local-First (Data Layer)               │
+│   - IndexedDB snapshot/model management  │
+│   - React integration (useSyncExtStore)  │
+│   - Memory cache pattern                 │
+└──────────────────────────────────────────┘
+                     ↑ write
+┌──────────────────────────────────────────┐
+│   Tx (Execution Layer)                   │
+│   - Optimistic updates                   │
+│   - Atomic rollback                      │
+│   - ViewTransition integration           │
+└──────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+[Boot - 0ms]
+HTML load → Prepaint boot → IndexedDB snapshot read → DOM instant injection
+
+[Handoff - 500ms]
+Main app load → createFirstTxRoot() → React hydration → DOM reuse
+
+[Sync - 800ms]
+Server sync → ViewTransition wrap → smooth update
+
+[Interaction]
+User action → Tx start → optimistic patch → server request → success/fail → commit/rollback
+```
+
+---
+
+## 📦 Packages
+
+### [`@firsttx/prepaint`](./packages/prepaint)
+
+**Render Layer - Instant Replay System**
+
+- `boot()` - Boot script (IndexedDB → DOM injection)
+- `createFirstTxRoot()` - React integration helper
+- `handoff()` - Strategy decision (has-prepaint | cold-start)
+- `setupCapture()` - beforeunload capture
+
+### [`@firsttx/local-first`](./packages/local-first)
+
+**Data Layer - IndexedDB + React Integration**
+
+- `defineModel()` - Model definition (schema, TTL, version)
+- `useModel()` - React hook (useSyncExternalStore-based)
+- Memory cache pattern (sync/async bridge)
+- TTL/version/history management
+
+### [`@firsttx/tx`](./packages/tx)
+
+**Execution Layer - Optimistic Updates + Atomic Rollback**
+
+- `startTransaction()` - Start transaction
+- `tx.run()` - Add step (compensate support)
+- `tx.commit()` - Commit
+- Auto rollback (on failure)
+- Retry logic (1 retry by default)
+- ViewTransition integration
+
+---
+
+## ✨ Key Features
+
+### 1. Instant Replay (0ms Restoration)
+
+**Instantly restore last state on revisit**
 
 ```tsx
-import { useEffect } from 'react';
-import { useModel } from '@firsttx/local-first';
-import { CartModel } from './models/cart';
+// Runs before main bundle arrives (boot script)
+import { boot } from '@firsttx/prepaint';
+boot(); // IndexedDB → instant DOM injection (0ms)
+```
 
-function CartPage() {
-  const [cart, patch] = useModel(CartModel);
+### 2. Memory Cache Pattern
 
-  // Sync with server in background
-  useEffect(() => {
-    (async () => {
-      const serverData = await api.getCart();
+**IndexedDB (async) ↔ React (sync) Bridge**
 
-      if (!cart || serverData.updatedAt > cart.updatedAt) {
-        // Smooth transition from stale to fresh
-        if ('startViewTransition' in document) {
-          await document.startViewTransition(() =>
-            patch((draft) => {
-              draft.items = serverData.items;
-              draft.updatedAt = serverData.updatedAt;
-            }),
-          ).finished;
-        } else {
-          await patch((draft) => {
-            draft.items = serverData.items;
-            draft.updatedAt = serverData.updatedAt;
-          });
-        }
-      }
-    })();
-  }, [cart, patch]);
+```tsx
+// Inside Model
+let cache: T | null = null
+const subscribers = new Set<() => void>()
 
-  if (!cart) return <CartSkeleton />;
+// Load IndexedDB on first subscription
+subscribe(callback) → update cache → notifySubscribers()
 
-  return <div>{/* Your UI */}</div>;
-}
+// React reads synchronously
+getCachedSnapshot() → cache (sync!)
+```
+
+### 3. Atomic Rollback
+
+**All succeed or all fail (with ViewTransition)**
+
+```tsx
+const tx = startTransaction({ transition: true })
+
+await tx.run(() => CartModel.patch(...), {
+  compensate: () => CartModel.patch(...) // Runs on rollback
+})
+
+await tx.run(() => api.post(...))
+
+await tx.commit() // Auto rollback on failure (wrapped with ViewTransition)
+```
+
+### 4. React Delegated Hydration
+
+**Handling Prepaint DOM / React VDOM Mismatches**
+
+```tsx
+// 80% case: React reuses DOM
+// 20% case: React auto patches
+// Smooth transition via ViewTransition
 ```
 
 ---
 
-## Core Concepts
+## 📊 Performance Targets
 
-### Local-First Models
+| Metric                    | Target        | Current        |
+| ------------------------- | ------------- | -------------- |
+| **BlankScreenTime (BST)** | 0ms (revisit) | ⏳ In Progress |
+| **PrepaintTime (PPT)**    | <20ms         | ⏳ In Progress |
+| **HydrationSuccess**      | >80%          | ⏳ In Progress |
+| **ViewTransitionSmooth**  | >90%          | ✅ 95%         |
+| **BootScriptSize**        | <2KB gzip     | ⏳ Target      |
+| **ReactSyncLatency**      | <50ms         | ✅ 42ms        |
+| **TxRollbackTime**        | <100ms        | ✅ 85ms        |
 
-**Design Philosophy:**
+---
 
-- IndexedDB is async, React state is sync
-- Bridge the gap with in-memory cache + `useSyncExternalStore`
-- First render may show `null` (render skeleton during cache warm-up)
+## 🗺️ Roadmap
 
-**Key Features:**
+### v0.1.0 (MVP - Current)
 
-- ✅ Zod schema validation
-- ✅ TTL-based staleness tracking
-- ✅ Version management (auto-reset on schema changes)
-- ✅ Optimistic patching with `structuredClone`
-- 🔜 Multi-tab sync (Phase 1)
+**Completed:**
 
-**API:**
+- ✅ Local-First (IndexedDB + React integration)
+- ✅ Tx (optimistic updates + atomic rollback)
 
-```ts
-const model = defineModel('key', {
-  schema: ZodSchema,
-  ttl: number,
-  version?: number,
-  initialData?: T,
-  merge?: (current, incoming) => T,
-});
+**In Progress:**
 
-// React hook
-const [state, patch, history] = useModel(model);
-// state: T | null
-// patch: (mutator: (draft: T) => void) => Promise<void>
-// history: { updatedAt, age, isStale, isConflicted }
+- ⏳ Prepaint (Instant Replay)
+  - ✅ handoff, capture, createFirstTxRoot
+  - ⏳ boot script
+  - ⏳ Vite plugin
 
-// Direct access (outside React)
-await model.getSnapshot();
-await model.replace(data);
-await model.patch(mutator);
-```
+### v0.2.0 (Phase 1)
 
-### Atomic Transactions
+- BroadcastChannel multi-tab sync
+- visibilitychange capture
+- Router integration (React Router, TanStack Router)
+- Tx journal persistence
 
-**Design Philosophy:**
+### v1.0.0 (Production Ready)
 
-- Group related operations into all-or-nothing units
-- Auto-rollback on any step failure (no manual cleanup)
-- Retry transient network errors automatically
-- Integrate ViewTransition for smooth UI updates
+- Complete Vite/Next.js plugins
+- Full E2E test coverage
+- DevTools integration
+- Performance optimization
+- Complete documentation
 
-**Key Features:**
+---
 
-- ✅ Sequential step execution
-- ✅ Reverse-order compensation on failure
-- ✅ Configurable retry (default: 1 attempt)
-- ✅ ViewTransition wrapping (opt-in)
-- ✅ Timeout protection
+## 🎨 Demo
 
-**API:**
+[Live Demo →](https://firsttx-demo.vercel.app/)
 
-```ts
-const tx = startTransaction({
-  id?: string,
-  transition?: boolean,  // wrap rollback in ViewTransition
-  timeout?: number,      // ms
-});
+**Key Demo Scenarios:**
 
-await tx.run(
-  fn: () => Promise<void>,
-  {
-    compensate?: () => Promise<void>,
-    retry?: {
-      maxAttempts?: number,    // default: 1
-      delayMs?: number,        // default: 100
-      backoff?: 'linear' | 'exponential',
-    },
-  }
-);
+1. **Revisit After a Week** - TTL visualization
+2. **Offline Shopping** - Network disconnect simulation
+3. **Optimistic Update Failure** - Rollback animation
+4. **Concurrent Actions** - Transaction consistency
 
-await tx.commit();
+---
+
+## Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/joseph0926/firsttx.git
+cd firsttx
+
+# Install dependencies
+pnpm install
+
+# Start dev server
+pnpm dev
+
+# Run tests
+pnpm test
 ```
 
 ---
 
-## Design Decisions
-
-### Why Default Retry = 1?
-
-**Philosophy:** Safe defaults for all users, not just React Query users.
-
-- Many developers use raw `fetch` without retry logic
-- Handles transient network glitches (WiFi reconnect, DNS hiccup)
-- User can disable: `retry: { maxAttempts: 0 }`
-- Future: Smart retry (skip 4xx, retry 5xx/network errors)
-
-### Why Auto-Rollback?
-
-**Philosophy:** Transactions should be atomic by nature.
-
-- Matches SQL/database semantics (BEGIN → COMMIT/ROLLBACK)
-- Eliminates manual `try-catch` cleanup boilerplate
-- Guarantees UI consistency (no partial state)
-- ViewTransition makes rollback smooth, not jarring
-
-### Why Compensate Failures Throw?
-
-**Philosophy:** Rollback is the last safety net—failure is critical.
-
-- Prevents infinite retry loops
-- Forces developer awareness of design flaws
-- Collects all errors for debugging
-- Throws `CompensationFailedError` with detailed context
-
-### Why No PII Encryption?
-
-**Philosophy:** Security is user responsibility.
-
-- Key management complexity
-- Browser IndexedDB already has same-origin protection
-- Keeps library small and focused
-- Documented in README as user responsibility
-
----
-
-## Requirements
-
-- **Node.js:** 18+
-- **React:** 18+ (uses `useSyncExternalStore`)
-- **Browser:** Modern with IndexedDB support
-- **ViewTransition:** Chrome 111+ (gracefully degrades)
-
----
-
-## Performance Targets
-
-| Metric                          | Target        | Status             |
-| ------------------------------- | ------------- | ------------------ |
-| **Blank Screen Time** (revisit) | 0ms           | ⏳ Prepaint (v1.1) |
-| **Boot Script Size**            | <2KB gzip     | ⏳ Prepaint (v1.1) |
-| **Hydration Success Rate**      | >95%          | ⏳ Prepaint (v1.1) |
-| **React Sync Latency**          | <50ms         | ✅ 42ms            |
-| **Tx Rollback Time**            | <100ms        | ✅ 85ms            |
-| **ViewTransition Smoothness**   | >90% at 60fps | ✅ 95%             |
-
----
-
-## Roadmap
-
-### v0.1.0 (Current - MVP)
-
-- ✅ `@firsttx/local-first` - IndexedDB + React sync
-- ✅ `@firsttx/tx` - Atomic transactions + rollback
-- ✅ Core APIs stabilized
-- ✅ Test coverage (unit)
-- ⏳ Documentation complete
-
-### v0.2.0 (Next)
-
-- Multi-tab sync (BroadcastChannel)
-- Transaction journal persistence
-- Enhanced error filtering (HTTP 4xx vs 5xx)
-- DevTools integration (Redux DevTools protocol)
-
-### v1.0.0
-
-- `@firsttx/prepaint` - Instant Replay
-- Vite/Next.js plugins
-- SSR-Lite shell generation
-- E2E test suite
-- Production-ready
-
-### v2.0.0 (Future)
-
-- CRDT merge strategies
-- Leader election for multi-tab
-- React Server Components compatibility
-- Edge deployment patterns
-
----
-
-## Examples
-
-See the [demo app](./apps/demo) for complete examples
-
-- **Products Page:** Cached list with background revalidation
-- **Cart Page:** Optimistic updates with atomic rollback
-- **Error Simulation:** Toggle server failures to see rollback in action
-- **Performance Comparison:** FirstTx vs Vanilla vs React Query vs Loaders
-
----
-
-## Security Notice
-
-⚠️ **Important: FirstTx does NOT encrypt data at rest.**
-
-- IndexedDB is protected by same-origin policy
-- Accessible via browser DevTools
-- **Do NOT store sensitive data** (passwords, SSN, credit cards) without encryption
-- For PII, use session memory or encrypted storage libraries
-
----
-
-## License
+## 📄 License
 
 MIT © [joseph0926](https://github.com/joseph0926)
 
 ---
 
-## Links
+## 🔗 Links
 
-- [GitHub Repository](https://github.com/joseph0926/firsttx)
-<!-- - [Demo Application](https://firsttx-demo.vercel.app) _(coming soon)_ -->
-- [Issue Tracker](https://github.com/joseph0926/firsttx/issues)
+- Developer Email: joseph0926.dev@gmail.com
+- [GitHub Issues](https://github.com/joseph0926/firsttx/issues)
+
+---
+
+## 💬 FAQ
+
+<details>
+<summary><strong>Q: How is this different from SSR/RSC?</strong></summary>
+
+**A:** FirstTx is a solution for CSR apps.
+
+| Solution          | First Visit | Revisit | Server Required |
+| ----------------- | ----------- | ------- | --------------- |
+| SSR/RSC           | ⚡ Fast     | ⚡ Fast | ✅ Required     |
+| CSR (Traditional) | 🐌 Slow     | 🐌 Slow | ❌ Optional     |
+| **FirstTx**       | 🐌 Normal   | ⚡ Fast | ❌ Optional     |
+
+FirstTx brings SSR-level revisit experience without server infrastructure.
+
+</details>
+
+<details>
+<summary><strong>Q: Can I use this with React Query/SWR?</strong></summary>
+
+**A:** Yes! FirstTx works alongside existing data fetching libraries.
+
+- **Local-First**: Persistent storage (IndexedDB)
+- **React Query**: Network cache + retry
+- **Tx**: Optimistic update rollback
+
+Each layer operates independently—use only what you need.
+
+</details>
+
+<details>
+<summary><strong>Q: Browser compatibility?</strong></summary>
+
+**A:**
+
+- **IndexedDB**: IE11+ (all modern browsers)
+- **ViewTransition**: Chrome 111+ (fallback provided)
+- **useSyncExternalStore**: React 18+
+
+Browsers without ViewTransition support fall back to regular re-renders.
+
+</details>
+
+<details>
+<summary><strong>Q: Is it safe to store sensitive data (PII)?</strong></summary>
+
+**A:** FirstTx does not provide encryption.
+
+- IndexedDB is protected by same-origin policy
+- Encrypt sensitive data before storage (recommended)
+- Or use memory-only models (ttl: 0)
+
+</details>
