@@ -1,39 +1,10 @@
-export interface HandoffOptions {
-  /** callback to indicate that "handoff" has been completed */
-  onReady?: (shouldHydrate: boolean) => void;
-}
+export type HandoffStrategy = 'has-prepaint' | 'cold-start';
 
 /**
- * Check if prepaint snapshot exists and determine hydration strategy
- *
- * @returns true if should hydrate, false if cold-start
- *
- * @example
- * ```ts
- * // Direct usage
- * const shouldHydrate = handoff();
- * const root = document.getElementById('root')!;
- *
- * if (shouldHydrate) {
- *   hydrateRoot(root, <App />);
- * } else {
- *   createRoot(root).render(<App />);
- * }
- *
- * // With callback
- * handoff({
- *   onReady: (shouldHydrate) => {
- *     const root = document.getElementById('root')!;
- *     if (shouldHydrate) {
- *       hydrateRoot(root, <App />);
- *     } else {
- *       createRoot(root).render(<App />);
- *     }
- *   }
- * });
- * ```
+ * Check if prepaint snapshot exists
+ * @returns 'has-prepaint' if snapshot exists, 'cold-start' otherwise
  */
-export function handoff(options?: HandoffOptions): boolean {
+export function handoff(): HandoffStrategy {
   const hasPrepaint = document.documentElement.hasAttribute('data-prepaint');
 
   if (hasPrepaint && process.env.NODE_ENV === 'development') {
@@ -42,6 +13,5 @@ export function handoff(options?: HandoffOptions): boolean {
     console.log(`[FirstTx] Prepaint detected (age: ${age}ms)`);
   }
 
-  options?.onReady?.(hasPrepaint);
-  return hasPrepaint;
+  return hasPrepaint ? 'has-prepaint' : 'cold-start';
 }

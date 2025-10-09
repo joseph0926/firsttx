@@ -1,6 +1,7 @@
 export { handoff } from './handoff';
 export { setupCapture } from './capture';
 export { boot } from './boot';
+export { createFirstTxRoot } from './helpers';
 
-export type { HandoffOptions } from './handoff';
-export type { CaptureOptions } from './capture';
+export type { HandoffStrategy } from './handoff';
+export type { CreateFirstTxRootOptions } from './helpers';

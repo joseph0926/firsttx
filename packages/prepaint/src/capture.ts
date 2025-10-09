@@ -57,49 +57,30 @@ async function captureSnapshot(): Promise<void> {
   }
 }
 
-export interface CaptureOptions {
-  /**
-   * Capture on visibility change (tab switch)
-   * @default true
-   */
-  onVisibilityChange?: boolean;
-  /**
-   * Capture before page unload
-   * @default true
-   */
-  onBeforeUnload?: boolean;
-}
+let captureInitialized = false;
 
-export function setupCapture(options: CaptureOptions = {}): () => void {
-  const { onVisibilityChange = true, onBeforeUnload = true } = options;
-
-  const handlers: Array<{
-    event: string;
-    handler: () => void;
-    target: typeof window | typeof document;
-  }> = [];
-
-  if (onVisibilityChange) {
-    const visibilityHandler = () => {
-      if (document.visibilityState === 'hidden') {
-        void captureSnapshot();
-      }
-    };
-    document.addEventListener('visibilitychange', visibilityHandler);
-    handlers.push({ event: 'visibilitychange', handler: visibilityHandler, target: document });
+/**
+ * setupCapture
+ * @description Setup automatic snapshot capture on page unload Should be called once per app lifecycle
+ */
+export function setupCapture(): () => void {
+  if (captureInitialized) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[FirstTx] setupCapture already called');
+    }
+    return () => {};
   }
 
-  if (onBeforeUnload) {
-    const unloadHandler = () => {
-      void captureSnapshot();
-    };
-    window.addEventListener('beforeunload', unloadHandler);
-    handlers.push({ event: 'beforeunload', handler: unloadHandler, target: window });
-  }
+  captureInitialized = true;
+
+  const unloadHandler = () => {
+    void captureSnapshot();
+  };
+
+  window.addEventListener('beforeunload', unloadHandler);
 
   return () => {
-    handlers.forEach(({ event, handler, target }) => {
-      target.removeEventListener(event, handler);
-    });
+    captureInitialized = false;
+    window.removeEventListener('beforeunload', unloadHandler);
   };
 }
