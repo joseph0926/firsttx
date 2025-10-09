@@ -1,0 +1,23 @@
+'area: demo':
+  - 'apps/demo/**'
+
+'area: tx':
+  - 'packages/tx/**'
+
+'area: prepaint':
+  - 'packages/prepaint/**'
+
+'area: local-first':
+  - 'packages/local-first/**'
+
+'type: docs':
+  - 'docs/**'
+  - '**/*.md'
+  - '**/*.mdx'
+  - 'README*'
+
+'type: test':
+  - '**/*.{spec,test}.{js,jsx,ts,tsx}'
+
+'type: chore':
+  - '.github/**'
