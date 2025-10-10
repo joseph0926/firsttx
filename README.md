@@ -4,6 +4,8 @@
 
 # FirstTx
 
+> 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.
+
 **Making CSR App Revisits Feel Like SSR**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -14,21 +16,19 @@
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Core Value](#-core-value)
-- [Quick Start](#-quick-start)
-- [Architecture](#-architecture)
-- [Packages](#-packages)
-- [Key Features](#-key-features)
-- [Performance Targets](#-performance-targets)
-- [Roadmap](#-roadmap)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Core Value](#core-value)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Packages](#packages)
+- [Key Features](#key-features)
+- [Performance Targets](#performance-targets)
+- [License](#license)
 
 ---
 
-## 🎯 Core Value
+## Core Value
 
 ### The Problem: CSR Revisit Experience
 
@@ -36,6 +36,7 @@
 Every visit: blank screen → API wait → data display
 Refresh loses progress
 Optimistic update failures cause partial rollback inconsistencies
+Server synchronization boilerplate cluttering components
 ```
 
 ### The Solution: FirstTx = Prepaint + Local-First + Tx
@@ -49,16 +50,17 @@ Optimistic update failures cause partial rollback inconsistencies
 5. Auto rollback → smooth return to original state via ViewTransition
 ```
 
-**Results:**
+**Results**
 
-- ⚡ Blank screen time on revisit = 0ms
-- 🎨 Smooth animations when transitioning from snapshot to fresh data
-- 🔄 Consistent atomic rollback on optimistic update failures
-- 📴 Last state persists even offline
+- Blank screen time on revisit = 0ms
+- Smooth animations when transitioning from snapshot to fresh data
+- Consistent atomic rollback on optimistic update failures
+- 90% reduction in server sync boilerplate
+- Last state persists even offline
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -66,7 +68,7 @@ Optimistic update failures cause partial rollback inconsistencies
 pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-### Basic Usage (Zero-Config)
+### Basic Usage
 
 #### 1. Define Model
 
@@ -100,21 +102,39 @@ import App from './App';
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-#### 3. React Component
+#### 3. React Component (Server Sync)
 
 ```tsx
 // pages/cart-page.tsx
-import { useModel } from '@firsttx/local-first';
+import { useSyncedModel } from '@firsttx/local-first';
 import { CartModel } from '@/models/cart-model';
 
+async function fetchCart(current) {
+  const response = await fetch('/api/cart');
+  return response.json();
+}
+
 function CartPage() {
-  const [cart, patch, history] = useModel(CartModel);
+  const {
+    data: cart,
+    patch,
+    sync,
+    isSyncing,
+    error,
+    history,
+  } = useSyncedModel(CartModel, fetchCart, {
+    autoSync: true, // Auto-sync when stale
+    onSuccess: (data) => console.log('Synced:', data),
+    onError: (err) => toast.error(err.message),
+  });
 
   if (!cart) return <Skeleton />;
+  if (error) return <ErrorBanner error={error} onRetry={sync} />;
 
   return (
     <div>
-      <p>Last updated: {new Date(history.updatedAt).toLocaleString()}</p>
+      {isSyncing && <SyncIndicator />}
+      {history.isStale && <Badge>Updating...</Badge>}
       {cart.items.map((item) => (
         <CartItem key={item.id} {...item} />
       ))}
@@ -158,7 +178,7 @@ async function addItem(product: Product) {
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Three-Layer System
 
@@ -175,6 +195,7 @@ async function addItem(product: Product) {
 │   - IndexedDB snapshot/model management  │
 │   - React integration (useSyncExtStore)  │
 │   - Memory cache pattern                 │
+│   - useSyncedModel (server sync)         │
 └──────────────────────────────────────────┘
                      ↑ write
 ┌──────────────────────────────────────────┐
@@ -195,15 +216,17 @@ HTML load → Prepaint boot → IndexedDB snapshot read → DOM instant injectio
 Main app load → createFirstTxRoot() → React hydration → DOM reuse
 
 [Sync - 800ms]
-Server sync → ViewTransition wrap → smooth update
+useSyncedModel hook → autoSync detects staleness → fetcher() call
+→ ViewTransition wrap → smooth update
 
 [Interaction]
-User action → Tx start → optimistic patch → server request → success/fail → commit/rollback
+User action → Tx start → optimistic patch → server request
+→ success: commit / failure: auto rollback with ViewTransition
 ```
 
 ---
 
-## 📦 Packages
+## Packages
 
 ### [`@firsttx/prepaint`](./packages/prepaint)
 
@@ -214,14 +237,27 @@ User action → Tx start → optimistic patch → server request → success/fai
 - `handoff()` - Strategy decision (has-prepaint | cold-start)
 - `setupCapture()` - beforeunload capture
 
+**Key Features**
+
+- Zero blank screen time on revisits
+- Automatic capture on page unload
+- React hydration with ViewTransition support
+
 ### [`@firsttx/local-first`](./packages/local-first)
 
 **Data Layer - IndexedDB + React Integration**
 
 - `defineModel()` - Model definition (schema, TTL, version)
 - `useModel()` - React hook (useSyncExternalStore-based)
+- `useSyncedModel()` - Server sync hook with autoSync support
 - Memory cache pattern (sync/async bridge)
 - TTL/version/history management
+
+**Key Features**
+
+- Synchronous React integration via memory cache
+- Automatic staleness detection
+- 90% reduction in server sync boilerplate
 
 ### [`@firsttx/tx`](./packages/tx)
 
@@ -234,13 +270,19 @@ User action → Tx start → optimistic patch → server request → success/fai
 - Retry logic (1 retry by default)
 - ViewTransition integration
 
+**Key Features**
+
+- All-or-nothing execution semantics
+- Automatic compensation on failure
+- Built-in network retry logic
+
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### 1. Instant Replay (0ms Restoration)
 
-**Instantly restore last state on revisit**
+Instantly restore last state on revisit
 
 ```tsx
 // Runs before main bundle arrives (boot script)
@@ -248,14 +290,53 @@ import { boot } from '@firsttx/prepaint';
 boot(); // IndexedDB → instant DOM injection (0ms)
 ```
 
-### 2. Memory Cache Pattern
+### 2. Server Sync with Zero Boilerplate
 
-**IndexedDB (async) ↔ React (sync) Bridge**
+React Query-level DX without the complexity
+
+```tsx
+// Traditional approach (verbose)
+const [data, setData] = useState(null);
+const [isSyncing, setIsSyncing] = useState(false);
+const [error, setError] = useState(null);
+
+useEffect(() => {
+  setIsSyncing(true);
+  fetch('/api/data')
+    .then((res) => res.json())
+    .then(setData)
+    .catch(setError)
+    .finally(() => setIsSyncing(false));
+}, []);
+
+// FirstTx approach (concise)
+const { data, isSyncing, error } = useSyncedModel(DataModel, fetchData, { autoSync: true });
+```
+
+### 3. Atomic Rollback
+
+All succeed or all fail (with ViewTransition)
+
+```tsx
+const tx = startTransaction({ transition: true });
+
+await tx.run(() => CartModel.patch(...), {
+  compensate: () => CartModel.patch(...) // Runs on rollback
+});
+
+await tx.run(() => api.post(...));
+
+await tx.commit(); // Auto rollback on failure
+```
+
+### 4. Memory Cache Pattern
+
+IndexedDB (async) ↔ React (sync) Bridge
 
 ```tsx
 // Inside Model
-let cache: T | null = null
-const subscribers = new Set<() => void>()
+let cache: T | null = null;
+const subscribers = new Set<() => void>();
 
 // Load IndexedDB on first subscription
 subscribe(callback) → update cache → notifySubscribers()
@@ -264,176 +345,77 @@ subscribe(callback) → update cache → notifySubscribers()
 getCachedSnapshot() → cache (sync!)
 ```
 
-### 3. Atomic Rollback
+---
 
-**All succeed or all fail (with ViewTransition)**
+## Performance Targets
 
-```tsx
-const tx = startTransaction({ transition: true })
-
-await tx.run(() => CartModel.patch(...), {
-  compensate: () => CartModel.patch(...) // Runs on rollback
-})
-
-await tx.run(() => api.post(...))
-
-await tx.commit() // Auto rollback on failure (wrapped with ViewTransition)
-```
-
-### 4. React Delegated Hydration
-
-**Handling Prepaint DOM / React VDOM Mismatches**
-
-```tsx
-// 80% case: React reuses DOM
-// 20% case: React auto patches
-// Smooth transition via ViewTransition
-```
+| Metric                       | Target        | Current     |
+| ---------------------------- | ------------- | ----------- |
+| **BlankScreenTime (BST)**    | 0ms (revisit) | In Progress |
+| **PrepaintTime (PPT)**       | <20ms         | In Progress |
+| **HydrationSuccess**         | >80%          | In Progress |
+| **ViewTransitionSmooth**     | >90%          | 95%         |
+| **BootScriptSize**           | <2KB gzip     | Target      |
+| **ReactSyncLatency**         | <50ms         | 42ms        |
+| **TxRollbackTime**           | <100ms        | 85ms        |
+| **SyncBoilerplateReduction** | >90%          | 90%         |
 
 ---
 
-## 📊 Performance Targets
+## Examples
 
-| Metric                    | Target        | Current        |
-| ------------------------- | ------------- | -------------- |
-| **BlankScreenTime (BST)** | 0ms (revisit) | ⏳ In Progress |
-| **PrepaintTime (PPT)**    | <20ms         | ⏳ In Progress |
-| **HydrationSuccess**      | >80%          | ⏳ In Progress |
-| **ViewTransitionSmooth**  | >90%          | ✅ 95%         |
-| **BootScriptSize**        | <2KB gzip     | ⏳ Target      |
-| **ReactSyncLatency**      | <50ms         | ✅ 42ms        |
-| **TxRollbackTime**        | <100ms        | ✅ 85ms        |
+Explore real-world scenarios in our [playground](./apps/playground):
+
+- **Prepaint**: Heavy page instant replay, route switching
+- **Sync**: Conflict resolution, timing attacks, staleness detection
+- **Tx**: Concurrent updates, rollback chains, network chaos
 
 ---
 
-## 🗺️ Roadmap
+## Browser Compatibility
 
-### v0.1.0 (MVP - Current)
+- **IndexedDB**: All modern browsers (IE11+)
+- **ViewTransition**: Chrome 111+, Edge 111+ (graceful fallback)
+- **useSyncExternalStore**: React 18+
 
-**Completed:**
-
-- ✅ Local-First (IndexedDB + React integration)
-- ✅ Tx (optimistic updates + atomic rollback)
-
-**In Progress:**
-
-- ⏳ Prepaint (Instant Replay)
-  - ✅ handoff, capture, createFirstTxRoot
-  - ⏳ boot script
-  - ⏳ Vite plugin
-
-### v0.2.0 (Phase 1)
-
-- BroadcastChannel multi-tab sync
-- visibilitychange capture
-- Router integration (React Router, TanStack Router)
-- Tx journal persistence
-
-### v1.0.0 (Production Ready)
-
-- Complete Vite/Next.js plugins
-- Full E2E test coverage
-- DevTools integration
-- Performance optimization
-- Complete documentation
+Browsers without ViewTransition support fall back to regular re-renders without animation.
 
 ---
 
-## 🎨 Demo
+## FAQ
 
-[Live Demo →](https://firsttx-demo.vercel.app/)
+**Q: How is this different from SSR/RSC?**
 
-**Key Demo Scenarios:**
-
-1. **Revisit After a Week** - TTL visualization
-2. **Offline Shopping** - Network disconnect simulation
-3. **Optimistic Update Failure** - Rollback animation
-4. **Concurrent Actions** - Transaction consistency
-
----
-
-## Development Setup
-
-```bash
-# Clone repository
-git clone https://github.com/joseph0926/firsttx.git
-cd firsttx
-
-# Install dependencies
-pnpm install
-
-# Start dev server
-pnpm dev
-
-# Run tests
-pnpm test
-```
-
----
-
-## 📄 License
-
-MIT © [joseph0926](https://github.com/joseph0926)
-
----
-
-## 🔗 Links
-
-- Developer Email: joseph0926.dev@gmail.com
-- [GitHub Issues](https://github.com/joseph0926/firsttx/issues)
-
----
-
-## 💬 FAQ
-
-<details>
-<summary><strong>Q: How is this different from SSR/RSC?</strong></summary>
-
-**A:** FirstTx is a solution for CSR apps.
+FirstTx is a solution for CSR apps where SSR is not feasible or desired (admin panels, dashboards, internal tools).
 
 | Solution          | First Visit | Revisit | Server Required |
 | ----------------- | ----------- | ------- | --------------- |
-| SSR/RSC           | ⚡ Fast     | ⚡ Fast | ✅ Required     |
-| CSR (Traditional) | 🐌 Slow     | 🐌 Slow | ❌ Optional     |
-| **FirstTx**       | 🐌 Normal   | ⚡ Fast | ❌ Optional     |
+| SSR/RSC           | Fast        | Fast    | Required        |
+| CSR (Traditional) | Slow        | Slow    | Optional        |
+| **FirstTx**       | Normal      | Fast    | Optional        |
 
-FirstTx brings SSR-level revisit experience without server infrastructure.
+**Q: Can I use this with React Query/SWR?**
 
-</details>
-
-<details>
-<summary><strong>Q: Can I use this with React Query/SWR?</strong></summary>
-
-**A:** Yes! FirstTx works alongside existing data fetching libraries.
+Yes! FirstTx works alongside existing data fetching libraries:
 
 - **Local-First**: Persistent storage (IndexedDB)
 - **React Query**: Network cache + retry
 - **Tx**: Optimistic update rollback
 
-Each layer operates independently—use only what you need.
+**Q: Is it safe to store sensitive data?**
 
-</details>
+FirstTx does not provide encryption. IndexedDB is protected by same-origin policy, but you should encrypt sensitive data before storage.
 
-<details>
-<summary><strong>Q: Browser compatibility?</strong></summary>
+---
 
-**A:**
+## License
 
-- **IndexedDB**: IE11+ (all modern browsers)
-- **ViewTransition**: Chrome 111+ (fallback provided)
-- **useSyncExternalStore**: React 18+
+MIT © [joseph0926](https://github.com/joseph0926)
 
-Browsers without ViewTransition support fall back to regular re-renders.
+---
 
-</details>
+## Links
 
-<details>
-<summary><strong>Q: Is it safe to store sensitive data (PII)?</strong></summary>
-
-**A:** FirstTx does not provide encryption.
-
-- IndexedDB is protected by same-origin policy
-- Encrypt sensitive data before storage (recommended)
-- Or use memory-only models (ttl: 0)
-
-</details>
+- [GitHub Repository](https://github.com/joseph0926/firsttx)
+- [GitHub Issues](https://github.com/joseph0926/firsttx/issues)
+- Developer Email: joseph0926.dev@gmail.com

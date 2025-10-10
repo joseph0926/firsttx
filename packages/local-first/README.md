@@ -11,12 +11,13 @@ Local-First provides type-safe IndexedDB models that integrate with React using 
 
 ## Features
 
-- ✅ **React 18+ Integration:** Uses `useSyncExternalStore` for optimal rendering
-- ✅ **Type Safety:** Zod schema validation for all data operations
-- ✅ **Staleness Tracking:** Built-in TTL and data age indicators
-- ✅ **Version Management:** Auto-reset when schema versions change
-- ✅ **Optimistic Updates:** Fast local mutations with `patch()`
-- 🔜 **Multi-tab Sync:** BroadcastChannel support (Phase 1)
+- **React 18+ Integration:** Uses `useSyncExternalStore` for optimal rendering
+- **Server Sync Made Easy:** `useSyncedModel` hook eliminates 90% of sync boilerplate
+- **Type Safety:** Zod schema validation for all data operations
+- **Staleness Tracking:** Built-in TTL and data age indicators
+- **Version Management:** Auto-reset when schema versions change
+- **Optimistic Updates:** Fast local mutations with `patch()`
+- **Multi-tab Sync:** BroadcastChannel support (Phase 1)
 
 ---
 
@@ -64,7 +65,7 @@ export const CartModel = defineModel('cart', {
 });
 ```
 
-### 2. Use in React Components
+### 2. Use in React Components (Basic)
 
 ```tsx
 import { useModel } from '@firsttx/local-first';
@@ -73,33 +74,84 @@ import { CartModel } from './models/cart';
 function CartPage() {
   const [cart, patch, history] = useModel(CartModel);
 
-  // Handle initial loading state
-  if (!cart) {
-    return <div>Loading cart from IndexedDB...</div>;
-  }
-
-  // Show staleness indicator
-  const ageMinutes = Math.floor(history.age / 60000);
+  if (!cart) return <Skeleton />;
 
   return (
     <div>
-      {history.isStale && <div className="warning">Data is {ageMinutes} minutes old</div>}
-
+      {history.isStale && <Badge>Data is {Math.floor(history.age / 60000)} min old</Badge>}
       <h1>Cart ({cart.items.length} items)</h1>
-
       {cart.items.map((item) => (
-        <div key={item.id}>
-          <span>{item.name}</span>
-          <span>${item.price}</span>
-          <span>Qty: {item.qty}</span>
-        </div>
+        <CartItem key={item.id} {...item} />
       ))}
     </div>
   );
 }
 ```
 
-### 3. Update Data with `patch()`
+### 3. Server Sync with `useSyncedModel`
+
+Eliminate server sync boilerplate with automatic state management:
+
+```tsx
+import { useSyncedModel } from '@firsttx/local-first';
+import { CartModel } from './models/cart';
+
+async function fetchCart(current) {
+  const response = await fetch('/api/cart');
+  return response.json();
+}
+
+function CartPage() {
+  const {
+    data: cart,
+    patch,
+    sync,
+    isSyncing,
+    error,
+    history,
+  } = useSyncedModel(CartModel, fetchCart, {
+    autoSync: true, // Auto-sync when data becomes stale
+    onSuccess: (data) => console.log('Synced:', data),
+    onError: (err) => toast.error(err.message),
+  });
+
+  if (!cart) return <Skeleton />;
+  if (error) return <ErrorBanner error={error} onRetry={sync} />;
+
+  return (
+    <div>
+      {isSyncing && <SyncIndicator />}
+      {history.isStale && <Badge>Updating...</Badge>}
+      {cart.items.map((item) => (
+        <CartItem key={item.id} {...item} />
+      ))}
+    </div>
+  );
+}
+```
+
+**Before vs After:**
+
+```tsx
+// Traditional approach (verbose)
+const [data, setData] = useState(null);
+const [isSyncing, setIsSyncing] = useState(false);
+const [error, setError] = useState(null);
+
+useEffect(() => {
+  setIsSyncing(true);
+  fetch('/api/data')
+    .then((res) => res.json())
+    .then(setData)
+    .catch(setError)
+    .finally(() => setIsSyncing(false));
+}, []);
+
+// useSyncedModel (concise)
+const { data, isSyncing, error, sync } = useSyncedModel(DataModel, fetchData, { autoSync: true });
+```
+
+### 4. Update Data with `patch()`
 
 ```tsx
 import { useModel } from '@firsttx/local-first';
@@ -111,58 +163,16 @@ function AddToCartButton({ product }) {
   const handleClick = async () => {
     await patch((draft) => {
       const existing = draft.items.find((item) => item.id === product.id);
-
       if (existing) {
         existing.qty += 1;
       } else {
         draft.items.push({ ...product, qty: 1 });
       }
-
       draft.updatedAt = Date.now();
     });
   };
 
   return <button onClick={handleClick}>Add to Cart</button>;
-}
-```
-
-### 4. Server Sync with ViewTransition
-
-```tsx
-import { useEffect } from 'react';
-import { useModel } from '@firsttx/local-first';
-import { CartModel } from './models/cart';
-
-function CartPage() {
-  const [cart, patch] = useModel(CartModel);
-
-  // Sync with server in background
-  useEffect(() => {
-    (async () => {
-      const serverData = await fetch('/api/cart').then((r) => r.json());
-
-      if (!cart || serverData.updatedAt > cart.updatedAt) {
-        // Smooth transition from stale to fresh
-        if ('startViewTransition' in document) {
-          await document.startViewTransition(() =>
-            patch((draft) => {
-              draft.items = serverData.items;
-              draft.updatedAt = serverData.updatedAt;
-            }),
-          ).finished;
-        } else {
-          await patch((draft) => {
-            draft.items = serverData.items;
-            draft.updatedAt = serverData.updatedAt;
-          });
-        }
-      }
-    })();
-  }, [cart, patch]);
-
-  if (!cart) return <div>Loading...</div>;
-
-  return <div>{/* Your UI */}</div>;
 }
 ```
 
@@ -176,168 +186,135 @@ Creates a new model with IndexedDB persistence.
 
 **Parameters:**
 
-- `name` (string): Unique identifier for the model (used as IndexedDB key)
-- `options` - `schema` (ZodSchema): Zod schema for validation
-  - `ttl` (number): Time-to-live in milliseconds (for staleness tracking)
-  - `version?` (number): Schema version (changes trigger data reset)
-  - `initialData?` (T): Default data when none exists (required if `version` is set)
+- `name` (string): Unique identifier for the model
+- `options`:
+  - `schema` (ZodSchema): Zod schema for validation
+  - `ttl` (number): Time-to-live in milliseconds
+  - `version?` (number): Schema version (triggers data reset on change)
+  - `initialData?` (T): Default data when none exists
   - `merge?` (function): Custom merge strategy `(current, incoming) => T`
 
 **Returns:** `Model<T>`
-
-**Example:**
-
-```ts
-const UserModel = defineModel('user', {
-  schema: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string().email(),
-  }),
-  ttl: 10 * 60 * 1000, // 10 minutes
-  version: 1,
-  initialData: { id: '', name: '', email: '' },
-});
-```
 
 ---
 
 ### `useModel(model)`
 
-React hook for subscribing to model changes.
+Basic React hook for subscribing to model changes.
+
+**Returns:** `[state, patch, history, error]`
+
+- `state` (T | null): Current model state
+- `patch` (function): `(mutator: (draft: T) => void) => Promise<void>`
+- `history` (ModelHistory): Metadata about the data
+- `error` (Error | null): Validation or storage errors
+
+---
+
+### `useSyncedModel(model, fetcher, options?)`
+
+**NEW in v0.2.0** - React hook with built-in server synchronization.
 
 **Parameters:**
 
-- `model` (Model<T>): The model to subscribe to
+- `model` (Model<T>): The model to sync
+- `fetcher` (Fetcher<T>): Async function that fetches server data
+  - Type: `(current: T | null) => Promise<T>`
+  - Receives current local data (useful for delta sync)
+- `options?` (SyncOptions<T>):
+  - `autoSync?` (boolean): Auto-sync when data becomes stale (default: `false`)
+  - `onSuccess?` (callback): Called after successful sync
+  - `onError?` (callback): Called on sync failure
 
-**Returns:** `[state, patch, history]`
+**Returns:** `SyncedModelResult<T>`
 
-- `state` (T | null): Current model state (null during initial load)
-- `patch` (function): `(mutator: (draft: T) => void) => Promise<void>`
-- `history` (ModelHistory): Metadata about the data
-  - `updatedAt` (number): Last update timestamp
-  - `age` (number): Age in milliseconds
-  - `isStale` (boolean): Whether data exceeds TTL
-  - `isConflicted` (boolean): Multi-tab conflict indicator (Phase 1)
+```ts
+{
+  data: T | null;           // Current model state
+  patch: (mutator) => void; // Update local data
+  sync: () => Promise<void>; // Manually trigger sync
+  isSyncing: boolean;       // Sync in progress?
+  error: Error | null;      // Sync error if any
+  history: ModelHistory;    // Data metadata
+}
+```
 
-**Example:**
+**Key Features:**
+
+- **Automatic state management:** No manual `useState` for `isSyncing`, `error`
+- **ViewTransition integration:** Smooth updates by default
+- **AutoSync support:** Automatically sync when data becomes stale
+- **Current data passing:** Fetcher receives current local data for delta sync
+
+**Example - Manual sync:**
 
 ```tsx
-function MyComponent() {
-  const [data, patch, history] = useModel(MyModel);
+const { data, sync, isSyncing, error } = useSyncedModel(CartModel, fetchCart);
 
-  if (!data) return <Skeleton />;
+return (
+  <div>
+    <button onClick={sync} disabled={isSyncing}>
+      {isSyncing ? 'Syncing...' : 'Refresh'}
+    </button>
+    {error && <ErrorMessage error={error} />}
+  </div>
+);
+```
 
-  const handleUpdate = async () => {
-    await patch((draft) => {
-      draft.someField = 'new value';
-    });
-  };
+**Example - Auto-sync:**
 
-  return (
-    <div>
-      {history.isStale && <Badge>Stale data</Badge>}
-      <button onClick={handleUpdate}>Update</button>
-    </div>
-  );
-}
+```tsx
+const { data, history } = useSyncedModel(CartModel, fetchCart, {
+  autoSync: true, // Syncs automatically when history.isStale becomes true
+});
+
+return (
+  <div>
+    {history.isStale && <Badge>Updating...</Badge>}
+    {/* Your UI */}
+  </div>
+);
 ```
 
 ---
 
 ### Model Methods (Direct Access)
 
-For use outside of React components
-
-#### `model.getSnapshot()`
+For use outside of React components:
 
 ```ts
-const data = await model.getSnapshot();
-// Returns: T | null
-```
-
-#### `model.replace(data)`
-
-```ts
-await model.replace({ items: [], updatedAt: Date.now() });
-// Replaces entire stored data
-```
-
-#### `model.patch(mutator)`
-
-```ts
-await model.patch((draft) => {
-  draft.items.push(newItem);
-});
-// Mutates data using Immer-style draft
-```
-
-#### `model.getHistory()`
-
-```ts
-const history = await model.getHistory();
-// Returns: ModelHistory
-```
-
-#### `model.getCachedSnapshot()` (sync)
-
-```ts
-const data = model.getCachedSnapshot();
-// Returns: T | null (from in-memory cache)
-```
-
-#### `model.subscribe(callback)`
-
-```ts
-const unsubscribe = model.subscribe(() => {
-  console.log('Model updated!');
-});
-// Later: unsubscribe()
+await model.getSnapshot();              // Get current data
+await model.replace(data);              // Replace entire data
+await model.patch((draft) => {...});    // Mutate data
+await model.getHistory();               // Get metadata
+model.getCachedSnapshot();              // Sync access to cache
+model.subscribe(callback);              // Subscribe to changes
 ```
 
 ---
 
 ## Design Patterns
 
-### Pattern 1: Stale-While-Revalidate
-
-Show cached data immediately, sync in background
+### Pattern 1: Auto-Sync with Staleness Detection
 
 ```tsx
-function ProductsPage() {
-  const [products, patch, history] = useModel(ProductsModel);
-  const [isRevalidating, setIsRevalidating] = useState(false);
+const { data, history } = useSyncedModel(ProductsModel, fetchProducts, {
+  autoSync: true,
+});
 
-  useEffect(() => {
-    (async () => {
-      if (!products || history.isStale) {
-        setIsRevalidating(true);
-        const fresh = await api.getProducts();
-        await patch((draft) => {
-          draft.items = fresh;
-          draft.lastSync = Date.now();
-        });
-        setIsRevalidating(false);
-      }
-    })();
-  }, [products, history.isStale, patch]);
-
-  if (!products) return <Skeleton />;
-
-  return (
-    <div>
-      {isRevalidating && <Spinner />}
-      {products.items.map((p) => (
-        <ProductCard key={p.id} {...p} />
-      ))}
-    </div>
-  );
-}
+return (
+  <div>
+    {history.isStale && <SyncIndicator />}
+    {data?.items.map((p) => (
+      <ProductCard key={p.id} {...p} />
+    ))}
+  </div>
+);
 ```
 
 ### Pattern 2: Optimistic Updates with Tx
 
-Combine with `@firsttx/tx` for atomic operations
+Combine with `@firsttx/tx` for atomic operations:
 
 ```tsx
 import { startTransaction } from '@firsttx/tx';
@@ -359,134 +336,131 @@ async function addToCart(product) {
   );
 
   await tx.run(() => api.post('/cart/add', { id: product.id }));
-
   await tx.commit();
 }
 ```
 
-### Pattern 3: Version Migration
+### Pattern 3: Manual Sync with Error Handling
 
-Auto-reset when schema changes
-
-```ts
-// v1
-const UserModel = defineModel('user', {
-  version: 1,
-  initialData: { name: '' },
-  schema: z.object({ name: z.string() }),
-  ttl: Infinity,
+```tsx
+const { data, sync, isSyncing, error } = useSyncedModel(CartModel, fetchCart, {
+  onSuccess: () => toast.success('Cart synced'),
+  onError: (err) => toast.error(err.message),
 });
 
-// v2: add email field
-const UserModel = defineModel('user', {
-  version: 2, // changed!
-  initialData: { name: '', email: '' },
-  schema: z.object({
-    name: z.string(),
-    email: z.string(), // new field
-  }),
-  ttl: Infinity,
-});
-// Old data (v1) automatically deleted, initialData used
+return (
+  <div>
+    <button onClick={sync} disabled={isSyncing}>
+      Refresh Cart
+    </button>
+    {error && <ErrorBanner error={error} onRetry={sync} />}
+  </div>
+);
+```
+
+### Pattern 4: Delta Sync
+
+```tsx
+async function fetchCartDelta(current) {
+  if (!current) return fetchFullCart();
+
+  // Only fetch changes since last update
+  const response = await fetch(`/api/cart/delta?since=${current.updatedAt}`);
+  const delta = await response.json();
+
+  return {
+    ...current,
+    items: [...current.items, ...delta.newItems],
+    updatedAt: Date.now(),
+  };
+}
+
+const { data } = useSyncedModel(CartModel, fetchCartDelta, { autoSync: true });
 ```
 
 ---
 
 ## Best Practices
 
-### ✅ DO
+### DO
 
-- **Use `initialData` with `version`** for safe schema evolution
-- **Render skeletons** when `state === null` (cache warming)
-- **Show staleness indicators** using `history.isStale` and `history.age`
-- **Wrap server syncs in ViewTransition** for smooth updates
-- **Keep models small** (avoid huge objects, consider splitting)
+- **Use `useSyncedModel` for server-backed data** - Eliminates boilerplate
+- **Use `autoSync: true` for frequently changing data** - Keeps data fresh
+- **Render skeletons** when `data === null` (cache warming)
+- **Show sync indicators** using `isSyncing` and `history.isStale`
+- **Handle errors gracefully** with `onError` callback
 
-### ❌ DON'T
+### DON'T
 
 - **Don't store PII without encryption** (passwords, SSN, credit cards)
 - **Don't assume instant availability** (IndexedDB is async)
 - **Don't mutate state directly** (always use `patch` or `replace`)
-- **Don't ignore version bumps** (provide `initialData` to prevent crashes)
+- **Don't ignore version bumps** (provide `initialData`)
 
 ---
 
 ## Security Notice
 
-⚠️ **FirstTx does NOT encrypt data at rest.**
+**FirstTx does NOT encrypt data at rest.**
 
 - IndexedDB is protected by same-origin policy
 - Data is accessible via browser DevTools
 - **Do NOT store sensitive information** without additional encryption
-- For PII, use - Session memory (non-persistent)
-  - Encrypted storage libraries (e.g., `crypto-js`)
-  - Server-only storage
 
-**Example (encrypt before storing):**
+For sensitive data, use:
 
-```ts
-import CryptoJS from 'crypto-js';
-
-const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(sensitiveData), userPassword).toString();
-
-await SecureModel.replace({ encrypted: encryptedData });
-```
+- Session memory (non-persistent)
+- Encrypted storage libraries (e.g., `crypto-js`)
+- Server-only storage
 
 ---
 
 ## Troubleshooting
 
-### Q: Why is `state` always `null`?
+**Q: Why is `data` always `null`?**
 
-**A:** The in-memory cache is warming up. This happens on
+The in-memory cache is warming up. This happens on first render, after clearing IndexedDB, or after version mismatch. Render a skeleton/loading state.
 
-- First render (IndexedDB read is async)
-- After clearing IndexedDB
-- After version mismatch (data was deleted)
+**Q: Why isn't my `patch()` reflecting in UI?**
 
-**Solution:** Render a skeleton/loading state.
+Ensure you're:
 
-### Q: Why isn't my `patch()` reflecting in UI?
-
-**A:** Make sure you're
-
-1. Using `patch` from `useModel` (not direct model method)
+1. Using `patch` from the hook (not direct model method)
 2. Mutating the draft object (not returning new object)
-3. Not blocking React re-render (check React DevTools)
+3. Not blocking React re-render
 
-### Q: How do I handle errors?
+**Q: How do I handle sync errors?**
 
-**A:** Validation errors throw `ValidationError`
+Use the `onError` callback:
 
 ```tsx
-try {
-  await model.replace(invalidData);
-} catch (error) {
-  if (error instanceof ValidationError) {
-    console.error('Schema validation failed:', error.zodError);
-  }
-}
+useSyncedModel(Model, fetcher, {
+  onError: (error) => {
+    console.error('Sync failed:', error);
+    toast.error(error.message);
+  },
+});
 ```
 
-### Q: Can I use multiple models?
+**Q: Can I use multiple models?**
 
-**A:** Yes! Each model is independent
+Yes! Each model is independent:
 
 ```tsx
-const [cart] = useModel(CartModel);
-const [user] = useModel(UserModel);
-const [products] = useModel(ProductsModel);
+const { data: cart } = useSyncedModel(CartModel, fetchCart);
+const { data: user } = useSyncedModel(UserModel, fetchUser);
+const { data: products } = useSyncedModel(ProductsModel, fetchProducts);
 ```
 
 ---
 
 ## Examples
 
-See the [demo app](../../apps/demo) for complete examples
+See the [demo app](../../apps/demo) and [playground](../../apps/playground) for complete examples:
 
-- **Cart Page:** Full CRUD with optimistic updates
-- **Products Page:** Stale-while-revalidate pattern
-- **Error Handling:** Validation failures and rollbacks
+- Cart Page with server sync
+- Products page with auto-sync
+- Error handling and rollbacks
 
 ---
 
@@ -499,7 +473,7 @@ MIT © [joseph0926](https://github.com/joseph0926)
 ## Related Packages
 
 - [`@firsttx/tx`](../tx) - Atomic transactions for optimistic updates
-- `@firsttx/prepaint` _(coming soon)_ - Instant Replay for 0ms blank screens
+- [`@firsttx/prepaint`](../prepaint) - Instant Replay for 0ms blank screens
 
 ---
 
