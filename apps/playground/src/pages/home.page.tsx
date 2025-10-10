@@ -48,10 +48,10 @@ export default function HomePage() {
             description="Eliminate blank screen time on revisits"
             scenarios={[
               {
-                id: 'heavy-page',
+                id: 'heavy',
                 title: 'Heavy Page',
                 description: 'Experience 0ms blank screen with 100+ product grids',
-                path: '/prepaint/heavy-page',
+                path: '/prepaint/heavy',
                 metrics: { bst: '12ms', target: '<20ms' },
               },
               {

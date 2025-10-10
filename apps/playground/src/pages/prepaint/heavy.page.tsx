@@ -6,16 +6,41 @@ import {
   MetricCard,
   SectionHeader,
 } from '../../components/scenario-layout';
-import { useModel } from '@firsttx/local-first';
+import { useSyncedModel } from '@firsttx/local-first';
 import { ProductsModel, type Product } from '@/models/products.model';
 import { fetchProducts } from '@/api/mock-products';
 
 export default function HeavyPage() {
-  const [products, , history] = useModel(ProductsModel);
+  const {
+    data: products,
+    sync,
+    isSyncing,
+    error,
+    history,
+  } = useSyncedModel(
+    ProductsModel,
+    async () => {
+      console.log('[HeavyPage] Fetching products...');
+      const items = await fetchProducts();
+      return {
+        items,
+        lastFetch: Date.now(),
+      };
+    },
+    {
+      autoSync: false,
+      onSuccess: (data) => {
+        console.log('[HeavyPage] Sync success:', data.items.length, 'products');
+      },
+      onError: (err) => {
+        console.error('[HeavyPage] Sync failed:', err);
+      },
+    },
+  );
+
   const [loadTime, setLoadTime] = useState<number>(0);
   const [visitCount, setVisitCount] = useState<number>(0);
   const [isPrepaintActive, setIsPrepaintActive] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const startTime = performance.now();
@@ -31,26 +56,61 @@ export default function HeavyPage() {
   }, []);
 
   useEffect(() => {
-    const shouldFetch = !products || history.isStale;
+    console.log('[HeavyPage] State check:', {
+      hasProducts: !!products,
+      isStale: history.isStale,
+      isSyncing,
+      age: history.age,
+    });
 
-    if (shouldFetch) {
-      setIsSyncing(true);
-      fetchProducts()
-        .then((items) =>
-          ProductsModel.replace({
-            items,
-            lastFetch: Date.now(),
-          }),
-        )
-        .finally(() => setIsSyncing(false));
+    if (!products || history.isStale) {
+      if (!isSyncing) {
+        console.log('[HeavyPage] Triggering sync...');
+        sync().catch((err) => {
+          console.error('[HeavyPage] Manual sync failed:', err);
+        });
+      }
     }
-  }, [products, history.isStale]);
+  }, [products, history.isStale, isSyncing]);
 
   if (!products) {
     return (
       <ScenarioLayout level={1} title="Heavy Page">
         <div className="flex h-64 items-center justify-center text-muted-foreground">
-          Loading initial data...
+          {isSyncing ? (
+            <div className="text-center">
+              <div className="mb-2 text-lg">Loading initial data...</div>
+              <div className="text-sm">🔄 Fetching from server</div>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="mb-2 text-lg">No data</div>
+              <button
+                onClick={() => sync()}
+                className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
+      </ScenarioLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScenarioLayout level={1} title="Heavy Page">
+        <div className="rounded border border-destructive bg-destructive/10 p-4">
+          <h3 className="mb-2 font-semibold text-destructive">Sync Error</h3>
+          <p className="mb-4 text-sm text-muted-foreground">{error.message}</p>
+          <button
+            onClick={() => sync()}
+            disabled={isSyncing}
+            className="rounded bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+          >
+            {isSyncing ? 'Retrying...' : 'Retry'}
+          </button>
         </div>
       </ScenarioLayout>
     );
