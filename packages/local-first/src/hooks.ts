@@ -12,9 +12,12 @@ export function useModel<T>(model: Model<T>) {
     model.getCombinedSnapshot,
   );
 
-  const patch = async (mutator: (draft: T) => void) => {
-    await model.patch(mutator);
-  };
+  const patch = useCallback(
+    async (mutator: (draft: T) => void) => {
+      await model.patch(mutator);
+    },
+    [model],
+  );
 
   return [snapshot.data, patch, snapshot.history, snapshot.error] as const;
 }

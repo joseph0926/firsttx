@@ -94,9 +94,20 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
    * Updates combined snapshot (creates new reference only when state changes)
    */
   const updateSnapshot = () => {
+    const newData = cacheState.status === 'success' ? cacheState.data : null;
+    const newError = cacheState.status === 'error' ? cacheState.error : null;
+
+    if (
+      cachedSnapshot.data === newData &&
+      cachedSnapshot.error === newError &&
+      cachedSnapshot.history === cachedHistory
+    ) {
+      return;
+    }
+
     cachedSnapshot = {
-      data: cacheState.status === 'success' ? cacheState.data : null,
-      error: cacheState.status === 'error' ? cacheState.error : null,
+      data: newData,
+      error: newError,
       history: cachedHistory,
     };
   };
