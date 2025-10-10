@@ -1,10 +1,14 @@
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
 import './index.css';
 import Router from './router.tsx';
+import { createFirstTxRoot } from '@firsttx/prepaint';
 
-createRoot(document.getElementById('root')!).render(
+createFirstTxRoot(
+  document.getElementById('root')!,
   <StrictMode>
     <Router />
   </StrictMode>,
+  {
+    transition: true,
+  },
 );
