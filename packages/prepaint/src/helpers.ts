@@ -1,10 +1,13 @@
 import { hydrateRoot, createRoot } from 'react-dom/client';
 import type { ReactElement } from 'react';
-import { handoff } from './handoff';
+import { handoff, type HandoffStrategy } from './handoff';
 import { setupCapture } from './capture';
+import type { Snapshot } from './types';
 
 export interface CreateFirstTxRootOptions {
   transition?: boolean;
+  onCapture?: (snapshot: Snapshot) => void;
+  onHandoff?: (strategy: HandoffStrategy) => void;
 }
 
 /**
@@ -26,7 +29,7 @@ export function createFirstTxRoot(
   element: ReactElement,
   options: CreateFirstTxRootOptions = {},
 ): void {
-  const { transition = true } = options;
+  const { transition = true, onCapture, onHandoff } = options;
 
   if (container instanceof DocumentFragment) {
     throw new Error(
@@ -34,9 +37,11 @@ export function createFirstTxRoot(
     );
   }
 
-  setupCapture();
+  setupCapture({ onCapture });
 
   const strategy = handoff();
+
+  onHandoff?.(strategy);
 
   if (strategy === 'has-prepaint') {
     if (transition && 'startViewTransition' in document) {

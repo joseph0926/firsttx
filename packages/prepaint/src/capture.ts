@@ -32,7 +32,7 @@ function collectStyles(): string[] {
   return styles;
 }
 
-export async function captureSnapshot(): Promise<void> {
+export async function captureSnapshot(): Promise<Snapshot | null> {
   try {
     const route = window.location.pathname;
     const body = document.body.innerHTML;
@@ -52,9 +52,17 @@ export async function captureSnapshot(): Promise<void> {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[FirstTx] Snapshot captured for ${route}`);
     }
+
+    return snapshot;
   } catch (error) {
     console.error('[FirstTx] Capture failed:', error);
+    return null;
   }
+}
+
+export interface SetupCaptureOptions {
+  routes?: string[];
+  onCapture?: (snapshot: Snapshot) => void;
 }
 
 let captureInitialized = false;
@@ -63,7 +71,7 @@ let captureInitialized = false;
  * setupCapture
  * @description Setup automatic snapshot capture on page unload Should be called once per app lifecycle
  */
-export function setupCapture(): () => void {
+export function setupCapture(options?: SetupCaptureOptions): () => void {
   if (captureInitialized) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[FirstTx] setupCapture already called');
@@ -74,7 +82,17 @@ export function setupCapture(): () => void {
   captureInitialized = true;
 
   const unloadHandler = () => {
-    void captureSnapshot();
+    const route = window.location.pathname;
+
+    if (options?.routes && !options.routes.includes(route)) {
+      return;
+    }
+
+    void captureSnapshot().then((snapshot) => {
+      if (snapshot) {
+        options?.onCapture?.(snapshot);
+      }
+    });
   };
 
   window.addEventListener('beforeunload', unloadHandler);

@@ -42,11 +42,11 @@ export async function boot(): Promise<void> {
       });
     }
 
-    document.documentElement.setAttribute('data-prepaint', '');
+    document.documentElement.setAttribute('data-prepaint', 'true');
     document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[FirstTx] Snapshot restored (age: ${Math.floor(age / 1000)}s)`);
+      console.log(`[FirstTx] Snapshot restored (age: ${age}ms)`);
     }
   } catch (error) {
     console.error('[FirstTx] Boot failed:', error);
