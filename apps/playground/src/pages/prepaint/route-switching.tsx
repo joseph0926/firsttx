@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { Zap, BarChart3, Package, Settings, LayoutDashboard, Clock } from 'lucide-react';
+import { Zap, BarChart3, Package, Settings, LayoutDashboard, Clock, RefreshCw } from 'lucide-react';
 import {
   ScenarioLayout,
   MetricsGrid,
   MetricCard,
   SectionHeader,
 } from '../../components/scenario-layout';
+import { useSyncedModel } from '@firsttx/local-first';
+import { RouteMetricsModel } from '../../models/route-metrics.model';
+import { fetchRouteMetrics } from '@/api/route-metrics.api';
 
 const routes = [
   { path: '/prepaint/route-switching/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -17,9 +20,18 @@ const routes = [
 
 export default function RouteSwitching() {
   const location = useLocation();
-  const [routeMetrics, setRouteMetrics] = useState<
-    Record<string, { visits: number; avgTime: number }>
-  >({});
+  const {
+    data: routeMetrics,
+    patch,
+    sync,
+    isSyncing,
+    error,
+  } = useSyncedModel(RouteMetricsModel, fetchRouteMetrics, {
+    autoSync: false,
+    onSuccess: () => console.log('[RouteSwitching] Synced with server'),
+    onError: (err) => console.error('[RouteSwitching] Sync failed:', err),
+  });
+
   const [currentLoadTime, setCurrentLoadTime] = useState<number>(0);
   const [isPrepaintActive, setIsPrepaintActive] = useState(false);
 
@@ -29,30 +41,35 @@ export default function RouteSwitching() {
     setIsPrepaintActive(hasPrepaint);
 
     const path = location.pathname;
-    const stored = localStorage.getItem('route-metrics');
-    const metrics = stored ? JSON.parse(stored) : {};
 
-    setTimeout(() => {
+    const recordMetric = async () => {
       const endTime = performance.now();
       const loadTime = endTime - startTime;
       setCurrentLoadTime(loadTime);
+
+      const currentMetrics = await RouteMetricsModel.getSnapshot();
+      const metrics = currentMetrics ?? {};
 
       const current = metrics[path] || { visits: 0, avgTime: 0 };
       const newVisits = current.visits + 1;
       const newAvgTime = (current.avgTime * current.visits + loadTime) / newVisits;
 
-      const updated = {
-        ...metrics,
-        [path]: { visits: newVisits, avgTime: newAvgTime },
-      };
+      await patch((draft) => {
+        draft[path] = {
+          visits: newVisits,
+          avgTime: newAvgTime,
+        };
+      });
+    };
 
-      setRouteMetrics(updated);
-      localStorage.setItem('route-metrics', JSON.stringify(updated));
-    }, 50);
-  }, [location.pathname]);
+    const timeoutId = setTimeout(recordMetric, 50);
 
-  const totalVisits = Object.values(routeMetrics).reduce((sum, m) => sum + m.visits, 0);
-  const capturedRoutes = Object.keys(routeMetrics).length;
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname, patch]);
+
+  const metrics = routeMetrics || {};
+  const totalVisits = Object.values(metrics).reduce((sum, m) => sum + m.visits, 0);
+  const capturedRoutes = Object.keys(metrics).length;
 
   return (
     <ScenarioLayout
@@ -99,7 +116,7 @@ export default function RouteSwitching() {
       <div className="mb-6 flex gap-2 rounded-lg border border-border bg-card p-2">
         {routes.map((route) => {
           const Icon = route.icon;
-          const metrics = routeMetrics[route.path];
+          const metric = metrics[route.path];
           return (
             <NavLink
               key={route.path}
@@ -114,9 +131,9 @@ export default function RouteSwitching() {
             >
               <Icon className="h-4 w-4" />
               <span>{route.label}</span>
-              {metrics && (
+              {metric && (
                 <span className="ml-1 rounded-full bg-background/20 px-2 py-0.5 text-xs">
-                  {metrics.visits}
+                  {metric.visits}
                 </span>
               )}
             </NavLink>
@@ -129,20 +146,35 @@ export default function RouteSwitching() {
       </div>
 
       <div className="mt-6 rounded-lg border border-border bg-card p-6">
-        <h3 className="mb-4 text-lg font-semibold">Route Metrics</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Route Metrics</h3>
+          <button
+            onClick={() => sync()}
+            disabled={isSyncing}
+            className="flex items-center gap-2 rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync with Server'}
+          </button>
+        </div>
+        {error && (
+          <div className="mb-4 rounded bg-destructive/10 p-3 text-sm text-destructive">
+            Sync failed: {error.message}
+          </div>
+        )}
         <div className="space-y-2">
           {routes.map((route) => {
-            const metrics = routeMetrics[route.path];
+            const metric = metrics[route.path];
             return (
               <div
                 key={route.path}
                 className="flex items-center justify-between rounded bg-muted/50 px-4 py-2"
               >
                 <span className="text-sm font-medium">{route.label}</span>
-                {metrics ? (
+                {metric ? (
                   <div className="flex gap-4 text-xs text-muted-foreground terminal-text">
-                    <span>{metrics.visits} visits</span>
-                    <span>avg: {metrics.avgTime.toFixed(1)}ms</span>
+                    <span>{metric.visits} visits</span>
+                    <span>avg: {metric.avgTime.toFixed(1)}ms</span>
                   </div>
                 ) : (
                   <span className="text-xs text-muted-foreground">Not visited</span>
