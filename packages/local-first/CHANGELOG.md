@@ -1,5 +1,15 @@
 # @firsttx/local-first
 
+## 0.2.2
+
+### Patch Changes
+
+fix(local-first): prevent infinite loop in useModel by stabilizing references
+
+- Add useCallback to patch function in useModel to prevent recreation on every render
+- Optimize updateSnapshot to only create new object when data actually changes
+- Fixes issue where useSyncExternalStore triggered infinite re-renders due to unstable object references
+
 ## 0.2.1
 
 ### Patch Changes
