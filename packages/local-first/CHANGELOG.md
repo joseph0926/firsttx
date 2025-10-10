@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.2.1
+
+### Patch Changes
+
+- Adopts TanStack Query's single-subscription pattern using getCombinedSnapshot to prevent infinite loops caused by unstable references in useSyncExternalStore. Reduces subscribers from 3 to 1 per model while maintaining React 18 concurrent mode compatibility.
+
 ## 0.2.0
 
 ### Minor Changes
