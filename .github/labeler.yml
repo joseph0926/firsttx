@@ -1,26 +1,35 @@
 area-demo:
-  - 'apps/demo/**'
+  - changed-files:
+      - any-glob-to-any-file: 'apps/demo/**'
 
 area-playground:
-  - 'apps/playground/**'
+  - changed-files:
+      - any-glob-to-any-file: 'apps/playground/**'
 
 area-tx:
-  - 'packages/tx/**'
+  - changed-files:
+      - any-glob-to-any-file: 'packages/tx/**'
 
 area-prepaint:
-  - 'packages/prepaint/**'
+  - changed-files:
+      - any-glob-to-any-file: 'packages/prepaint/**'
 
 area-local-first:
-  - 'packages/local-first/**'
+  - changed-files:
+      - any-glob-to-any-file: 'packages/local-first/**'
 
 type-docs:
-  - 'docs/**'
-  - '**/*.md'
-  - '**/*.mdx'
-  - 'README*'
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '**/*.md'
+          - '**/*.mdx'
+          - 'README*'
 
 type-test:
-  - '**/*.{spec,test}.{js,jsx,ts,tsx}'
+  - changed-files:
+      - any-glob-to-any-file: '**/*.{spec,test}.{js,jsx,ts,tsx}'
 
 type-chore:
-  - '.github/**'
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
