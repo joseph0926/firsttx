@@ -1,5 +1,28 @@
 # @firsttx/prepaint
 
+## 0.2.0
+
+### Minor Changes
+
+Add debug hooks and improve error handling
+
+BREAKING CHANGE: captureSnapshot now returns Promise<Snapshot | null>
+
+Added:
+
+- onCapture/onHandoff callbacks to createFirstTxRoot
+- SetupCaptureOptions interface (routes filter, onCapture callback)
+- Graceful error handling in captureSnapshot
+
+This allows developers to debug capture lifecycle and filter routes:
+
+```tsx
+createFirstTxRoot(root, <App />, {
+  onCapture: (s) => console.log('Captured:', s),
+  onHandoff: (strategy) => console.log(strategy),
+});
+```
+
 ## 0.1.3
 
 ### Patch Changes
@@ -23,3 +46,7 @@
 ### Minor Changes
 
 - First public release of prepaint: Instant page restoration from IndexedDB snapshots / Zero blank-screen time on return visits / Automatic React hydration with ViewTransition support
+
+```
+
+```

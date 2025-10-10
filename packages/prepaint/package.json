@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/prepaint",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Prepaint’s tiny boot script (<2KB gzip target) replays the last snapshot before the main bundle arrives, yielding a 0ms blank screen on return visits. It attempts hydration to reuse the DOM or cleanly replaces it, and shows a clear stale→fresh handoff once server data syncs.",
   "license": "MIT",
   "author": "joseph0926",
