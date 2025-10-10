@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.2.0
+
+### Minor Changes
+
+- add useSyncedModel hook for server sync
+
 ## 0.1.2
 
 ### Patch Changes
