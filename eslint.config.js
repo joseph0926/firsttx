@@ -12,6 +12,8 @@ export default defineConfig(
       '**/.next/**',
       '**/*.d.ts',
       '**/*.config.ts',
+      'apps/**',
+      'turbo.json',
     ],
   },
 
