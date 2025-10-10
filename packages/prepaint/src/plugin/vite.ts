@@ -87,7 +87,7 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
         }
 
         if (inline) {
-          const scriptTag = `<script>try{${bootScriptCode}}catch(e){console.error('[FirstTx] Boot script failed:',e);}</script>`;
+          const scriptTag = `<script>try{${bootScriptCode};__firsttx_boot__.boot();}catch(e){console.error('[FirstTx] Boot script failed:',e);}</script>`;
           return injectScript(html, scriptTag, injectTo);
         } else {
           const scriptTag = `<script src="/firsttx-boot.js"></script>`;
