@@ -84,17 +84,7 @@ export function useSyncedModel<T>(
    * AutoSync: triggers when data becomes stale
    */
   useEffect(() => {
-    console.log('[AutoSync Debug]', {
-      autoSync: optionsRef.current?.autoSync,
-      updatedAt: history.updatedAt,
-      isStale: history.isStale,
-      isSyncing,
-      willTrigger:
-        optionsRef.current?.autoSync && history.updatedAt > 0 && history.isStale && !isSyncing,
-    });
-
     if (optionsRef.current?.autoSync && history.updatedAt > 0 && history.isStale && !isSyncing) {
-      console.log('[AutoSync] Triggering sync!');
       sync().catch(() => {});
     }
   }, [history.isStale, history.updatedAt, isSyncing, sync]);
