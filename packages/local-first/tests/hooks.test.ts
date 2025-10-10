@@ -3,7 +3,7 @@
 import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { Storage } from '../src/storage';
-import { defineModel, useModel } from '../src';
+import { defineModel, useModel, useSyncedModel } from '../src';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 describe('useModel', () => {
@@ -181,5 +181,595 @@ describe('useModel', () => {
 
     const stored = await Storage.getInstance().get('unmount-test');
     expect(stored?.data).toEqual({ count: 99 });
+  });
+});
+
+describe('useSyncedModel', () => {
+  beforeEach(() => {
+    indexedDB.deleteDatabase('firsttx-local-first');
+    Storage.setInstance(undefined);
+  });
+
+  describe('Basic Functionality', () => {
+    it('should return initial null state', () => {
+      const TestModel = defineModel('basic-test', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'test' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      expect(result.current.data).toBeNull();
+      expect(result.current.isSyncing).toBe(false);
+      expect(result.current.error).toBeNull();
+    });
+
+    it('should sync data from fetcher when sync() is called', async () => {
+      const TestModel = defineModel('sync-basic', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'fetched' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ value: 'fetched' });
+        expect(fetcher).toHaveBeenCalledTimes(1);
+        expect(result.current.isSyncing).toBe(false);
+      });
+    });
+
+    it('should pass current data to fetcher', async () => {
+      const TestModel = defineModel('sync-with-current', {
+        schema: z.object({ count: z.number() }),
+        ttl: 5000,
+      });
+
+      await TestModel.replace({ count: 5 });
+
+      const fetcher = vi.fn().mockImplementation((current) => {
+        // eslint-disable-next-line
+        return Promise.resolve({ count: (current?.count || 0) + 1 });
+      });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ count: 5 });
+      });
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(fetcher).toHaveBeenCalledWith({ count: 5 });
+        expect(result.current.data).toEqual({ count: 6 });
+      });
+    });
+
+    it('should update history after sync', async () => {
+      const TestModel = defineModel('sync-history', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'synced' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.history.updatedAt).toBeGreaterThan(0);
+        expect(result.current.history.isStale).toBe(false);
+      });
+    });
+  });
+
+  describe('AutoSync', () => {
+    it('should NOT auto-sync by default (autoSync: false)', async () => {
+      const TestModel = defineModel('no-autosync', {
+        schema: z.object({ value: z.string() }),
+        ttl: 100,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'auto' });
+
+      renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(fetcher).not.toHaveBeenCalled();
+    });
+
+    it('should auto-sync when isStale and autoSync: true', async () => {
+      const TestModel = defineModel('autosync-stale', {
+        schema: z.object({ value: z.string() }),
+        ttl: 100,
+      });
+
+      await TestModel.replace({ value: 'old' });
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+
+      await waitFor(
+        () => {
+          expect(fetcher).toHaveBeenCalled();
+          expect(result.current.data).toEqual({ value: 'new' });
+        },
+        { timeout: 3000 },
+      );
+    });
+
+    it('should NOT auto-sync if data is fresh', async () => {
+      const TestModel = defineModel('autosync-fresh', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      await TestModel.replace({ value: 'fresh' });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ value: 'fresh' });
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(fetcher).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger multiple syncs if already syncing', async () => {
+      const TestModel = defineModel('autosync-debounce', {
+        schema: z.object({ value: z.string() }),
+        ttl: 100,
+      });
+
+      await TestModel.replace({ value: 'old' });
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      let resolveCount = 0;
+      const fetcher = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolveCount++;
+            resolve({ value: `sync-${resolveCount}` });
+          }, 100);
+        });
+      });
+
+      renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('State Management', () => {
+    it('should set isSyncing to true during sync', async () => {
+      const TestModel = defineModel('syncing-state', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => {
+          setTimeout(() => resolve({ value: 'done' }), 100);
+        });
+      });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      expect(result.current.isSyncing).toBe(false);
+
+      act(() => {
+        void result.current.sync();
+      });
+
+      expect(result.current.isSyncing).toBe(true);
+
+      await waitFor(() => {
+        expect(result.current.isSyncing).toBe(false);
+        expect(result.current.data).toEqual({ value: 'done' });
+      });
+    });
+
+    it('should maintain patch functionality', async () => {
+      const TestModel = defineModel('patch-test', {
+        schema: z.object({ count: z.number() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ count: 10 });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ count: 10 });
+      });
+
+      await act(async () => {
+        await result.current.patch((draft) => {
+          draft.count = 20;
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ count: 20 });
+      });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should set error state when sync fails', async () => {
+      const TestModel = defineModel('sync-error', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const testError = new Error('Network error');
+      const fetcher = vi.fn().mockRejectedValue(testError);
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(result.current.error).toEqual(testError);
+        expect(result.current.isSyncing).toBe(false);
+        expect(result.current.data).toBeNull();
+      });
+    });
+
+    it('should call onError callback when sync fails', async () => {
+      const TestModel = defineModel('sync-error-callback', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const testError = new Error('Fetch failed');
+      const fetcher = vi.fn().mockRejectedValue(testError);
+      const onError = vi.fn();
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher, { onError }));
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalledWith(testError);
+      });
+    });
+
+    it('should clear previous error on successful sync', async () => {
+      const TestModel = defineModel('error-clear', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('First fail'))
+        .mockResolvedValueOnce({ value: 'success' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(result.current.error).not.toBeNull();
+      });
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.error).toBeNull();
+        expect(result.current.data).toEqual({ value: 'success' });
+      });
+    });
+
+    it('should log error in development mode', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const TestModel = defineModel('error-log', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockRejectedValue(new Error('Test error'));
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[FirstTx] Sync failed'),
+          expect.any(Error),
+        );
+      });
+
+      consoleErrorSpy.mockRestore();
+      process.env.NODE_ENV = originalEnv;
+    });
+
+    it('should NOT log error in production mode', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const TestModel = defineModel('error-no-log', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockRejectedValue(new Error('Test error'));
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(result.current.error).not.toBeNull();
+      });
+
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+      process.env.NODE_ENV = originalEnv;
+    });
+  });
+
+  describe('Callbacks', () => {
+    it('should call onSuccess callback after successful sync', async () => {
+      const TestModel = defineModel('success-callback', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'success' });
+      const onSuccess = vi.fn();
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher, { onSuccess }));
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(onSuccess).toHaveBeenCalledWith({ value: 'success' });
+      });
+    });
+
+    it('should NOT call onSuccess when sync fails', async () => {
+      const TestModel = defineModel('no-success-on-error', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockRejectedValue(new Error('Fail'));
+      const onSuccess = vi.fn();
+      const onError = vi.fn();
+
+      const { result } = renderHook(() =>
+        useSyncedModel(TestModel, fetcher, { onSuccess, onError }),
+      );
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalled();
+      });
+
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle concurrent sync calls', async () => {
+      const TestModel = defineModel('concurrent-sync', {
+        schema: z.object({ count: z.number() }),
+        ttl: 5000,
+      });
+
+      let syncCount = 0;
+      const fetcher = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            syncCount++;
+            resolve({ count: syncCount });
+          }, 50);
+        });
+      });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        await Promise.all([result.current.sync(), result.current.sync(), result.current.sync()]);
+      });
+
+      expect(fetcher).toHaveBeenCalledTimes(3);
+
+      await waitFor(() => {
+        expect(result.current.data?.count).toBe(3);
+      });
+    });
+
+    it('should handle sync during unmount gracefully', async () => {
+      const TestModel = defineModel('unmount-sync', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => {
+          setTimeout(() => resolve({ value: 'done' }), 100);
+        });
+      });
+
+      const { result, unmount } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      const syncPromise = result.current.sync();
+
+      unmount();
+
+      await expect(syncPromise).resolves.toBeUndefined();
+
+      const stored = await Storage.getInstance().get('unmount-sync');
+      expect(stored?.data).toEqual({ value: 'done' });
+    });
+
+    it('should handle validation error from fetcher', async () => {
+      const TestModel = defineModel('validation-error', {
+        schema: z.object({ count: z.number() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ count: 'invalid' });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        try {
+          await result.current.sync();
+        } catch (e) {
+          console.log(e);
+        }
+      });
+
+      await waitFor(() => {
+        expect(result.current.error).not.toBeNull();
+        expect(result.current.data).toBeNull();
+      });
+    });
+
+    it('should handle ViewTransition polyfill (no native support)', async () => {
+      const TestModel = defineModel('no-view-transition', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'test' });
+
+      // eslint-disable-next-line
+      const originalStartViewTransition = document.startViewTransition;
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ value: 'test' });
+      });
+
+      if (originalStartViewTransition) {
+        document.startViewTransition = originalStartViewTransition;
+      }
+    });
+
+    it('should handle model with initialData', async () => {
+      const TestModel = defineModel('with-initial', {
+        version: 1,
+        initialData: { items: [] },
+        schema: z.object({ items: z.array(z.string()) }),
+        ttl: 5000,
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ items: ['a', 'b'] });
+
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+
+      expect(result.current.data).toBeNull();
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ items: ['a', 'b'] });
+      });
+    });
+
+    it('should handle rapid autoSync triggers', async () => {
+      const TestModel = defineModel('rapid-autosync', {
+        schema: z.object({ value: z.string() }),
+        ttl: 50,
+      });
+
+      await TestModel.replace({ value: 'old' });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
+
+      renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(fetcher.mock.calls.length).toBeLessThanOrEqual(2);
+    });
   });
 });

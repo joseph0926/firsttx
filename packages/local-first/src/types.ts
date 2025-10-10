@@ -58,3 +58,20 @@ export interface ModelHistory {
   /** Whether this model is in a conflicted state (multi-tab collision). */
   isConflicted: boolean; // TODO: Phase 1 - implement conflict detection
 }
+
+export type SyncOptions<T> = {
+  autoSync?: boolean;
+  onSuccess?: (data: T) => void;
+  onError?: (error: Error) => void;
+};
+
+export type SyncedModelResult<T> = {
+  data: T | null;
+  patch: (mutator: (draft: T) => void) => Promise<void>;
+  sync: () => Promise<void>;
+  isSyncing: boolean;
+  error: Error | null;
+  history: ModelHistory;
+};
+
+export type Fetcher<T> = (current: T | null) => Promise<T>;
