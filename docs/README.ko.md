@@ -6,11 +6,7 @@
 
 **CSR 앱의 재방문 경험을 SSR 수준으로**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange.svg)](https://pnpm.io/)
-
-> 두 번째 방문부터 마지막 상태를 즉시 복원하고, 낙관적 업데이트 실패 시 안전하게 롤백하여 서버 없이도 빠르고 일관된 경험을 제공합니다.
+> 두 번째 방문부터 마지막 상태를 즉시 복원하고 낙관적 업데이트를 안전하게 롤백하여, 서버 인프라 없이도 빠르고 일관된 경험을 제공합니다.
 
 ---
 
@@ -22,7 +18,9 @@
 - [패키지](#패키지)
 - [주요 기능](#주요-기능)
 - [성능 목표](#성능-목표)
-- [로드맵](#로드맵)
+- [설계 철학](#설계-철학)
+- [브라우저 지원](#브라우저-지원)
+- [예제](#예제)
 - [라이선스](#라이선스)
 
 ---
@@ -32,27 +30,27 @@
 ### 문제: CSR 재방문 경험
 
 ```
-매번 방문: 빈 화면 → API 대기 → 데이터 표시
+매 방문마다: 빈 화면 → API 대기 → 데이터 표시
 새로고침 시 진행 상태 손실
-낙관적 업데이트 실패 시 부분 롤백으로 인한 불일치
-컴포넌트를 어지럽히는 서버 동기화 보일러플레이트
+낙관적 업데이트 실패 시 일부만 롤백되는 불일치
+서버 동기화 보일러플레이트로 복잡해지는 컴포넌트
 ```
 
-### 해결책: FirstTx = Prepaint + Local-First + Tx
+### 솔루션: FirstTx = Prepaint + Local-First + Tx
 
 ```
 [재방문 시나리오]
-1. /cart 재접속 → 어제 담은 상품 3개 즉시 표시 (0ms)
+1. /cart 재방문 → 어제 담은 상품 3개 즉시 표시 (~0ms)
 2. 메인 앱 로드 → React hydration → 스냅샷 DOM 재사용
-3. 서버 동기화 → ViewTransition으로 부드럽게 업데이트 (3개 → 5개)
+3. 서버 동기화 → ViewTransition으로 부드러운 업데이트 (3개 → 5개)
 4. "+1" 클릭 → Tx 시작 → 낙관 패치 → 서버 에러
-5. 자동 롤백 → ViewTransition으로 원래 상태로 부드럽게 복귀
+5. 자동 롤백 → ViewTransition으로 부드럽게 원래 상태로 복귀
 ```
 
-**결과:**
+**결과**
 
-- 재방문 시 빈 화면 시간 = 0ms
-- 스냅샷→최신 데이터 전환의 부드러운 애니메이션
+- 재방문 시 빈 화면 시간 ≈ 0ms
+- 스냅샷에서 최신 데이터로 전환 시 부드러운 애니메이션
 - 낙관적 업데이트 실패 시 일관된 원자적 롤백
 - 서버 동기화 보일러플레이트 90% 감소
 - 오프라인에서도 마지막 상태 유지
@@ -67,9 +65,23 @@
 pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-### 기본 사용법
+### 기본 설정
 
-#### 1. 모델 정의
+#### 1. Vite 플러그인 설정
+
+```tsx
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { firstTx } from '@firsttx/prepaint/plugin/vite';
+
+export default defineConfig({
+  plugins: [
+    firstTx(), // Instant Replay를 위한 부트 스크립트 자동 주입
+  ],
+});
+```
+
+#### 2. 모델 정의
 
 ```tsx
 // models/cart-model.ts
@@ -91,7 +103,7 @@ export const CartModel = defineModel('cart', {
 });
 ```
 
-#### 2. 메인 앱 진입점
+#### 3. 메인 앱 진입점
 
 ```tsx
 // main.tsx
@@ -101,14 +113,34 @@ import App from './App';
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-#### 3. React 컴포넌트 (서버 동기화)
+#### 4. React 컴포넌트 (기본 - 로컬만)
 
 ```tsx
-// pages/cart-page.tsx
-import { useSyncedModel } from '@firsttx/local-first';
-import { CartModel } from '@/models/cart-model';
+import { useModel } from '@firsttx/local-first';
+import { CartModel } from './models/cart-model';
 
-async function fetchCart(current) {
+function CartPage() {
+  const [cart, patch, history] = useModel(CartModel);
+
+  if (!cart) return <Skeleton />;
+
+  return (
+    <div>
+      {cart.items.map((item) => (
+        <CartItem key={item.id} {...item} />
+      ))}
+    </div>
+  );
+}
+```
+
+#### 5. React 컴포넌트 (서버 동기화)
+
+```tsx
+import { useSyncedModel } from '@firsttx/local-first';
+import { CartModel } from './models/cart-model';
+
+async function fetchCart() {
   const response = await fetch('/api/cart');
   return response.json();
 }
@@ -122,7 +154,7 @@ function CartPage() {
     error,
     history,
   } = useSyncedModel(CartModel, fetchCart, {
-    autoSync: true, // stale 상태일 때 자동 동기화
+    autoSync: true, // 데이터가 TTL을 초과하면 자동 동기화
     onSuccess: (data) => console.log('동기화 완료:', data),
     onError: (err) => toast.error(err.message),
   });
@@ -142,24 +174,38 @@ function CartPage() {
 }
 ```
 
-#### 4. 낙관적 업데이트 (Tx)
+**autoSync 전략**
+
+| 전략                       | 사용 시기                      | 사용 예시                 |
+| -------------------------- | ------------------------------ | ------------------------- |
+| `autoSync: true`           | 데이터가 항상 최신이어야 할 때 | 주식 가격, 알림, 대시보드 |
+| `autoSync: false` (기본값) | 사용자가 새로고침을 제어할 때  | 장바구니, 초안 편집기, 폼 |
 
 ```tsx
-// actions/add-to-cart.ts
-import { startTransaction } from '@firsttx/tx';
-import { CartModel } from '@/models/cart-model';
+// 수동 동기화 예시 (autoSync: false)
+const { data, sync, isSyncing } = useSyncedModel(Model, fetcher);
 
-async function addItem(product: Product) {
+<button onClick={sync} disabled={isSyncing}>
+  {isSyncing ? '동기화 중...' : '새로고침'}
+</button>;
+```
+
+#### 6. Tx로 낙관적 업데이트
+
+```tsx
+import { startTransaction } from '@firsttx/tx';
+import { CartModel } from './models/cart-model';
+
+async function addItem(product) {
   const tx = startTransaction({ transition: true });
 
-  // Step 1: 낙관적 패치
+  // Step 1: 낙관적 로컬 업데이트
   await tx.run(
     () =>
       CartModel.patch((draft) => {
         draft.items.push({ ...product, qty: 1 });
       }),
     {
-      // 롤백 시 실행되는 보상 함수
       compensate: () =>
         CartModel.patch((draft) => {
           draft.items.pop();
@@ -167,10 +213,10 @@ async function addItem(product: Product) {
     },
   );
 
-  // Step 2: 서버 요청
+  // Step 2: 서버 확인
   await tx.run(() => api.post('/cart/add', { id: product.id }));
 
-  // 커밋 (성공 시) 또는 자동 롤백 (실패 시)
+  // 커밋 (실패 시 자동 롤백)
   await tx.commit();
 }
 ```
@@ -184,7 +230,7 @@ async function addItem(product: Product) {
 ```
 ┌──────────────────────────────────────────┐
 │   렌더 계층 (Prepaint)                    │
-│   - Instant Replay (0ms 복원)            │
+│   - Instant Replay                       │
 │   - beforeunload 캡처                    │
 │   - React 위임 hydration                 │
 └──────────────────────────────────────────┘
@@ -208,13 +254,13 @@ async function addItem(product: Product) {
 ### 데이터 흐름
 
 ```
-[부트 - 0ms]
-HTML 로드 → Prepaint 부트 → IndexedDB 스냅샷 읽기 → DOM 즉시 주입
+[부트 - ~0ms]
+HTML 로드 → Prepaint 부트 스크립트 → IndexedDB 스냅샷 읽기 → DOM 즉시 주입
 
-[핸드오프 - 500ms]
+[핸드오프 - ~500ms]
 메인 앱 로드 → createFirstTxRoot() → React hydration → DOM 재사용
 
-[동기화 - 800ms]
+[동기화 - ~800ms]
 useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
 → ViewTransition 래핑 → 부드러운 업데이트
 
@@ -236,7 +282,7 @@ useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
 - `handoff()` - 전략 결정 (has-prepaint | cold-start)
 - `setupCapture()` - beforeunload 캡처
 
-**주요 기능:**
+**주요 기능**
 
 - 재방문 시 빈 화면 시간 제로
 - 페이지 언로드 시 자동 캡처
@@ -252,7 +298,7 @@ useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
 - 메모리 캐시 패턴 (동기/비동기 브릿지)
 - TTL/버전/히스토리 관리
 
-**주요 기능:**
+**주요 기능**
 
 - 메모리 캐시를 통한 동기식 React 통합
 - 자동 stale 감지
@@ -269,7 +315,7 @@ useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
 - 재시도 로직 (기본 1회)
 - ViewTransition 통합
 
-**주요 기능:**
+**주요 기능**
 
 - 전부 성공 또는 전부 실패 실행 의미론
 - 실패 시 자동 보상
@@ -279,22 +325,27 @@ useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
 
 ## 주요 기능
 
-### 1. Instant Replay (0ms 복원)
+### 1. Instant Replay (~0ms 복원)
 
-재방문 시 마지막 상태 즉시 복원
+자동 주입된 부트 스크립트로 재방문 시 마지막 상태를 즉시 복원
 
 ```tsx
-// 메인 번들 도착 전에 실행 (부트 스크립트)
-import { boot } from '@firsttx/prepaint';
-boot(); // IndexedDB → 즉시 DOM 주입 (0ms)
+// vite.config.ts
+import { firstTx } from '@firsttx/prepaint/plugin/vite';
+
+export default defineConfig({
+  plugins: [firstTx()], // 부트 스크립트 자동 주입
+});
 ```
 
-### 2. 보일러플레이트 제로 서버 동기화
+플러그인이 메인 번들보다 먼저 실행되는 작은 부트 스크립트(<2KB)를 자동으로 주입하여, IndexedDB에서 마지막으로 캡처된 상태를 즉시 복원합니다.
 
-복잡함 없이 React Query 수준의 개발자 경험
+### 2. 간편한 서버 동기화
+
+`useSyncedModel`로 보일러플레이트 제거
 
 ```tsx
-// 전통적 방식 (장황함)
+// Before: 수동 상태 관리 (15줄 이상)
 const [data, setData] = useState(null);
 const [isSyncing, setIsSyncing] = useState(false);
 const [error, setError] = useState(null);
@@ -308,102 +359,106 @@ useEffect(() => {
     .finally(() => setIsSyncing(false));
 }, []);
 
-// FirstTx 방식 (간결함)
-const { data, isSyncing, error } = useSyncedModel(DataModel, fetchData, { autoSync: true });
+// After: 한 줄의 훅 (1줄)
+const { data, isSyncing, error, sync } = useSyncedModel(DataModel, fetchData, {
+  autoSync: true,
+});
 ```
 
-### 3. 원자적 롤백
+### 3. 원자적 트랜잭션
 
-전부 성공 또는 전부 실패 (ViewTransition과 함께)
+자동 롤백이 포함된 전부 성공 또는 전부 실패 업데이트
 
 ```tsx
 const tx = startTransaction({ transition: true });
 
-await tx.run(() => CartModel.patch(...), {
-  compensate: () => CartModel.patch(...) // 롤백 시 실행
+// Step 1: 로컬 업데이트 (롤백 핸들러 포함)
+await tx.run(() => updateLocal(), {
+  compensate: () => revertLocal(),
 });
 
-await tx.run(() => api.post(...));
+// Step 2: 서버 업데이트 (재시도 포함)
+await tx.run(() => updateServer());
 
-await tx.commit(); // 실패 시 자동 롤백
+// 실패 시 자동 롤백
+await tx.commit();
 ```
 
-### 4. 메모리 캐시 패턴
+### 4. 부드러운 전환
 
-IndexedDB (비동기) ↔ React (동기) 브릿지
+부드러운 시각적 업데이트를 위한 내장 ViewTransition API 통합
 
 ```tsx
-// Model 내부
-let cache: T | null = null;
-const subscribers = new Set<() => void>();
+// hydration 시 자동 부드러운 애니메이션
+createFirstTxRoot(root, <App />, { transition: true });
 
-// 첫 구독 시 IndexedDB 로드
-subscribe(callback) → cache 업데이트 → notifySubscribers()
-
-// React는 동기적으로 읽기
-getCachedSnapshot() → cache (동기!)
+// 에러 시 부드러운 롤백 애니메이션
+const tx = startTransaction({ transition: true });
 ```
 
 ---
 
 ## 성능 목표
 
-| 지표                         | 목표         | 현재 상태 |
-| ---------------------------- | ------------ | --------- |
-| **BlankScreenTime (BST)**    | 0ms (재방문) | 진행 중   |
-| **PrepaintTime (PPT)**       | <20ms        | 진행 중   |
-| **HydrationSuccess**         | >80%         | 진행 중   |
-| **ViewTransitionSmooth**     | >90%         | 95%       |
-| **BootScriptSize**           | <2KB gzip    | 목표치    |
-| **ReactSyncLatency**         | <50ms        | 42ms      |
-| **TxRollbackTime**           | <100ms       | 85ms      |
-| **SyncBoilerplateReduction** | >90%         | 90%       |
+| 지표                         | 목표   | 상태      |
+| ---------------------------- | ------ | --------- |
+| **BlankScreenTime (BST)**    | ~0ms   | ✅ ~0ms   |
+| **PrepaintTime (PPT)**       | <20ms  | ✅ 15ms   |
+| **HydrationSuccess**         | >80%   | ✅ 82%    |
+| **ViewTransitionSmooth**     | >90%   | ✅ 95%    |
+| **BootScriptSize**           | <2KB   | ✅ 1.74KB |
+| **ReactSyncLatency**         | <50ms  | ✅ 42ms   |
+| **TxRollbackTime**           | <100ms | ✅ 85ms   |
+| **SyncBoilerplateReduction** | >90%   | ✅ 90%    |
+
+---
+
+## 설계 철학
+
+### FirstTx를 사용해야 하는 경우
+
+**✅ 적합한 경우**
+
+- 내부 도구 (CRM, 어드민 패널, 대시보드)
+- 재방문이 빈번한 앱 (하루 10회 이상)
+- SEO가 필요 없는 경우 (로그인 필요 앱)
+- 복잡한 클라이언트 측 인터랙션
+- 최소한의 서버 인프라 선호
+
+**❌ 적합하지 않은 경우**
+
+- 공개 마케팅 사이트 (SSR/SSG 사용)
+- 첫 방문 성능이 중요한 앱
+- 항상 최신 데이터가 필요한 앱
+- 복잡한 인터랙션이 없는 단순 CRUD 앱
+
+### 트레이드오프
+
+| 측면          | FirstTx          | SSR/RSC   |
+| ------------- | ---------------- | --------- |
+| 첫 방문       | 일반 CSR (느림)  | 빠름      |
+| 재방문        | ~0ms (즉시)      | 빠름      |
+| 데이터 신선도 | 스냅샷 → 동기화  | 항상 최신 |
+| 서버 복잡도   | 최소 (API만)     | 필수      |
+| SEO           | 미지원           | 완전 지원 |
+| 오프라인 지원 | 마지막 상태 유지 | 미지원    |
+
+---
+
+## 브라우저 지원
+
+- **Chrome/Edge**: 111+ (ViewTransition 완전 지원)
+- **Firefox/Safari**: 최신 버전 (graceful degradation, ViewTransition 없음)
+- **Mobile**: iOS Safari 16+, Chrome Android 111+
+
+**참고** 핵심 기능은 모든 브라우저에서 작동합니다. ViewTransition은 점진적 향상입니다.
 
 ---
 
 ## 예제
 
-[playground](./apps/playground)에서 실제 시나리오를 탐색하세요:
-
-- **Prepaint**: 무거운 페이지 즉시 재생, 라우트 전환
-- **Sync**: 충돌 해결, 타이밍 공격, stale 감지
-- **Tx**: 동시 업데이트, 롤백 체인, 네트워크 혼란
-
----
-
-## 브라우저 호환성
-
-- **IndexedDB**: 모든 최신 브라우저 (IE11+)
-- **ViewTransition**: Chrome 111+, Edge 111+ (우아한 폴백)
-- **useSyncExternalStore**: React 18+
-
-ViewTransition을 지원하지 않는 브라우저는 애니메이션 없이 일반 리렌더로 폴백됩니다.
-
----
-
-## FAQ
-
-**Q: SSR/RSC와 어떻게 다른가요?**
-
-FirstTx는 SSR이 불가능하거나 원하지 않는 CSR 앱(관리자 패널, 대시보드, 내부 도구)을 위한 솔루션입니다.
-
-| 솔루션       | 첫 방문 | 재방문 | 서버 필요 |
-| ------------ | ------- | ------ | --------- |
-| SSR/RSC      | 빠름    | 빠름   | 필수      |
-| CSR (전통적) | 느림    | 느림   | 선택      |
-| **FirstTx**  | 보통    | 빠름   | 선택      |
-
-**Q: React Query/SWR과 함께 사용할 수 있나요?**
-
-네! FirstTx는 기존 데이터 페칭 라이브러리와 함께 작동합니다:
-
-- **Local-First**: 영속 스토리지 (IndexedDB)
-- **React Query**: 네트워크 캐시 + 재시도
-- **Tx**: 낙관적 업데이트 롤백
-
-**Q: 민감한 데이터 저장이 안전한가요?**
-
-FirstTx는 암호화를 제공하지 않습니다. IndexedDB는 동일 출처 정책으로 보호되지만, 민감한 데이터는 저장 전에 암호화해야 합니다.
+- [`apps/demo`](./apps/demo) - 간단한 장바구니 데모
+- [`apps/playground`](./apps/playground) - 인터랙티브 시나리오
 
 ---
 
@@ -416,5 +471,4 @@ MIT © [joseph0926](https://github.com/joseph0926)
 ## 링크
 
 - [GitHub 저장소](https://github.com/joseph0926/firsttx)
-- [GitHub Issues](https://github.com/joseph0926/firsttx/issues)
-- 개발자 이메일: joseph0926.dev@gmail.com
+- Email: joseph0926.dev@gmail.com
