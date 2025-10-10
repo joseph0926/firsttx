@@ -15,8 +15,8 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const labels = (pr.labels || []).map(l => (l.name || '').toLowerCase());
-            const typeLabels = labels.filter(n => n.startsWith('type: '));
-            const areaLabels = labels.filter(n => n.startsWith('area: '));
+            const typeLabels = labels.filter(n => n.startsWith('type-'));
+            const areaLabels = labels.filter(n => n.startsWith('area-'));
             const problems = [];
             if (typeLabels.length < 1) problems.push('• Add at least one `type: ...` label.');
             if (areaLabels.length !== 1) problems.push('• Add exactly one `area: ...` label (prepaint | local-first | tx | demo | playground).');

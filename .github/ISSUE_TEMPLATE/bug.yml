@@ -7,13 +7,13 @@ body:
     id: area
     attributes:
       label: Area
-      description: 'Select the affected area. Also add the matching `area: ...` label in the right sidebar.'
+      description: 'Select the affected area. Also add the matching `area-...` label in the right sidebar.'
       options:
-        - 'area: prepaint'
-        - 'area: local-first'
-        - 'area: tx'
-        - 'area: demo'
-        - 'area: playground'
+        - 'area-prepaint'
+        - 'area-local-first'
+        - 'area-tx'
+        - 'area-demo'
+        - 'area-playground'
     validations:
       required: true
 
