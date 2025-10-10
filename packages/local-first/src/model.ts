@@ -4,13 +4,21 @@ import { Storage } from './storage';
 import { FirstTxError, StorageError, ValidationError } from './errors';
 
 /**
- * CacheState
- * @description Internal cache state for Model
+ * Internal cache state
  */
 export type CacheState<T> =
   | { status: 'loading' }
   | { status: 'success'; data: T }
   | { status: 'error'; error: FirstTxError };
+
+/**
+ * Combined snapshot for React integration
+ */
+export type CombinedSnapshot<T> = {
+  data: T | null;
+  error: FirstTxError | null;
+  history: ModelHistory;
+};
 
 export type Model<T> = {
   name: string;
@@ -23,8 +31,9 @@ export type Model<T> = {
   replace: (data: T) => Promise<void>;
   getCachedSnapshot: () => T | null;
   getCachedError: () => FirstTxError | null;
+  getCachedHistory: () => ModelHistory;
+  getCombinedSnapshot: () => CombinedSnapshot<T>;
   subscribe: (callback: () => void) => () => void;
-  // TODO: Phase 1 - markConflicted, clearConflict,,,
 };
 
 export function defineModel<T>(
@@ -51,8 +60,45 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   let cacheState: CacheState<T> = { status: 'loading' };
   const subscribers = new Set<() => void>();
 
+  let cachedHistory: ModelHistory = {
+    updatedAt: 0,
+    age: Infinity,
+    isStale: true,
+    isConflicted: false,
+  };
+
+  let cachedSnapshot: CombinedSnapshot<T> = {
+    data: null,
+    error: null,
+    history: cachedHistory,
+  };
+
   const notifySubscribers = () => {
     subscribers.forEach((fn) => fn());
+  };
+
+  /**
+   * Updates cached history with current timestamp
+   */
+  const updateHistory = (updatedAt: number) => {
+    const age = Date.now() - updatedAt;
+    cachedHistory = {
+      updatedAt,
+      age,
+      isStale: age > options.ttl,
+      isConflicted: false,
+    };
+  };
+
+  /**
+   * Updates combined snapshot (creates new reference only when state changes)
+   */
+  const updateSnapshot = () => {
+    cachedSnapshot = {
+      data: cacheState.status === 'success' ? cacheState.data : null,
+      error: cacheState.status === 'error' ? cacheState.error : null,
+      history: cachedHistory,
+    };
   };
 
   const model: Model<T> = {
@@ -62,9 +108,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     merge: options.merge ?? ((_, next) => next),
 
     /**
-     * getSnapshot
-     * @description Returns a validated snapshot for use in the main app.
-     * @returns Promise<T | null>
+     * Async snapshot retrieval from IndexedDB
      */
     getSnapshot: async () => {
       const storage = Storage.getInstance();
@@ -103,9 +147,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     },
 
     /**
-     * getHistory
-     * @description Returns metadata about the model's state (age, staleness, conflicts).
-     * @returns Promise<ModelHistory>
+     * Async history retrieval from IndexedDB
      */
     getHistory: async (): Promise<ModelHistory> => {
       const storage = Storage.getInstance();
@@ -126,14 +168,12 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         updatedAt: stored.updatedAt,
         age,
         isStale: age > options.ttl,
-        isConflicted: false, // TODO: Phase 1
+        isConflicted: false,
       };
     },
 
     /**
-     * replace
-     * @description Replaces the entire stored data with server data
-     * @param data Server data to store
+     * Replaces entire model data (used for server sync)
      */
     replace: async (data: T): Promise<void> => {
       const parseResult = options.schema.safeParse(data);
@@ -146,24 +186,22 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       }
 
       const storage = Storage.getInstance();
+      const now = Date.now();
+
       await storage.set(name, {
         _v: options.version ?? 1,
-        updatedAt: Date.now(),
+        updatedAt: now,
         data: parseResult.data,
       });
 
       cacheState = { status: 'success', data: parseResult.data };
+      updateHistory(now);
+      updateSnapshot();
       notifySubscribers();
     },
 
     /**
-     * patch
-     * @description Mutates the draft object to update stored data
-     * @param mutator Function that receives a draft and modifies it directly
-     * @example
-     * await model.patch(draft => {
-     *   draft.items.push(newItem)
-     * })
+     * Patches model data with mutator function (used for optimistic updates)
      */
     patch: async (mutator: (draft: T) => void): Promise<void> => {
       const storage = Storage.getInstance();
@@ -191,16 +229,18 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         );
       }
 
+      const now = Date.now();
+
       await storage.set<T>(name, {
         _v: options.version ?? 1,
-        updatedAt: Date.now(),
+        updatedAt: now,
         data: parseResult.data,
       });
 
       cacheState = { status: 'success', data: parseResult.data };
+      updateHistory(now);
+      updateSnapshot();
       notifySubscribers();
-
-      // TODO: Phase 1 - BroadcastChannel
     },
 
     getCachedSnapshot: () => {
@@ -211,11 +251,19 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       return cacheState.status === 'error' ? cacheState.error : null;
     },
 
+    getCachedHistory: () => {
+      return cachedHistory;
+    },
+
     /**
-     * Subscribes to model changes for React integration.
-     * Initializes cache on first subscription.
-     * @param callback - Function called when model data changes
-     * @returns Unsubscribe function
+     * Returns combined snapshot with stable reference (prevents infinite loops)
+     */
+    getCombinedSnapshot: () => {
+      return cachedSnapshot;
+    },
+
+    /**
+     * Subscribes to model changes (React integration)
      */
     subscribe: (callback) => {
       subscribers.add(callback);
@@ -223,9 +271,18 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       if (subscribers.size === 1 && cacheState.status === 'loading') {
         model
           .getSnapshot()
-          .then((data) => {
-            cacheState = data ? { status: 'success', data } : { status: 'loading' };
-            notifySubscribers();
+          .then(async (data) => {
+            if (data) {
+              cacheState = { status: 'success', data };
+              const history = await model.getHistory();
+              cachedHistory = history;
+              updateSnapshot();
+              notifySubscribers();
+            } else {
+              cacheState = { status: 'loading' };
+              updateSnapshot();
+              notifySubscribers();
+            }
           })
           .catch((error: unknown) => {
             if (error instanceof FirstTxError) {
@@ -241,6 +298,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
                 ),
               };
             }
+            updateSnapshot();
             notifySubscribers();
           });
       }

@@ -1,65 +1,61 @@
-import { useSyncExternalStore, useState, useEffect, useCallback } from 'react';
-import type { ModelHistory, SyncOptions, SyncedModelResult, Fetcher } from './types';
+import { useSyncExternalStore, useState, useEffect, useCallback, useRef } from 'react';
+import type { SyncOptions, SyncedModelResult, Fetcher } from './types';
 import type { Model } from './model';
 
+/**
+ * React hook for subscribing to model changes
+ */
 export function useModel<T>(model: Model<T>) {
-  const state = useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     model.subscribe,
-    model.getCachedSnapshot,
-    model.getCachedSnapshot,
+    model.getCombinedSnapshot,
+    model.getCombinedSnapshot,
   );
-
-  const error = useSyncExternalStore(model.subscribe, model.getCachedError, model.getCachedError);
-
-  const [history, setHistory] = useState<ModelHistory>({
-    updatedAt: 0,
-    age: Infinity,
-    isStale: true,
-    isConflicted: false,
-  });
-
-  useEffect(() => {
-    model
-      .getHistory()
-      .then(setHistory)
-      .catch((error: unknown) => {
-        console.error(`[FirstTx] Failed to load history for model "${model.name}":`, error);
-      });
-  }, [model]);
-
-  useEffect(() => {
-    const unsubscribe = model.subscribe(() => {
-      model
-        .getHistory()
-        .then(setHistory)
-        .catch(() => {});
-    });
-    return unsubscribe;
-  }, [model]);
 
   const patch = async (mutator: (draft: T) => void) => {
     await model.patch(mutator);
   };
 
-  return [state, patch, history, error] as const;
+  return [snapshot.data, patch, snapshot.history, snapshot.error] as const;
 }
 
+/**
+ * React hook with built-in server synchronization
+ * Features: autoSync, race condition prevention, stable fetcher reference
+ */
 export function useSyncedModel<T>(
   model: Model<T>,
   fetcher: Fetcher<T>,
   options?: SyncOptions<T>,
 ): SyncedModelResult<T> {
-  const [state, patch, history] = useModel(model);
+  const [state, patch, history, error] = useModel(model);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<Error | null>(null);
 
+  const syncInProgressRef = useRef(false);
+  const fetcherRef = useRef(fetcher);
+  const optionsRef = useRef(options);
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+    optionsRef.current = options;
+  });
+
+  /**
+   * Syncs with server (prevents concurrent calls)
+   */
   const sync = useCallback(async () => {
+    if (syncInProgressRef.current) {
+      return;
+    }
+
+    syncInProgressRef.current = true;
     setIsSyncing(true);
     setSyncError(null);
 
     try {
       const currentData = model.getCachedSnapshot();
-      const data = await fetcher(currentData);
+      const data = await fetcherRef.current(currentData);
 
       if ('startViewTransition' in document) {
         await document.startViewTransition(() => model.replace(data)).finished;
@@ -67,11 +63,11 @@ export function useSyncedModel<T>(
         await model.replace(data);
       }
 
-      options?.onSuccess?.(data);
+      optionsRef.current?.onSuccess?.(data);
     } catch (e) {
       const error = e as Error;
       setSyncError(error);
-      options?.onError?.(error);
+      optionsRef.current?.onError?.(error);
 
       if (process.env.NODE_ENV !== 'production') {
         console.error(`[FirstTx] Sync failed for model "${model.name}":`, error);
@@ -79,22 +75,36 @@ export function useSyncedModel<T>(
 
       throw error;
     } finally {
+      syncInProgressRef.current = false;
       setIsSyncing(false);
     }
-  }, [model, fetcher, options]);
+  }, [model]);
 
+  /**
+   * AutoSync: triggers when data becomes stale
+   */
   useEffect(() => {
-    if (options?.autoSync && history.updatedAt > 0 && history.isStale && !isSyncing) {
+    console.log('[AutoSync Debug]', {
+      autoSync: optionsRef.current?.autoSync,
+      updatedAt: history.updatedAt,
+      isStale: history.isStale,
+      isSyncing,
+      willTrigger:
+        optionsRef.current?.autoSync && history.updatedAt > 0 && history.isStale && !isSyncing,
+    });
+
+    if (optionsRef.current?.autoSync && history.updatedAt > 0 && history.isStale && !isSyncing) {
+      console.log('[AutoSync] Triggering sync!');
       sync().catch(() => {});
     }
-  }, [options?.autoSync, history.isStale, history.updatedAt, isSyncing]);
+  }, [history.isStale, history.updatedAt, isSyncing, sync]);
 
   return {
     data: state,
     patch,
     sync,
     isSyncing,
-    error: syncError,
+    error: syncError || error,
     history,
   };
 }

@@ -299,8 +299,12 @@ describe('useSyncedModel', () => {
         ttl: 100,
       });
 
-      await TestModel.replace({ value: 'old' });
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      const storage = Storage.getInstance();
+      await storage.set('autosync-stale', {
+        _v: 1,
+        updatedAt: Date.now() - 150,
+        data: { value: 'old' },
+      });
 
       const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
 
@@ -342,8 +346,12 @@ describe('useSyncedModel', () => {
         ttl: 100,
       });
 
-      await TestModel.replace({ value: 'old' });
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      const storage = Storage.getInstance();
+      await storage.set('autosync-debounce', {
+        _v: 1,
+        updatedAt: Date.now() - 150,
+        data: { value: 'old' },
+      });
 
       let resolveCount = 0;
       const fetcher = vi.fn().mockImplementation(() => {
@@ -357,7 +365,7 @@ describe('useSyncedModel', () => {
 
       renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
@@ -648,13 +656,15 @@ describe('useSyncedModel', () => {
       const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
       await act(async () => {
-        await Promise.all([result.current.sync(), result.current.sync(), result.current.sync()]);
+        const promises = [result.current.sync(), result.current.sync(), result.current.sync()];
+
+        await Promise.all(promises);
       });
 
-      expect(fetcher).toHaveBeenCalledTimes(3);
+      expect(fetcher).toHaveBeenCalledTimes(1);
 
       await waitFor(() => {
-        expect(result.current.data?.count).toBe(3);
+        expect(result.current.data?.count).toBe(1);
       });
     });
 
