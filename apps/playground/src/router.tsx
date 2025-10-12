@@ -2,7 +2,7 @@ import { createBrowserRouter, RouterProvider, type RouteObject } from 'react-rou
 import RootLayout from './pages/root.layout';
 import HomePage from './pages/home.page';
 import { ThemeProvider } from './components/theme-provider';
-import { Analytics } from '@vercel/analytics/next';
+import { Analytics } from '@vercel/analytics/react';
 
 const routerObjects: RouteObject[] = [
   {
