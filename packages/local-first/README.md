@@ -110,7 +110,7 @@ function CartPage() {
     error,
     history,
   } = useSyncedModel(CartModel, fetchCart, {
-    autoSync: true, // Auto-sync when data becomes stale
+    syncOnMount: 'stale', // Sync on mount when data is stale (default)
     onSuccess: (data) => console.log('Synced:', data),
     onError: (err) => toast.error(err.message),
   });
@@ -148,7 +148,7 @@ useEffect(() => {
 }, []);
 
 // useSyncedModel (concise)
-const { data, isSyncing, error, sync } = useSyncedModel(DataModel, fetchData, { autoSync: true });
+const { data, isSyncing, error, sync } = useSyncedModel(DataModel, fetchData);
 ```
 
 ### 4. Update Data with `patch()`
@@ -222,7 +222,10 @@ Basic React hook for subscribing to model changes.
   - Type: `(current: T | null) => Promise<T>`
   - Receives current local data (useful for delta sync)
 - `options?` (SyncOptions<T>):
-  - `autoSync?` (boolean): Auto-sync when data becomes stale (default: `false`)
+  - `syncOnMount?` ('always' | 'stale' | 'never'): When to sync on mount (default: `'stale'`)
+    - `'stale'`: Sync only when data exceeds TTL
+    - `'always'`: Always sync on mount, regardless of freshness
+    - `'never'`: Never auto-sync, manual `sync()` only
   - `onSuccess?` (callback): Called after successful sync
   - `onError?` (callback): Called on sync failure
 
@@ -264,9 +267,8 @@ return (
 **Example - Auto-sync:**
 
 ```tsx
-const { data, history } = useSyncedModel(CartModel, fetchCart, {
-  autoSync: true, // Syncs automatically when history.isStale becomes true
-});
+const { data, history } = useSyncedModel(CartModel, fetchCart);
+// Syncs on mount when stale (default behavior)
 
 return (
   <div>
@@ -298,9 +300,8 @@ model.subscribe(callback);              // Subscribe to changes
 ### Pattern 1: Auto-Sync with Staleness Detection
 
 ```tsx
-const { data, history } = useSyncedModel(ProductsModel, fetchProducts, {
-  autoSync: true,
-});
+const { data, history } = useSyncedModel(ProductsModel, fetchProducts);
+// Uses default syncOnMount: 'stale'
 
 return (
   <div>
@@ -375,7 +376,8 @@ async function fetchCartDelta(current) {
   };
 }
 
-const { data } = useSyncedModel(CartModel, fetchCartDelta, { autoSync: true });
+const { data } = useSyncedModel(CartModel, fetchCartDelta);
+// Default: syncs on mount when stale
 ```
 
 ---
@@ -385,7 +387,8 @@ const { data } = useSyncedModel(CartModel, fetchCartDelta, { autoSync: true });
 ### DO
 
 - **Use `useSyncedModel` for server-backed data** - Eliminates boilerplate
-- **Use `autoSync: true` for frequently changing data** - Keeps data fresh
+- **Use default `syncOnMount` for most cases** - Syncs when revisiting stale data
+- **Use `syncOnMount: 'always'` for critical data** - Always fetch latest on mount
 - **Render skeletons** when `data === null` (cache warming)
 - **Show sync indicators** using `isSyncing` and `history.isStale`
 - **Handle errors gracefully** with `onError` callback

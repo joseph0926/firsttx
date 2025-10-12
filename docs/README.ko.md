@@ -158,7 +158,7 @@ function CartPage() {
     error,
     history,
   } = useSyncedModel(CartModel, fetchCart, {
-    autoSync: true, // TTL 초과/스테일 시 자동 동기화
+    syncOnMount: 'stale', // 마운트 시 스테일이면 동기화 (기본값)
     onSuccess: (d) => console.log('Synced:', d),
     onError: (e) => console.error(e),
   });
@@ -178,16 +178,19 @@ function CartPage() {
 }
 ```
 
-**autoSync 전략**
+**syncOnMount 전략**
 
-| 전략                     | 사용 시점            | 예시                   |
-| ------------------------ | -------------------- | ---------------------- |
-| `autoSync: true`         | 신선도가 중요할 때   | 시세, 알림, 대시보드   |
-| `autoSync: false` (기본) | 사용자 주도 새로고침 | 장바구니, 드래프트, 폼 |
+| 전략             | 사용 시점                   | 예시                                 |
+| ---------------- | --------------------------- | ------------------------------------ |
+| `'stale'` (기본) | TTL 초과 시 동기화          | 대부분의 경우 - 신선도와 UX 균형     |
+| `'always'`       | 마운트마다 항상 최신 데이터 | 중요 데이터 - 시세, 잔액             |
+| `'never'`        | 수동 동기화만               | 드래프트, 오프라인 우선, 사용자 제어 |
 
 ```tsx
-// 수동 동기화 (autoSync: false)
-const { data, sync, isSyncing } = useSyncedModel(Model, fetcher);
+// 수동 동기화 (syncOnMount: 'never')
+const { data, sync, isSyncing } = useSyncedModel(Model, fetcher, {
+  syncOnMount: 'never',
+});
 <button onClick={sync} disabled={isSyncing}>
   {isSyncing ? 'Syncing…' : 'Refresh'}
 </button>;

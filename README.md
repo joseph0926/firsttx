@@ -160,7 +160,7 @@ function CartPage() {
     error,
     history,
   } = useSyncedModel(CartModel, fetchCart, {
-    autoSync: true, // Sync when stale/TTL exceeded
+    syncOnMount: 'stale', // Sync on mount when stale (default)
     onSuccess: (d) => console.log('Synced:', d),
     onError: (e) => console.error(e),
   });
@@ -180,16 +180,19 @@ function CartPage() {
 }
 ```
 
-**autoSync strategies**
+**syncOnMount strategies**
 
-| Strategy                    | When to use             | Examples                                |
-| --------------------------- | ----------------------- | --------------------------------------- |
-| `autoSync: true`            | Data must stay fresh    | Stock prices, notifications, dashboards |
-| `autoSync: false` (default) | User-controlled refresh | Carts, drafts, forms                    |
+| Strategy            | When to use                  | Examples                               |
+| ------------------- | ---------------------------- | -------------------------------------- |
+| `'stale'` (default) | Sync when data exceeds TTL   | Most cases - balance freshness & UX    |
+| `'always'`          | Always fetch latest on mount | Critical data - stock prices, balances |
+| `'never'`           | Manual sync only             | Drafts, offline-first, user-controlled |
 
 ```tsx
-// Manual sync (autoSync: false)
-const { data, sync, isSyncing } = useSyncedModel(Model, fetcher);
+// Manual sync (syncOnMount: 'never')
+const { data, sync, isSyncing } = useSyncedModel(Model, fetcher, {
+  syncOnMount: 'never',
+});
 <button onClick={sync} disabled={isSyncing}>
   {isSyncing ? 'Syncing…' : 'Refresh'}
 </button>;
