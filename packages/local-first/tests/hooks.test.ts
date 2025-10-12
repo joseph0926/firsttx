@@ -202,7 +202,7 @@ describe('useSyncedModel', () => {
       const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
       expect(result.current.data).toBeNull();
-      expect(result.current.isSyncing).toBe(false);
+      expect(result.current.isSyncing).toBe(true);
       expect(result.current.error).toBeNull();
     });
 
@@ -277,30 +277,15 @@ describe('useSyncedModel', () => {
     });
   });
 
-  describe('AutoSync', () => {
-    it('should NOT auto-sync by default (autoSync: false)', async () => {
-      const TestModel = defineModel('no-autosync', {
-        schema: z.object({ value: z.string() }),
-        ttl: 100,
-      });
-
-      const fetcher = vi.fn().mockResolvedValue({ value: 'auto' });
-
-      renderHook(() => useSyncedModel(TestModel, fetcher));
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      expect(fetcher).not.toHaveBeenCalled();
-    });
-
-    it('should auto-sync when isStale and autoSync: true', async () => {
-      const TestModel = defineModel('autosync-stale', {
+  describe('SyncOnMount', () => {
+    it('should sync on mount when data is stale (default behavior)', async () => {
+      const TestModel = defineModel('sync-on-mount-stale', {
         schema: z.object({ value: z.string() }),
         ttl: 100,
       });
 
       const storage = Storage.getInstance();
-      await storage.set('autosync-stale', {
+      await storage.set('sync-on-mount-stale', {
         _v: 1,
         updatedAt: Date.now() - 150,
         data: { value: 'old' },
@@ -308,7 +293,7 @@ describe('useSyncedModel', () => {
 
       const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
 
-      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
       await waitFor(
         () => {
@@ -319,8 +304,8 @@ describe('useSyncedModel', () => {
       );
     });
 
-    it('should NOT auto-sync if data is fresh', async () => {
-      const TestModel = defineModel('autosync-fresh', {
+    it('should NOT sync on mount when data is fresh (default behavior)', async () => {
+      const TestModel = defineModel('sync-on-mount-fresh', {
         schema: z.object({ value: z.string() }),
         ttl: 5000,
       });
@@ -329,7 +314,7 @@ describe('useSyncedModel', () => {
 
       const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
 
-      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
       await waitFor(() => {
         expect(result.current.data).toEqual({ value: 'fresh' });
@@ -340,14 +325,62 @@ describe('useSyncedModel', () => {
       expect(fetcher).not.toHaveBeenCalled();
     });
 
-    it('should NOT trigger multiple syncs if already syncing', async () => {
-      const TestModel = defineModel('autosync-debounce', {
+    it('should always sync on mount when syncOnMount: "always"', async () => {
+      const TestModel = defineModel('sync-on-mount-always', {
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+
+      await TestModel.replace({ value: 'fresh' });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'newer' });
+
+      const { result } = renderHook(() =>
+        useSyncedModel(TestModel, fetcher, { syncOnMount: 'always' }),
+      );
+
+      await waitFor(() => {
+        expect(fetcher).toHaveBeenCalled();
+        expect(result.current.data).toEqual({ value: 'newer' });
+      });
+    });
+
+    it('should never sync on mount when syncOnMount: "never"', async () => {
+      const TestModel = defineModel('sync-on-mount-never', {
         schema: z.object({ value: z.string() }),
         ttl: 100,
       });
 
       const storage = Storage.getInstance();
-      await storage.set('autosync-debounce', {
+      await storage.set('sync-on-mount-never', {
+        _v: 1,
+        updatedAt: Date.now() - 150,
+        data: { value: 'old' },
+      });
+
+      const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
+
+      const { result } = renderHook(() =>
+        useSyncedModel(TestModel, fetcher, { syncOnMount: 'never' }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({ value: 'old' });
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(fetcher).not.toHaveBeenCalled();
+    });
+
+    it('should NOT trigger multiple syncs on mount', async () => {
+      const TestModel = defineModel('sync-on-mount-debounce', {
+        schema: z.object({ value: z.string() }),
+        ttl: 100,
+      });
+
+      const storage = Storage.getInstance();
+      await storage.set('sync-on-mount-debounce', {
         _v: 1,
         updatedAt: Date.now() - 150,
         data: { value: 'old' },
@@ -363,7 +396,7 @@ describe('useSyncedModel', () => {
         });
       });
 
-      renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+      renderHook(() => useSyncedModel(TestModel, fetcher));
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -386,7 +419,7 @@ describe('useSyncedModel', () => {
 
       const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
-      expect(result.current.isSyncing).toBe(false);
+      expect(result.current.isSyncing).toBe(true);
 
       act(() => {
         void result.current.sync();
@@ -675,19 +708,23 @@ describe('useSyncedModel', () => {
       });
 
       const fetcher = vi.fn().mockImplementation(() => {
+        console.log('[FETCHER] 시작');
         return new Promise((resolve) => {
-          setTimeout(() => resolve({ value: 'done' }), 100);
+          setTimeout(() => {
+            console.log('[FETCHER] 완료');
+            resolve({ value: 'done' });
+          }, 100);
         });
       });
 
-      const { result, unmount } = renderHook(() => useSyncedModel(TestModel, fetcher));
+      const { result, unmount } = renderHook(() =>
+        useSyncedModel(TestModel, fetcher, { syncOnMount: 'never' }),
+      );
 
       const syncPromise = result.current.sync();
-
       unmount();
 
       await expect(syncPromise).resolves.toBeUndefined();
-
       const stored = await Storage.getInstance().get('unmount-sync');
       expect(stored?.data).toEqual({ value: 'done' });
     });
@@ -765,21 +802,21 @@ describe('useSyncedModel', () => {
       });
     });
 
-    it('should handle rapid autoSync triggers', async () => {
-      const TestModel = defineModel('rapid-autosync', {
+    it('should not trigger sync from history changes after mount', async () => {
+      const TestModel = defineModel('no-history-trigger', {
         schema: z.object({ value: z.string() }),
         ttl: 50,
       });
 
-      await TestModel.replace({ value: 'old' });
+      await TestModel.replace({ value: 'initial' });
 
       const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
 
-      renderHook(() => useSyncedModel(TestModel, fetcher, { autoSync: true }));
+      renderHook(() => useSyncedModel(TestModel, fetcher));
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-      expect(fetcher.mock.calls.length).toBeLessThanOrEqual(2);
+      expect(fetcher).not.toHaveBeenCalled();
     });
   });
 });

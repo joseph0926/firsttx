@@ -60,7 +60,15 @@ export interface ModelHistory {
 }
 
 export type SyncOptions<T> = {
-  autoSync?: boolean;
+  /**
+   * When to sync on component mount
+   * @default 'stale'
+   *
+   * - 'always': Always sync on mount, regardless of data freshness
+   * - 'stale': Sync only if data is stale (exceeds TTL)
+   * - 'never': Never auto-sync, only manual sync() calls
+   */
+  syncOnMount?: 'always' | 'stale' | 'never';
   onSuccess?: (data: T) => void;
   onError?: (error: Error) => void;
 };

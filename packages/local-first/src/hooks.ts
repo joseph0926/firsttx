@@ -83,14 +83,15 @@ export function useSyncedModel<T>(
     }
   }, [model]);
 
-  /**
-   * AutoSync: triggers when data becomes stale
-   */
   useEffect(() => {
-    if (optionsRef.current?.autoSync && history.updatedAt > 0 && history.isStale && !isSyncing) {
+    const syncOnMount = optionsRef.current?.syncOnMount ?? 'stale';
+
+    if (syncOnMount === 'never') return;
+
+    if (syncOnMount === 'always' || (syncOnMount === 'stale' && history.isStale)) {
       sync().catch(() => {});
     }
-  }, [history.isStale, history.updatedAt, isSyncing, sync]);
+  }, []);
 
   return {
     data: state,
