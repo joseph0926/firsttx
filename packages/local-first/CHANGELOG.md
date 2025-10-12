@@ -1,5 +1,16 @@
 # @firsttx/local-first
 
+## 0.3.1
+
+### Patch Changes
+
+delay auto-sync until model hydration to prevent premature stale checks
+
+Previously, useSyncedModel triggered sync-on-mount before IndexedDB hydration,
+causing stale mode ('syncOnMount: "stale"') to always refetch on every reload.
+This change defers the auto-sync decision until after the model's history has
+been loaded, ensuring sync only runs when data is actually stale.
+
 ## 0.3.0
 
 ### Minor Changes
