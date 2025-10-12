@@ -83,15 +83,36 @@ export function useSyncedModel<T>(
     }
   }, [model]);
 
+  const didAutoSyncRef = useRef<boolean>(false);
+
   useEffect(() => {
-    const syncOnMount = optionsRef.current?.syncOnMount ?? 'stale';
-
-    if (syncOnMount === 'never') return;
-
-    if (syncOnMount === 'always' || (syncOnMount === 'stale' && history.isStale)) {
-      sync().catch(() => {});
+    if (didAutoSyncRef.current) return;
+    const mode = optionsRef.current?.syncOnMount ?? 'stale';
+    if (mode === 'never') {
+      didAutoSyncRef.current = true;
+      return;
     }
-  }, []);
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const h = await model.getHistory();
+        const shouldSync = mode === 'always' || (mode === 'stale' && h.isStale);
+        if (!cancelled && shouldSync) {
+          didAutoSyncRef.current = true;
+          await sync();
+        } else {
+          didAutoSyncRef.current = true;
+        }
+      } catch {
+        didAutoSyncRef.current = true;
+      }
+    })().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [model, sync]);
 
   return {
     data: state,
