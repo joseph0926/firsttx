@@ -4,24 +4,30 @@
 
 # FirstTx
 
-**CSR 앱의 재방문 경험을 SSR 수준으로**
+**CSR 앱의 재방문 경험을 SSR처럼**
 
-> 두 번째 방문부터 마지막 상태를 즉시 복원하고 낙관적 업데이트를 안전하게 롤백하여, 서버 인프라 없이도 빠르고 일관된 경험을 제공합니다.
+두 번째 방문부터는 마지막 상태를 즉시 복원하고, 낙관적 업데이트 실패 시 안전하게 롤백합니다. 서버 인프라를 늘리지 않고도 빠르고 일관된 사용자 경험을 제공합니다.
 
 ---
 
 ## 목차
 
-- [핵심 가치](#핵심-가치)
-- [빠른 시작](#빠른-시작)
-- [아키텍처](#아키텍처)
-- [패키지](#패키지)
-- [주요 기능](#주요-기능)
-- [성능 목표](#성능-목표)
-- [설계 철학](#설계-철학)
-- [브라우저 지원](#브라우저-지원)
-- [예제](#예제)
-- [라이선스](#라이선스)
+- 핵심 가치
+- 빠른 시작
+- 오버레이 모드(안전한 프리페인트)
+- 아키텍처
+- 패키지
+- 핵심 기능
+- Vite 플러그인(고급)
+- TypeScript & 전역 변수
+- 라우터 연동 참고
+- 성능 목표
+- 설계 철학
+- 브라우저 지원
+- 문제 해결
+- 예제
+- 라이선스
+- 링크
 
 ---
 
@@ -30,30 +36,30 @@
 ### 문제: CSR 재방문 경험
 
 ```
-매 방문마다: 빈 화면 → API 대기 → 데이터 표시
-새로고침 시 진행 상태 손실
-낙관적 업데이트 실패 시 일부만 롤백되는 불일치
-서버 동기화 보일러플레이트로 복잡해지는 컴포넌트
+매 방문: 빈 화면 → API 대기 → 데이터 표시
+새로고침 시 진행 중이던 작업 소실
+낙관적 업데이트 실패 시 부분 롤백 불일치
+서버 동기화 보일러플레이트가 컴포넌트를 어지럽힘
 ```
 
-### 솔루션: FirstTx = Prepaint + Local-First + Tx
+### 해결: FirstTx = Prepaint + Local-First + Tx
 
 ```
 [재방문 시나리오]
-1. /cart 재방문 → 어제 담은 상품 3개 즉시 표시 (~0ms)
-2. 메인 앱 로드 → React hydration → 스냅샷 DOM 재사용
-3. 서버 동기화 → ViewTransition으로 부드러운 업데이트 (3개 → 5개)
-4. "+1" 클릭 → Tx 시작 → 낙관 패치 → 서버 에러
-5. 자동 롤백 → ViewTransition으로 부드럽게 원래 상태로 복귀
+1. /cart 재방문 → 어제의 3개 아이템을 즉시 표시(~0ms)
+2. 메인 앱 로드 → React 하이드레이션 → 스냅샷 DOM 재사용
+3. 서버 동기화 → ViewTransition으로 부드럽게 갱신(3 → 5개)
+4. “+1” 클릭 → Tx 시작 → 낙관적 패치 → 서버 오류
+5. 자동 롤백 → ViewTransition으로 원상복귀
 ```
 
 **결과**
 
 - 재방문 시 빈 화면 시간 ≈ 0ms
-- 스냅샷에서 최신 데이터로 전환 시 부드러운 애니메이션
-- 낙관적 업데이트 실패 시 일관된 원자적 롤백
-- 서버 동기화 보일러플레이트 90% 감소
-- 오프라인에서도 마지막 상태 유지
+- 스냅샷 → 최신 데이터 전환 시 자연스러운 애니메이션
+- 낙관적 업데이트 실패에도 일관된 원자적 롤백
+- 서버 동기화 보일러플레이트 약 90% 감소
+- 오프라인에서도 마지막 상태 보존
 
 ---
 
@@ -67,23 +73,23 @@ pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 
 ### 기본 설정
 
-#### 1. Vite 플러그인 설정
+#### 1) Vite 플러그인
 
-```tsx
+```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
   plugins: [
-    firstTx(), // Instant Replay를 위한 부트 스크립트 자동 주입
+    firstTx(), // 스냅샷 복원을 위한 부트 스크립트 자동 주입
   ],
 });
 ```
 
-#### 2. 모델 정의
+#### 2) 모델 정의
 
-```tsx
+```ts
 // models/cart-model.ts
 import { defineModel } from '@firsttx/local-first';
 import { z } from 'zod';
@@ -103,7 +109,7 @@ export const CartModel = defineModel('cart', {
 });
 ```
 
-#### 3. 메인 앱 진입점
+#### 3) 진입점
 
 ```tsx
 // main.tsx
@@ -113,7 +119,7 @@ import App from './App';
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-#### 4. React 컴포넌트 (기본 - 로컬만)
+#### 4) 로컬 전용
 
 ```tsx
 import { useModel } from '@firsttx/local-first';
@@ -121,9 +127,7 @@ import { CartModel } from './models/cart-model';
 
 function CartPage() {
   const [cart, patch, history] = useModel(CartModel);
-
   if (!cart) return <Skeleton />;
-
   return (
     <div>
       {cart.items.map((item) => (
@@ -134,15 +138,15 @@ function CartPage() {
 }
 ```
 
-#### 5. React 컴포넌트 (서버 동기화)
+#### 5) 서버 동기화 포함
 
 ```tsx
 import { useSyncedModel } from '@firsttx/local-first';
 import { CartModel } from './models/cart-model';
 
 async function fetchCart() {
-  const response = await fetch('/api/cart');
-  return response.json();
+  const res = await fetch('/api/cart');
+  return res.json();
 }
 
 function CartPage() {
@@ -154,9 +158,9 @@ function CartPage() {
     error,
     history,
   } = useSyncedModel(CartModel, fetchCart, {
-    autoSync: true, // 데이터가 TTL을 초과하면 자동 동기화
-    onSuccess: (data) => console.log('동기화 완료:', data),
-    onError: (err) => toast.error(err.message),
+    autoSync: true, // TTL 초과/스테일 시 자동 동기화
+    onSuccess: (d) => console.log('Synced:', d),
+    onError: (e) => console.error(e),
   });
 
   if (!cart) return <Skeleton />;
@@ -165,7 +169,7 @@ function CartPage() {
   return (
     <div>
       {isSyncing && <SyncIndicator />}
-      {history.isStale && <Badge>업데이트 중...</Badge>}
+      {history.isStale && <Badge>Updating...</Badge>}
       {cart.items.map((item) => (
         <CartItem key={item.id} {...item} />
       ))}
@@ -176,78 +180,119 @@ function CartPage() {
 
 **autoSync 전략**
 
-| 전략                       | 사용 시기                      | 사용 예시                 |
-| -------------------------- | ------------------------------ | ------------------------- |
-| `autoSync: true`           | 데이터가 항상 최신이어야 할 때 | 주식 가격, 알림, 대시보드 |
-| `autoSync: false` (기본값) | 사용자가 새로고침을 제어할 때  | 장바구니, 초안 편집기, 폼 |
+| 전략                     | 사용 시점            | 예시                   |
+| ------------------------ | -------------------- | ---------------------- |
+| `autoSync: true`         | 신선도가 중요할 때   | 시세, 알림, 대시보드   |
+| `autoSync: false` (기본) | 사용자 주도 새로고침 | 장바구니, 드래프트, 폼 |
 
 ```tsx
-// 수동 동기화 예시 (autoSync: false)
+// 수동 동기화 (autoSync: false)
 const { data, sync, isSyncing } = useSyncedModel(Model, fetcher);
-
 <button onClick={sync} disabled={isSyncing}>
-  {isSyncing ? '동기화 중...' : '새로고침'}
+  {isSyncing ? 'Syncing…' : 'Refresh'}
 </button>;
 ```
 
-#### 6. Tx로 낙관적 업데이트
+#### 6) Tx로 낙관적 업데이트
 
-```tsx
+```ts
 import { startTransaction } from '@firsttx/tx';
 import { CartModel } from './models/cart-model';
 
 async function addItem(product) {
   const tx = startTransaction({ transition: true });
 
-  // Step 1: 낙관적 로컬 업데이트
   await tx.run(
     () =>
-      CartModel.patch((draft) => {
-        draft.items.push({ ...product, qty: 1 });
+      CartModel.patch((d) => {
+        d.items.push({ ...product, qty: 1 });
       }),
     {
       compensate: () =>
-        CartModel.patch((draft) => {
-          draft.items.pop();
+        CartModel.patch((d) => {
+          d.items.pop();
         }),
     },
   );
 
-  // Step 2: 서버 확인
   await tx.run(() => api.post('/cart/add', { id: product.id }));
 
-  // 커밋 (실패 시 자동 롤백)
   await tx.commit();
 }
 ```
 
 ---
 
+## 오버레이 모드(안전한 프리페인트)
+
+일부 클라이언트 라우터나 서드파티 코드가 시작 시점에 루트 노드를 일시적으로 추가/재배치하는 경우가 있습니다. 이때 스냅샷을 바로 `#root`에 주입하면 새로고침 시 **UI 중복**이 발생할 수 있습니다. 이를 방지하기 위해 **오버레이 모드**를 제공합니다.
+
+- 스냅샷을 **고정(fixed), pointer-events:none** 오버레이에 **Shadow DOM**으로 렌더링
+- 실제 앱은 오버레이 아래에서 하이드레이션 수행
+- 하이드레이션 안정화 후, 오버레이와 프리페인트 스타일 제거
+- 결과: 즉시 시각적 피드백 + 중복 렌더링 위험 제거
+
+**오버레이 활성화 방법**
+
+1. **Vite 플러그인 옵션**(권장)
+
+```ts
+firstTx({
+  overlay: true, // 전역 활성화
+  overlayRoutes: ['/prepaint/'], // 일부 경로 프리픽스만 활성화
+});
+```
+
+2. **LocalStorage 토글**(빌드 없이)
+
+```js
+localStorage.setItem('firsttx:overlay', '1');
+// 또는 경로 프리픽스 리스트
+localStorage.setItem('firsttx:overlayRoutes', '/prepaint/,/cart/');
+```
+
+3. **런타임 전역**
+
+```html
+<script>
+  window.__FIRSTTX_OVERLAY__ = true;
+</script>
+```
+
+**변동 영역 표시(선택)**
+방문마다 자주 바뀌는 텍스트(타임스탬프, 카운터 등)는 스냅샷에서 비워 두면(= 하이드레이션 불일치 완화) 안전합니다.
+
+```html
+<span data-firsttx-volatile>42 notifications</span>
+```
+
+---
+
 ## 아키텍처
 
-### 3계층 시스템
+### 3-레이어 시스템
 
 ```
 ┌──────────────────────────────────────────┐
-│   렌더 계층 (Prepaint)                    │
-│   - Instant Replay                       │
-│   - beforeunload 캡처                    │
-│   - React 위임 hydration                 │
+│   렌더 레이어 (Prepaint)                 │
+│   - 즉시 복원                           │
+│   - beforeunload / pagehide 캡처        │
+│   - 오버레이 + 하이드레이션 가드         │
 └──────────────────────────────────────────┘
-                     ↓ 읽기
+                     ↓ read
 ┌──────────────────────────────────────────┐
-│   Local-First (데이터 계층)               │
+│   Local-First (데이터 레이어)             │
 │   - IndexedDB 스냅샷/모델 관리            │
-│   - React 통합 (useSyncExtStore)         │
-│   - 메모리 캐시 패턴                      │
-│   - useSyncedModel (서버 동기화)         │
+│   - React 통합(useSyncExternalStore)     │
+│   - 메모리 캐시 브리지                   │
+│   - useSyncedModel(서버 동기화)          │
 └──────────────────────────────────────────┘
-                     ↑ 쓰기
+                     ↑ write
 ┌──────────────────────────────────────────┐
-│   Tx (실행 계층)                          │
+│   Tx (실행 레이어)                        │
 │   - 낙관적 업데이트                       │
 │   - 원자적 롤백                           │
-│   - ViewTransition 통합                  │
+│   - ViewTransition 통합                   │
 └──────────────────────────────────────────┘
 ```
 
@@ -255,18 +300,19 @@ async function addItem(product) {
 
 ```
 [부트 - ~0ms]
-HTML 로드 → Prepaint 부트 스크립트 → IndexedDB 스냅샷 읽기 → DOM 즉시 주입
+HTML 로드 → Prepaint 부트 → 스냅샷 읽기 → 오버레이/직접 주입 렌더
 
-[핸드오프 - ~500ms]
-메인 앱 로드 → createFirstTxRoot() → React hydration → DOM 재사용
+[핸드오프]
+createFirstTxRoot() → 오버레이 아래에서 하이드레이션 or 주입 DOM 재활용
+→ 하이드레이션 가드로 단일 루트 보장 → 프리페인트 정리
 
-[동기화 - ~800ms]
-useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
-→ ViewTransition 래핑 → 부드러운 업데이트
+[동기화]
+useSyncedModel → 스테일 감지 → fetcher()
+→ 선택적 ViewTransition → 최소 리렌더
 
-[인터랙션]
-사용자 액션 → Tx 시작 → 낙관 패치 → 서버 요청
-→ 성공: commit / 실패: ViewTransition과 함께 자동 rollback
+[상호작용]
+Tx → 낙관적 패치 → 서버 호출
+→ 성공: 커밋 / 실패: ViewTransition과 함께 자동 롤백
 ```
 
 ---
@@ -275,190 +321,180 @@ useSyncedModel 훅 → autoSync가 stale 감지 → fetcher() 호출
 
 ### [`@firsttx/prepaint`](./packages/prepaint)
 
-**렌더 계층 - Instant Replay 시스템**
+렌더 레이어 – 즉시 복원 시스템
 
-- `boot()` - 부트 스크립트 (IndexedDB → DOM 주입)
-- `createFirstTxRoot()` - React 통합 헬퍼
-- `handoff()` - 전략 결정 (has-prepaint | cold-start)
-- `setupCapture()` - beforeunload 캡처
-
-**주요 기능**
-
-- 재방문 시 빈 화면 시간 제로
-- 페이지 언로드 시 자동 캡처
-- ViewTransition 지원과 함께하는 React hydration
+- `boot()` – 부트 스크립트(IndexedDB → DOM)
+- `createFirstTxRoot()` – React 하이드레이션 가드/정리 포함 헬퍼
+- `handoff()` – `'has-prepaint' | 'cold-start'` 결정
+- `setupCapture()` – `beforeunload`, `pagehide`, `visibilitychange` 시 캡처
+- 오버레이(Shadow DOM) 렌더링
 
 ### [`@firsttx/local-first`](./packages/local-first)
 
-**데이터 계층 - IndexedDB + React 통합**
+데이터 레이어 – IndexedDB + React
 
-- `defineModel()` - 모델 정의 (schema, TTL, version)
-- `useModel()` - React 훅 (useSyncExternalStore 기반)
-- `useSyncedModel()` - autoSync 지원하는 서버 동기화 훅
-- 메모리 캐시 패턴 (동기/비동기 브릿지)
-- TTL/버전/히스토리 관리
-
-**주요 기능**
-
-- 메모리 캐시를 통한 동기식 React 통합
-- 자동 stale 감지
-- 서버 동기화 보일러플레이트 90% 감소
+- `defineModel()` / `useModel()` / `useSyncedModel()`
+- 메모리 캐시 브리지(useSyncExternalStore)
+- TTL, 버전, 히스토리 메타데이터
 
 ### [`@firsttx/tx`](./packages/tx)
 
-**실행 계층 - 낙관적 업데이트 + 원자적 롤백**
+실행 레이어 – 낙관적 + 원자적
 
-- `startTransaction()` - 트랜잭션 시작
-- `tx.run()` - 스텝 추가 (compensate 지원)
-- `tx.commit()` - 커밋
-- 자동 롤백 (실패 시)
-- 재시도 로직 (기본 1회)
+- `startTransaction()` → `tx.run()` → `tx.commit()`
+- 보상(compensate) 핸들러, 기본 재시도
 - ViewTransition 통합
-
-**주요 기능**
-
-- 전부 성공 또는 전부 실패 실행 의미론
-- 실패 시 자동 보상
-- 내장 네트워크 재시도 로직
 
 ---
 
-## 주요 기능
+## 핵심 기능
 
-### 1. Instant Replay (~0ms 복원)
+1. **즉시 복원**(~0ms 체감)
+2. **안전한 하이드레이션**(오버레이 + 가드)
+3. **서버 동기화 단순화**(보일러플레이트 최소화)
+4. **원자적 롤백**(Tx)
+5. **부드러운 전환**(ViewTransition)
+6. **로컬 우선**(오프라인에서도 마지막 상태 유지)
 
-자동 주입된 부트 스크립트로 재방문 시 마지막 상태를 즉시 복원
+---
 
-```tsx
-// vite.config.ts
-import { firstTx } from '@firsttx/prepaint/plugin/vite';
+## Vite 플러그인(고급)
 
-export default defineConfig({
-  plugins: [firstTx()], // 부트 스크립트 자동 주입
+```ts
+export interface FirstTxPluginOptions {
+  inline?: boolean; // 기본: true
+  minify?: boolean; // 기본: !dev
+  injectTo?: 'head' | 'head-prepend' | 'body' | 'body-prepend'; // 기본: 'head-prepend'
+  nonce?: string | (() => string); // CSP nonce 지원
+  overlay?: boolean; // 기본: undefined(비활성)
+  overlayRoutes?: string[]; // 예: ['/prepaint/','/cart']
+  devFlagOverride?: boolean; // dev/prod define 강제
+}
+```
+
+**예시**
+
+특정 영역에만 오버레이 적용 + CSP nonce 설정
+
+```ts
+firstTx({
+  overlayRoutes: ['/prepaint/'],
+  nonce: () => process.env.CSP_NONCE ?? '',
 });
 ```
 
-플러그인이 메인 번들보다 먼저 실행되는 작은 부트 스크립트(<2KB)를 자동으로 주입하여, IndexedDB에서 마지막으로 캡처된 상태를 즉시 복원합니다.
+---
 
-### 2. 간편한 서버 동기화
+## TypeScript & 전역 변수
 
-`useSyncedModel`로 보일러플레이트 제거
+Prepaint는 빌드 시 `define`으로 전역을 주입합니다.
 
-```tsx
-// Before: 수동 상태 관리 (15줄 이상)
-const [data, setData] = useState(null);
-const [isSyncing, setIsSyncing] = useState(false);
-const [error, setError] = useState(null);
+- `__FIRSTTX_DEV__` – 플러그인이 설정하는 boolean(라이브러리 내부에서 `import.meta.env` 대신 사용)
+- `window.__FIRSTTX_OVERLAY__?: boolean` – 런타임에서 오버레이 강제 토글
 
-useEffect(() => {
-  setIsSyncing(true);
-  fetch('/api/data')
-    .then((res) => res.json())
-    .then(setData)
-    .catch(setError)
-    .finally(() => setIsSyncing(false));
-}, []);
+모노레포/엄격 TS 설정에서 전역 선언이 필요하면 다음을 추가하세요.
 
-// After: 한 줄의 훅 (1줄)
-const { data, isSyncing, error, sync } = useSyncedModel(DataModel, fetchData, {
-  autoSync: true,
-});
+```ts
+// src/types/firsttx-globals.d.ts
+declare const __FIRSTTX_DEV__: boolean;
+declare global {
+  interface Window {
+    __FIRSTTX_OVERLAY__?: boolean;
+  }
+}
+export {};
 ```
 
-### 3. 원자적 트랜잭션
+---
 
-자동 롤백이 포함된 전부 성공 또는 전부 실패 업데이트
+## 라우터 연동 참고
 
-```tsx
-const tx = startTransaction({ transition: true });
-
-// Step 1: 로컬 업데이트 (롤백 핸들러 포함)
-await tx.run(() => updateLocal(), {
-  compensate: () => revertLocal(),
-});
-
-// Step 2: 서버 업데이트 (재시도 포함)
-await tx.run(() => updateServer());
-
-// 실패 시 자동 롤백
-await tx.commit();
-```
-
-### 4. 부드러운 전환
-
-부드러운 시각적 업데이트를 위한 내장 ViewTransition API 통합
+- **React Router(v7+)**: 초기 하이드레이션 경고(“HydrateFallback 없음”)가 보이면 폴백 엘리먼트를 제공하세요.
 
 ```tsx
-// hydration 시 자동 부드러운 애니메이션
-createFirstTxRoot(root, <App />, { transition: true });
-
-// 에러 시 부드러운 롤백 애니메이션
-const tx = startTransaction({ transition: true });
+import { RouterProvider } from 'react-router-dom';
+<RouterProvider router={router} hydrateFallbackElement={<div />} />;
 ```
+
+- 복잡한 레이아웃 셸/포털/여러 루트가 초기화 단계에서 등장하는 앱이라면 **오버레이 모드** 사용을 권장합니다.
 
 ---
 
 ## 성능 목표
 
-| 지표                         | 목표   | 상태      |
-| ---------------------------- | ------ | --------- |
-| **BlankScreenTime (BST)**    | ~0ms   | ✅ ~0ms   |
-| **PrepaintTime (PPT)**       | <20ms  | ✅ 15ms   |
-| **HydrationSuccess**         | >80%   | ✅ 82%    |
-| **ViewTransitionSmooth**     | >90%   | ✅ 95%    |
-| **BootScriptSize**           | <2KB   | ✅ 1.74KB |
-| **ReactSyncLatency**         | <50ms  | ✅ 42ms   |
-| **TxRollbackTime**           | <100ms | ✅ 85ms   |
-| **SyncBoilerplateReduction** | >90%   | ✅ 90%    |
+| 지표                     | 목표   | 상태       |
+| ------------------------ | ------ | ---------- |
+| BlankScreenTime (BST)    | ~0ms   | ✅ ~0ms    |
+| PrepaintTime (PPT)       | <20ms  | ✅ ~15ms   |
+| HydrationSuccess         | >80%   | ✅ ~82%    |
+| ViewTransitionSmooth     | >90%   | ✅ ~95%    |
+| BootScriptSize           | <2KB   | ✅ ~1.74KB |
+| ReactSyncLatency         | <50ms  | ✅ ~42ms   |
+| TxRollbackTime           | <100ms | ✅ ~85ms   |
+| SyncBoilerplateReduction | >90%   | ✅ ~90%    |
 
 ---
 
 ## 설계 철학
 
-### FirstTx를 사용해야 하는 경우
+**적합한 경우**
 
-**✅ 적합한 경우**
+- 내부 도구(CRM, 대시보드, 어드민)
+- 재방문이 잦은 앱(하루 10회+)
+- SEO 비요구(로그인 이후 앱)
+- 복잡한 클라이언트 상호작용
+- 서버 인프라 최소화 지향
 
-- 내부 도구 (CRM, 어드민 패널, 대시보드)
-- 재방문이 빈번한 앱 (하루 10회 이상)
-- SEO가 필요 없는 경우 (로그인 필요 앱)
-- 복잡한 클라이언트 측 인터랙션
-- 최소한의 서버 인프라 선호
+**적합하지 않은 경우**
 
-**❌ 적합하지 않은 경우**
+- 공개 랜딩/마케팅 사이트(SSR/SSG 권장)
+- 최초 방문 성능이 최우선인 앱
+- 항상 최신 데이터가 필수인 앱
+- 매우 단순한 CRUD
 
-- 공개 마케팅 사이트 (SSR/SSG 사용)
-- 첫 방문 성능이 중요한 앱
-- 항상 최신 데이터가 필요한 앱
-- 복잡한 인터랙션이 없는 단순 CRUD 앱
+SSR/RSC와의 트레이드오프
 
-### 트레이드오프
-
-| 측면          | FirstTx          | SSR/RSC   |
-| ------------- | ---------------- | --------- |
-| 첫 방문       | 일반 CSR (느림)  | 빠름      |
-| 재방문        | ~0ms (즉시)      | 빠름      |
-| 데이터 신선도 | 스냅샷 → 동기화  | 항상 최신 |
-| 서버 복잡도   | 최소 (API만)     | 필수      |
-| SEO           | 미지원           | 완전 지원 |
-| 오프라인 지원 | 마지막 상태 유지 | 미지원    |
+| 항목          | FirstTx                | SSR/RSC   |
+| ------------- | ---------------------- | --------- |
+| 최초 방문     | 일반 CSR(느릴 수 있음) | 빠름      |
+| 재방문        | ~0ms(즉시)             | 빠름      |
+| 데이터 신선도 | 스냅샷 → 동기화        | 항상 최신 |
+| 서버 복잡도   | 최소(단순 API)         | 필수      |
+| SEO           | 대상 아님              | 완전 지원 |
+| 오프라인      | 마지막 상태 보존       | 미지원    |
 
 ---
 
 ## 브라우저 지원
 
 - **Chrome/Edge**: 111+ (ViewTransition 완전 지원)
-- **Firefox/Safari**: 최신 버전 (graceful degradation, ViewTransition 없음)
+- **Firefox/Safari**: 최신 (점진적 향상, ViewTransition 미지원 시 자동 폴백)
 - **Mobile**: iOS Safari 16+, Chrome Android 111+
 
-**참고** 핵심 기능은 모든 브라우저에서 작동합니다. ViewTransition은 점진적 향상입니다.
+> 핵심 기능은 어디서나 동작하며, ViewTransition은 선택적 향상입니다.
+
+---
+
+## 문제 해결
+
+**새로고침 시 UI가 중복 표시됨**
+**오버레이 모드**를 사용하세요. 스냅샷을 Shadow DOM 오버레이에 렌더링하고, 앱이 안정적으로 하이드레이트되면 오버레이를 제거해 다중 루트 이슈를 원천 차단합니다.
+
+**매 방문마다 바뀌는 텍스트로 하이드레이션 불일치**
+해당 영역에 `data-firsttx-volatile`을 지정하세요. 스냅샷에선 비워 저장하여 불일치를 줄입니다.
+
+**TypeScript 오류: `import.meta.env`**
+FirstTx 내부에선 플러그인이 주입한 `__FIRSTTX_DEV__`를 사용합니다. 앱에서 별도 설정은 필요 없습니다. 전역 선언 경고가 뜨면 위 [TypeScript & 전역 변수](#typescript--전역-변수)의 `d.ts`를 추가하세요.
+
+**CSP**
+부트 스크립트에 nonce가 필요하면 플러그인 `nonce` 옵션을 설정하세요.
 
 ---
 
 ## 예제
 
-- [`apps/demo`](./apps/demo) - 간단한 장바구니 데모
-- [`apps/playground`](./apps/playground) - 인터랙티브 시나리오
+- [`apps/demo`](./apps/demo) — 간단한 장바구니 데모
+- [`apps/playground`](./apps/playground) — 인터랙티브 시나리오(Prepaint, Sync, Tx)
 
 ---
 
@@ -470,5 +506,5 @@ MIT © [joseph0926](https://github.com/joseph0926)
 
 ## 링크
 
-- [GitHub 저장소](https://github.com/joseph0926/firsttx)
-- Email: joseph0926.dev@gmail.com
+- 저장소: [https://github.com/joseph0926/firsttx](https://github.com/joseph0926/firsttx)
+- 이메일: [joseph0926.dev@gmail.com](mailto:joseph0926.dev@gmail.com)
