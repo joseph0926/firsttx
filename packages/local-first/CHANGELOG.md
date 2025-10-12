@@ -1,5 +1,29 @@
 # @firsttx/local-first
 
+## 0.3.0
+
+### Minor Changes
+
+**replace autoSync with syncOnMount for clarity**
+
+BREAKING CHANGE: Remove `autoSync` option in favor of `syncOnMount`
+
+- Replace boolean `autoSync` with explicit `syncOnMount: 'always' | 'stale' | 'never'`
+- Change default behavior: sync on mount when data is stale (was: no auto-sync)
+- Align with React Query's refetch trigger pattern
+- Improve synergy with Prepaint's instant replay on revisit
+
+Migration:
+
+- `autoSync: true` → `syncOnMount: 'stale'` (or omit, it's default)
+- `autoSync: false` → `syncOnMount: 'never'`
+
+Fixes:
+
+- Remove ambiguity of "when does auto-sync trigger?"
+- Fix test assumptions about mount-time sync behavior
+- Prevent race conditions in unmount tests with `syncInProgressRef`
+
 ## 0.2.2
 
 ### Patch Changes
