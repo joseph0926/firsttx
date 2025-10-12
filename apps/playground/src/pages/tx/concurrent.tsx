@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import { Zap, GitBranch, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { GitBranch, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   ScenarioLayout,
   MetricsGrid,
   MetricCard,
   SectionHeader,
 } from '../../components/scenario-layout';
+import { useSyncedModel } from '@firsttx/local-first';
+import { startTransaction } from '@firsttx/tx';
+import { ConcurrentInventoryModel } from '@/models/concurrent-inventory.model';
+import { reserveItem, fetchInventory } from '@/api/concurrent-inventory.api';
+import { sleep } from '@/lib/utils';
 
-interface Transaction {
+interface TransactionLog {
   id: number;
   status: 'pending' | 'running' | 'success' | 'failed' | 'rolled-back';
   startTime: number;
@@ -17,8 +22,17 @@ interface Transaction {
 }
 
 export default function ConcurrentUpdates() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [cartItems, setCartItems] = useState<string[]>([]);
+  const {
+    data: inventory,
+    patch,
+    sync,
+    isSyncing,
+  } = useSyncedModel(ConcurrentInventoryModel, fetchInventory, {
+    onSuccess: () => console.log('[Concurrent] Inventory synced'),
+    onError: (err) => console.error('[Concurrent] Sync failed:', err),
+  });
+
+  const [transactions, setTransactions] = useState<TransactionLog[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [concurrentCount, setConcurrentCount] = useState(5);
   const [failureRate, setFailureRate] = useState(30);
@@ -27,20 +41,24 @@ export default function ConcurrentUpdates() {
   const launchConcurrent = async () => {
     setIsRunning(true);
     setTransactions([]);
-    setCartItems([]);
+    setStats({ success: 0, failed: 0, total: 0 });
 
-    const newTransactions: Transaction[] = Array.from({ length: concurrentCount }, (_, i) => ({
+    const itemIds = inventory
+      ? Object.keys(inventory.items).slice(0, concurrentCount)
+      : Array.from({ length: concurrentCount }, (_, i) => `item-${i + 1}`);
+
+    const newTransactions: TransactionLog[] = itemIds.map((itemId, i) => ({
       id: i + 1,
       status: 'pending',
       startTime: Date.now(),
-      itemId: `item-${i + 1}`,
-      action: `Add Item ${i + 1}`,
+      itemId,
+      action: `Reserve ${itemId}`,
     }));
 
     setTransactions(newTransactions);
 
     const results = await Promise.allSettled(
-      newTransactions.map((tx) => simulateTransaction(tx.id)),
+      newTransactions.map((tx) => executeTransaction(tx.id, tx.itemId)),
     );
 
     const successCount = results.filter((r) => r.status === 'fulfilled').length;
@@ -52,32 +70,61 @@ export default function ConcurrentUpdates() {
       total: concurrentCount,
     });
 
-    const finalItems = newTransactions
-      .filter((_, i) => results[i].status === 'fulfilled')
-      .map((tx) => tx.itemId);
-
-    setCartItems(finalItems);
     setIsRunning(false);
   };
 
-  const simulateTransaction = async (txId: number): Promise<void> => {
+  const executeTransaction = async (txId: number, itemId: string): Promise<void> => {
     updateTransaction(txId, 'running');
 
-    await sleep(100 + Math.random() * 200);
+    const tx = startTransaction({ transition: true });
 
-    const shouldFail = Math.random() * 100 < failureRate;
+    try {
+      await tx.run(
+        async () => {
+          await patch((draft) => {
+            const item = draft.items[itemId];
+            if (item) {
+              item.reserved += 1;
+              item.stock -= 1;
+            }
+          });
+          console.log(`[Tx ${txId}] Optimistic reserve: ${itemId}`);
+        },
+        {
+          compensate: async () => {
+            await patch((draft) => {
+              const item = draft.items[itemId];
+              if (item) {
+                item.reserved -= 1;
+                item.stock += 1;
+              }
+            });
+            console.log(`[Tx ${txId}] Rollback: ${itemId}`);
+          },
+        },
+      );
 
-    if (shouldFail) {
-      updateTransaction(txId, 'failed');
-      await sleep(50);
-      updateTransaction(txId, 'rolled-back');
-      throw new Error('Transaction failed');
-    } else {
+      await sleep(50 + Math.random() * 100);
+
+      await tx.run(
+        async () => {
+          await reserveItem(itemId, failureRate);
+          console.log(`[Tx ${txId}] Server confirmed: ${itemId}`);
+        },
+        {
+          retry: { maxAttempts: 1 },
+        },
+      );
+
+      await tx.commit();
       updateTransaction(txId, 'success');
+    } catch (error) {
+      updateTransaction(txId, 'rolled-back');
+      throw error;
     }
   };
 
-  const updateTransaction = (id: number, status: Transaction['status']) => {
+  const updateTransaction = (id: number, status: TransactionLog['status']) => {
     setTransactions((prev) =>
       prev.map((tx) =>
         tx.id === id
@@ -87,6 +134,14 @@ export default function ConcurrentUpdates() {
     );
   };
 
+  const resetInventory = async () => {
+    if (isSyncing) return;
+
+    await sync();
+    setTransactions([]);
+    setStats({ success: 0, failed: 0, total: 0 });
+  };
+
   const avgDuration =
     transactions.length > 0
       ? transactions
@@ -94,6 +149,12 @@ export default function ConcurrentUpdates() {
           .reduce((sum, tx) => sum + (tx.endTime! - tx.startTime), 0) /
         transactions.filter((tx) => tx.endTime).length
       : 0;
+
+  const totalReserved = inventory
+    ? Object.values(inventory.items).reduce((sum, item) => sum + item.reserved, 0)
+    : 0;
+
+  const isDataConsistent = totalReserved === stats.success;
 
   return (
     <ScenarioLayout
@@ -111,248 +172,159 @@ export default function ConcurrentUpdates() {
           value={stats.total > 0 ? `${Math.round((stats.success / stats.total) * 100)}%` : '0%'}
           target={`${stats.success}/${stats.total}`}
           status={
-            stats.success / stats.total > 0.7
-              ? 'excellent'
-              : stats.success / stats.total > 0.5
-                ? 'good'
-                : 'poor'
+            stats.total === 0
+              ? 'good'
+              : stats.success / stats.total > 0.7
+                ? 'excellent'
+                : stats.success / stats.total > 0.5
+                  ? 'good'
+                  : 'poor'
           }
         />
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
           label="Avg Duration"
           value={`${avgDuration.toFixed(0)}ms`}
-          target="<200ms"
-          status={avgDuration < 200 ? 'excellent' : avgDuration < 300 ? 'good' : 'poor'}
+          target="<250ms"
+          status={
+            avgDuration === 0
+              ? 'good'
+              : avgDuration < 250
+                ? 'excellent'
+                : avgDuration < 400
+                  ? 'good'
+                  : 'poor'
+          }
         />
         <MetricCard
-          icon={<GitBranch className="h-5 w-5" />}
+          icon={<AlertTriangle className="h-5 w-5" />}
           label="Data Consistency"
-          value={cartItems.length === stats.success ? '✓ Verified' : '✗ Mismatch'}
-          target="All tx reflected"
-          status={cartItems.length === stats.success ? 'excellent' : 'poor'}
+          value={stats.total === 0 ? 'Not tested' : isDataConsistent ? '✓ Verified' : '✗ Mismatch'}
+          target="Reserved = Success"
+          status={stats.total === 0 ? 'good' : isDataConsistent ? 'excellent' : 'poor'}
         />
       </MetricsGrid>
 
       <SectionHeader
         title="Concurrent Transaction Execution"
-        description="Launch multiple transactions simultaneously and verify data consistency after rollbacks."
+        description="Launch multiple transactions simultaneously. FirstTx ensures each rollback is atomic - failed transactions never leave partial state."
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Test Configuration</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Concurrent Transactions</span>
-                  <span className="font-medium terminal-text">{concurrentCount}</span>
-                </label>
-                <input
-                  type="range"
-                  min="3"
-                  max="10"
-                  value={concurrentCount}
-                  onChange={(e) => setConcurrentCount(Number(e.target.value))}
-                  className="w-full"
-                  disabled={isRunning}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Failure Rate</span>
-                  <span className="font-medium terminal-text">{failureRate}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="80"
-                  step="10"
-                  value={failureRate}
-                  onChange={(e) => setFailureRate(Number(e.target.value))}
-                  className="w-full"
-                  disabled={isRunning}
-                />
-              </div>
-
-              <button
-                onClick={launchConcurrent}
+      <div className="mb-6 space-y-4">
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="mb-4 text-lg font-semibold">Test Configuration</h3>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Concurrent Transactions: {concurrentCount}
+              </label>
+              <input
+                type="range"
+                min="2"
+                max="5"
+                value={concurrentCount}
+                onChange={(e) => setConcurrentCount(Number(e.target.value))}
                 disabled={isRunning}
-                className="w-full flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Zap className={`h-4 w-4 ${isRunning ? 'animate-pulse' : ''}`} />
-                {isRunning ? 'Running Transactions...' : 'Launch Concurrent Test'}
-              </button>
+                className="w-full"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">
+                Simulates {concurrentCount} users reserving items simultaneously
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Failure Rate: {failureRate}%</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="10"
+                value={failureRate}
+                onChange={(e) => setFailureRate(Number(e.target.value))}
+                disabled={isRunning}
+                className="w-full"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">
+                Probability of server rejecting reservation
+              </div>
             </div>
           </div>
-
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Final State</h3>
-
-            {cartItems.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No items added yet
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {cartItems.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 rounded bg-green-500/10 px-4 py-3"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">{item}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {stats.total > 0 && (
-              <div className="mt-4 rounded-lg bg-muted/50 p-4 text-sm">
-                <div className="mb-2 font-semibold">Summary</div>
-                <div className="space-y-1 text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Total transactions:</span>
-                    <span className="font-medium text-foreground">{stats.total}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Succeeded:</span>
-                    <span className="font-medium text-green-500">{stats.success}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Failed & Rolled back:</span>
-                    <span className="font-medium text-red-500">{stats.failed}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Final cart items:</span>
-                    <span className="font-medium text-foreground">{cartItems.length}</span>
-                  </div>
-                </div>
-              </div>
-            )}
+          <div className="mt-6 flex gap-3">
+            <button
+              onClick={launchConcurrent}
+              disabled={isRunning || !inventory}
+              className="flex items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <GitBranch className={`h-4 w-4 ${isRunning ? 'animate-pulse' : ''}`} />
+              {isRunning ? 'Running...' : 'Launch Concurrent Transactions'}
+            </button>
+            <button
+              onClick={resetInventory}
+              disabled={isRunning || !inventory || isSyncing}
+              className="flex items-center gap-2 rounded border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Reset Inventory'}
+            </button>
           </div>
         </div>
 
-        <div className="space-y-4">
+        {inventory && (
+          <div className="rounded-lg border border-border bg-card p-6">
+            <h3 className="mb-4 text-lg font-semibold">Inventory State</h3>
+            <div className="grid gap-3 md:grid-cols-5">
+              {Object.values(inventory.items).map((item) => (
+                <div key={item.id} className="rounded bg-muted p-3">
+                  <div className="text-sm font-medium">{item.name}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Stock: {item.stock} | Reserved: {item.reserved}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {transactions.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-6">
             <h3 className="mb-4 text-lg font-semibold">Transaction Log</h3>
-
-            <div className="max-h-96 space-y-2 overflow-y-auto">
-              {transactions.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  Launch a test to see transactions
-                </div>
-              ) : (
-                transactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className={`rounded-lg border p-3 ${
-                      tx.status === 'success'
-                        ? 'border-green-500/50 bg-green-500/5'
-                        : tx.status === 'rolled-back'
-                          ? 'border-red-500/50 bg-red-500/5'
-                          : tx.status === 'running'
-                            ? 'border-yellow-500/50 bg-yellow-500/5'
-                            : 'border-border bg-card'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-muted-foreground terminal-text">
-                          Tx #{tx.id}
-                        </span>
-                        <span className="text-sm font-medium">{tx.action}</span>
-                      </div>
-                      <StatusBadge status={tx.status} />
-                    </div>
-                    {tx.endTime && (
-                      <div className="mt-2 text-xs text-muted-foreground terminal-text">
-                        Duration: {(tx.endTime - tx.startTime).toFixed(0)}ms
-                      </div>
+            <div className="space-y-2">
+              {transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between rounded border border-border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    {tx.status === 'pending' && <Clock className="h-4 w-4 text-muted-foreground" />}
+                    {tx.status === 'running' && (
+                      <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
                     )}
+                    {tx.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    {tx.status === 'failed' && <XCircle className="h-4 w-4 text-red-500" />}
+                    {tx.status === 'rolled-back' && <XCircle className="h-4 w-4 text-yellow-500" />}
+                    <div>
+                      <div className="text-sm font-medium">
+                        Tx #{tx.id}: {tx.action}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {tx.status === 'pending' && 'Waiting...'}
+                        {tx.status === 'running' && 'Executing...'}
+                        {tx.status === 'success' && 'Committed successfully'}
+                        {tx.status === 'failed' && 'Failed - initiating rollback'}
+                        {tx.status === 'rolled-back' && 'Rolled back successfully'}
+                      </div>
+                    </div>
                   </div>
-                ))
-              )}
+                  {tx.endTime && (
+                    <div className="text-xs text-muted-foreground">
+                      {tx.endTime - tx.startTime}ms
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Validation Rules</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">Rollback Order</div>
-                  <div className="text-muted-foreground">
-                    Failed transactions roll back in LIFO order
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">Final Consistency</div>
-                  <div className="text-muted-foreground">
-                    Cart items = successful transactions only
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">No Partial Updates</div>
-                  <div className="text-muted-foreground">Failed transactions leave no trace</div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">notifySubscribers</div>
-                  <div className="text-muted-foreground">No duplicate or missed notifications</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </ScenarioLayout>
   );
-}
-
-function StatusBadge({ status }: { status: Transaction['status'] }) {
-  const config = {
-    pending: { icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted', label: 'Pending' },
-    running: { icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'Running' },
-    success: {
-      icon: CheckCircle2,
-      color: 'text-green-500',
-      bg: 'bg-green-500/10',
-      label: 'Success',
-    },
-    failed: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Failed' },
-    'rolled-back': {
-      icon: XCircle,
-      color: 'text-red-500',
-      bg: 'bg-red-500/10',
-      label: 'Rolled Back',
-    },
-  };
-
-  const { icon: Icon, color, bg, label } = config[status];
-
-  return (
-    <div
-      className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${bg} ${color}`}
-    >
-      <Icon className="h-3 w-3" />
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

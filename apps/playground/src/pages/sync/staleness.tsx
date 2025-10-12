@@ -13,7 +13,6 @@ import { fetchDashboardStats } from '@/api/dashboard-stats.api';
 export default function StalenessDetection() {
   const {
     data: autoStats,
-    sync: autoSync,
     isSyncing: isAutoSyncing,
     history: autoHistory,
   } = useSyncedModel(AutoStatsModel, fetchDashboardStats, {
@@ -28,19 +27,10 @@ export default function StalenessDetection() {
     error: manualError,
     history: manualHistory,
   } = useSyncedModel(ManualStatsModel, fetchDashboardStats, {
+    syncOnMount: 'never',
     onSuccess: () => console.log('[Manual] Synced'),
     onError: (err) => console.error('[Manual] Failed:', err),
   });
-
-  useEffect(() => {
-    if (autoHistory.updatedAt === 0 && !isAutoSyncing) {
-      autoSync();
-    }
-
-    if (manualHistory.updatedAt === 0 && !isManualSyncing) {
-      manualSync();
-    }
-  }, []);
 
   const [currentAge, setCurrentAge] = useState(0);
 
@@ -83,14 +73,16 @@ export default function StalenessDetection() {
           status="good"
         />
       </MetricsGrid>
+
       <SectionHeader
         title="TTL & Staleness Simulator"
-        description="Test how FirstTx handles expired data, failed syncs, and user decisions when data becomes stale."
+        description="v0.3.1: Test syncOnMount strategies - 'stale' auto-refreshes, 'never' requires manual trigger."
       />
+
       <div className="mb-6 rounded-lg border border-green-500/30 bg-card p-6">
         <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <CheckCircle2 className="h-5 w-5 text-green-500" />
-          Auto-Sync Zone (autoSync: true)
+          Auto-Sync Zone (syncOnMount: 'stale')
         </h3>
         {autoStats ? (
           <div className="grid gap-4 md:grid-cols-2">
@@ -110,11 +102,15 @@ export default function StalenessDetection() {
             <span className="text-green-500">✓ Fresh</span>
           )}
         </div>
+        <div className="mt-2 text-xs text-muted-foreground">
+          Strategy: Syncs on mount when data exceeds TTL
+        </div>
       </div>
+
       <div className="rounded-lg border border-yellow-500/30 bg-card p-6">
         <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <RefreshCw className="h-5 w-5 text-yellow-500" />
-          Manual-Sync Zone (autoSync: false)
+          Manual-Sync Zone (syncOnMount: 'never')
         </h3>
         {manualStats ? (
           <div className="grid gap-4 md:grid-cols-2">
@@ -148,6 +144,9 @@ export default function StalenessDetection() {
             Sync failed: {manualError.message}
           </div>
         )}
+        <div className="mt-2 text-xs text-muted-foreground">
+          Strategy: Never auto-syncs - full manual control
+        </div>
       </div>
     </ScenarioLayout>
   );
