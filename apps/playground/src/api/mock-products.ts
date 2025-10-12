@@ -1,12 +1,5 @@
+import { randomBetween, sleep } from '@/lib/utils';
 import type { Product } from '@/models/products.model';
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function randomBetween(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
 export function generateMockProducts(count: number): Product[] {
   return Array.from({ length: count }, (_, i) => ({

@@ -10,5 +10,12 @@ createFirstTxRoot(
   </StrictMode>,
   {
     transition: true,
+    onCapture: (snapshot) => {
+      console.log('[Debug] Captured snapshot:');
+      console.log('Route:', snapshot.route);
+    },
+    onHandoff: (strategy) => {
+      console.log('[Debug] Handoff strategy:', strategy);
+    },
   },
 );
