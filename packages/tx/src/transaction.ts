@@ -1,5 +1,5 @@
 import type { TxOptions, TxStatus, TxStep, StepOptions } from './types';
-import { CompensationFailedError } from './errors';
+import { CompensationFailedError, TransactionTimeoutError } from './errors';
 import { executeWithRetry } from './retry';
 
 export class Transaction {
@@ -8,6 +8,8 @@ export class Transaction {
   private status: TxStatus = 'pending';
   private readonly id: string;
   private readonly options: Required<TxOptions>;
+  private startTime?: number;
+  private timeoutTimer?: NodeJS.Timeout;
 
   constructor(options: TxOptions = {}) {
     this.id = options.id ?? crypto.randomUUID();
@@ -25,6 +27,10 @@ export class Transaction {
 
     this.status = 'running';
 
+    if (!this.startTime) {
+      this.startTime = Date.now();
+    }
+
     const step: TxStep<T> = {
       id: `step-${this.steps.length}`,
       run: fn,
@@ -35,10 +41,14 @@ export class Transaction {
     this.steps.push(step);
 
     try {
-      const result = await executeWithRetry(fn, options?.retry);
+      const result = await Promise.race([
+        executeWithRetry(fn, options?.retry),
+        this.createTimeoutPromise<T>(),
+      ]);
       this.completedSteps++;
       return result;
     } catch (error) {
+      this.clearTimeout();
       await this.rollback();
       throw error;
     }
@@ -55,9 +65,43 @@ export class Transaction {
       throw new Error(`[FirstTx] Cannot commit ${this.status} transaction`);
     }
 
+    this.clearTimeout();
     this.status = 'committed';
 
     // TODO Phase 1: await Storage.getInstance().delete(`tx:${this.id}`)
+  }
+
+  private createTimeoutPromise<T>(): Promise<T> {
+    return new Promise<T>((_, reject) => {
+      const elapsed = this.startTime ? Date.now() - this.startTime : 0;
+      const remaining = this.options.timeout - elapsed;
+
+      if (remaining <= 0) {
+        reject(
+          new TransactionTimeoutError(
+            `[FirstTx] Transaction exceeded timeout of ${this.options.timeout}ms`,
+            this.options.timeout,
+          ),
+        );
+        return;
+      }
+
+      this.timeoutTimer = setTimeout(() => {
+        reject(
+          new TransactionTimeoutError(
+            `[FirstTx] Transaction exceeded timeout of ${this.options.timeout}ms`,
+            this.options.timeout,
+          ),
+        );
+      }, remaining);
+    });
+  }
+
+  private clearTimeout(): void {
+    if (this.timeoutTimer) {
+      clearTimeout(this.timeoutTimer);
+      this.timeoutTimer = undefined;
+    }
   }
 
   private async rollback(): Promise<void> {
@@ -85,10 +129,15 @@ export class Transaction {
       }
     };
 
-    if (this.options.transition && 'startViewTransition' in document) {
-      await document.startViewTransition(rollbackFn).finished;
-    } else {
-      await rollbackFn();
+    try {
+      if (this.options.transition && 'startViewTransition' in document) {
+        await document.startViewTransition(rollbackFn).finished;
+      } else {
+        await rollbackFn();
+      }
+    } catch (error) {
+      this.status = 'failed';
+      throw error;
     }
   }
 }
