@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setupCapture, captureSnapshot } from '../src/capture';
+import * as utilsModule from '../src/utils';
 import { openDB } from '../src/utils';
 import { STORAGE_CONFIG, type Snapshot } from '../src/types';
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe('setupCapture', () => {
   let cleanup: (() => void) | null = null;
 
   beforeEach(() => {
-    document.body.innerHTML = '';
     document.head.innerHTML = '';
+    document.body.innerHTML = '<div id="root"><div>App</div></div>';
     vi.clearAllMocks();
   });
 
@@ -19,65 +22,83 @@ describe('setupCapture', () => {
     }
   });
 
-  it('should register beforeunload listener', () => {
-    const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
-
+  it('registers visibilitychange, pagehide, beforeunload listeners', () => {
+    const addWin = vi.spyOn(window, 'addEventListener');
+    const addDoc = vi.spyOn(document, 'addEventListener');
     cleanup = setupCapture();
-
-    expect(addEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+    const winEvents = addWin.mock.calls.map((c) => c[0]);
+    const docEvents = addDoc.mock.calls.map((c) => c[0]);
+    expect(winEvents).toContain('pagehide');
+    expect(winEvents).toContain('beforeunload');
+    expect(docEvents).toContain('visibilitychange');
   });
 
-  it('should warn when called multiple times in development', () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-
-    const consoleWarnSpy = vi.spyOn(console, 'warn');
-
-    cleanup = setupCapture();
-    setupCapture();
-
-    expect(consoleWarnSpy).toHaveBeenCalledWith('[FirstTx] setupCapture already called');
-
-    process.env.NODE_ENV = originalEnv;
+  it('is idempotent and returns noop cleanup on duplicate call', () => {
+    const addWin = vi.spyOn(window, 'addEventListener');
+    const addDoc = vi.spyOn(document, 'addEventListener');
+    const c1 = setupCapture();
+    const c2 = setupCapture();
+    cleanup = c1;
+    const winEvents = addWin.mock.calls.map((c) => c[0]);
+    const docEvents = addDoc.mock.calls.map((c) => c[0]);
+    const count = (arr: unknown[], ev: string) => arr.filter((x) => x === ev).length;
+    expect(count(winEvents, 'beforeunload')).toBe(1);
+    expect(count(winEvents, 'pagehide')).toBe(1);
+    expect(count(docEvents, 'visibilitychange')).toBe(1);
+    expect(typeof c2).toBe('function');
   });
 
-  it('should return noop cleanup on duplicate call', () => {
-    const cleanup1 = setupCapture();
-    const cleanup2 = setupCapture();
-
-    expect(typeof cleanup1).toBe('function');
-    expect(typeof cleanup2).toBe('function');
-
-    cleanup = cleanup1;
-  });
-
-  it('should cleanup listener when cleanup is called', () => {
-    const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
-    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
-
+  it('cleans up all listeners on cleanup call', () => {
+    const removeWin = vi.spyOn(window, 'removeEventListener');
+    const removeDoc = vi.spyOn(document, 'removeEventListener');
     cleanup = setupCapture();
-
-    expect(addEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
-
     cleanup();
     cleanup = null;
-
-    expect(removeEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+    const winEvents = removeWin.mock.calls.map((c) => c[0]);
+    const docEvents = removeDoc.mock.calls.map((c) => c[0]);
+    expect(winEvents).toContain('beforeunload');
+    expect(winEvents).toContain('pagehide');
+    expect(docEvents).toContain('visibilitychange');
   });
 
-  it('should allow re-registration after cleanup', () => {
-    const addEventListenerSpy1 = vi.spyOn(window, 'addEventListener');
-    cleanup = setupCapture();
-    expect(addEventListenerSpy1).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+  it('captures only for allowed routes filter', async () => {
+    const orig = window.location.pathname;
+    Object.defineProperty(window, 'location', { value: { pathname: '/blocked' }, writable: true });
 
-    cleanup();
-    cleanup = null;
-    vi.clearAllMocks();
+    const addWin = vi.spyOn(window, 'addEventListener');
+    cleanup = setupCapture({ routes: ['/allowed'] });
+    const handler = addWin.mock.calls.find((c) => c[0] === 'beforeunload')![1] as () => void;
 
-    const addEventListenerSpy2 = vi.spyOn(window, 'addEventListener');
-    cleanup = setupCapture();
+    handler();
+    await tick();
+    await tick();
 
-    expect(addEventListenerSpy2).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+    let db = await openDB();
+    await new Promise<void>((res) => {
+      const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
+      const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+      const req = store.get('/blocked') as IDBRequest<Snapshot>;
+      req.onsuccess = () => res(expect(req.result).toBeUndefined());
+      req.onerror = () => res();
+    });
+    db.close();
+
+    Object.defineProperty(window, 'location', { value: { pathname: '/allowed' }, writable: true });
+    handler();
+    await tick();
+    await tick();
+
+    db = await openDB();
+    await new Promise<void>((res) => {
+      const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
+      const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+      const req = store.get('/allowed') as IDBRequest<Snapshot>;
+      req.onsuccess = () => res(expect(req.result).toBeDefined());
+      req.onerror = () => res();
+    });
+    db.close();
+
+    Object.defineProperty(window, 'location', { value: { pathname: orig }, writable: true });
   });
 });
 
@@ -85,8 +106,8 @@ describe('captureSnapshot', () => {
   let db: IDBDatabase | null = null;
 
   beforeEach(() => {
-    document.body.innerHTML = '';
     document.head.innerHTML = '';
+    document.body.innerHTML = '<div id="root"><div id="app">Test Content</div></div>';
     vi.clearAllMocks();
   });
 
@@ -95,7 +116,6 @@ describe('captureSnapshot', () => {
       db.close();
       db = null;
     }
-
     const deleteRequest = indexedDB.deleteDatabase(STORAGE_CONFIG.DB_NAME);
     await new Promise<void>((resolve) => {
       deleteRequest.onsuccess = () => resolve();
@@ -107,7 +127,6 @@ describe('captureSnapshot', () => {
     db = await openDB();
     const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
     const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
-
     return new Promise((resolve, reject) => {
       const request = store.get(route) as IDBRequest<Snapshot>;
       request.onsuccess = () => resolve(request.result ?? null);
@@ -116,57 +135,50 @@ describe('captureSnapshot', () => {
     });
   }
 
-  it('should capture body innerHTML', async () => {
-    document.body.innerHTML = '<div id="app">Test Content</div>';
-
+  it('captures first child of #root', async () => {
     await captureSnapshot();
-
     const snapshot = await getSnapshot('/');
-    expect(snapshot?.body).toBe('<div id="app">Test Content</div>');
-    expect(snapshot?.route).toBe('/');
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.body).toBe('<div id="app">Test Content</div>');
+    expect(snapshot!.route).toBe('/');
   });
 
-  it('should collect styles', async () => {
-    const style1 = document.createElement('style');
-    style1.textContent = '.test { color: red; }';
-    document.head.appendChild(style1);
+  it('collects styles and excludes prepaint-injected ones', async () => {
+    const s1 = document.createElement('style');
+    s1.textContent = '.test { color: red; }';
+    document.head.appendChild(s1);
 
-    const style2 = document.createElement('style');
-    style2.textContent = '.another { font-size: 16px; }';
-    document.head.appendChild(style2);
-
-    await captureSnapshot();
-
-    const snapshot = await getSnapshot('/');
-    expect(snapshot?.styles).toHaveLength(2);
-    expect(snapshot?.styles).toContain('.test { color: red; }');
-    expect(snapshot?.styles).toContain('.another { font-size: 16px; }');
-  });
-
-  it('should handle empty styles', async () => {
-    document.body.innerHTML = '<div>Content</div>';
+    const s2 = document.createElement('style');
+    s2.setAttribute('data-firsttx-prepaint', '');
+    s2.textContent = '.ignore { display:none; }';
+    document.head.appendChild(s2);
 
     await captureSnapshot();
-
     const snapshot = await getSnapshot('/');
-    expect(snapshot?.styles).toBeUndefined();
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.styles).toBeDefined();
+    expect(snapshot!.styles!).toContain('.test { color: red; }');
+    expect(snapshot!.styles!).not.toContain('.ignore { display:none; }');
   });
 
-  it('should capture current route from location.pathname', async () => {
+  it('handles empty styles', async () => {
+    await captureSnapshot();
+    const snapshot = await getSnapshot('/');
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.styles).toBeUndefined();
+  });
+
+  it('captures current route from location.pathname', async () => {
     const originalPathname = window.location.pathname;
-
-    Object.defineProperty(window, 'location', {
-      value: { pathname: '/products' },
-      writable: true,
-    });
-
-    document.body.innerHTML = '<div>Products Page</div>';
+    Object.defineProperty(window, 'location', { value: { pathname: '/products' }, writable: true });
+    document.body.innerHTML = '<div id="root"><div>Products Page</div></div>';
 
     await captureSnapshot();
-
     const snapshot = await getSnapshot('/products');
-    expect(snapshot?.route).toBe('/products');
-    expect(snapshot?.body).toBe('<div>Products Page</div>');
+
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.route).toBe('/products');
+    expect(snapshot!.body).toBe('<div>Products Page</div>');
 
     Object.defineProperty(window, 'location', {
       value: { pathname: originalPathname },
@@ -174,42 +186,27 @@ describe('captureSnapshot', () => {
     });
   });
 
-  it('should set timestamp on snapshot', async () => {
-    const beforeCapture = Date.now();
-
+  it('sets timestamp on snapshot', async () => {
+    const before = Date.now();
     await captureSnapshot();
-
     const snapshot = await getSnapshot('/');
-    const afterCapture = Date.now();
+    const after = Date.now();
 
-    expect(snapshot?.timestamp).toBeGreaterThanOrEqual(beforeCapture);
-    expect(snapshot?.timestamp).toBeLessThanOrEqual(afterCapture);
+    expect(snapshot).not.toBeNull();
+    expect(typeof snapshot!.timestamp).toBe('number');
+    expect(snapshot!.timestamp).toBeGreaterThanOrEqual(before);
+    expect(snapshot!.timestamp).toBeLessThanOrEqual(after);
   });
 
-  it('should log in development mode', async () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-
-    const consoleLogSpy = vi.spyOn(console, 'log');
+  it('handles capture errors gracefully', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const openSpy = vi.spyOn(utilsModule, 'openDB').mockRejectedValueOnce(new Error('DB Error'));
 
     await captureSnapshot();
 
-    expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[FirstTx] Snapshot captured'),
-    );
+    expect(errSpy).toHaveBeenCalledWith('[FirstTx] Capture failed:', expect.any(Error));
 
-    process.env.NODE_ENV = originalEnv;
-  });
-
-  it('should handle capture errors gracefully', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error');
-
-    vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
-      throw new Error('DB Error');
-    });
-
-    await captureSnapshot();
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[FirstTx] Capture failed:', expect.any(Error));
+    openSpy.mockRestore();
+    errSpy.mockRestore();
   });
 });
