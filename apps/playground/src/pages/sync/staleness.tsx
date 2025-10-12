@@ -17,7 +17,6 @@ export default function StalenessDetection() {
     isSyncing: isAutoSyncing,
     history: autoHistory,
   } = useSyncedModel(AutoStatsModel, fetchDashboardStats, {
-    autoSync: true,
     onSuccess: () => console.log('[Auto] Synced'),
     onError: (err) => console.error('[Auto] Failed:', err),
   });
@@ -29,7 +28,6 @@ export default function StalenessDetection() {
     error: manualError,
     history: manualHistory,
   } = useSyncedModel(ManualStatsModel, fetchDashboardStats, {
-    autoSync: false,
     onSuccess: () => console.log('[Manual] Synced'),
     onError: (err) => console.error('[Manual] Failed:', err),
   });

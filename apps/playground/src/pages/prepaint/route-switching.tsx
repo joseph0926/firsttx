@@ -27,7 +27,6 @@ export default function RouteSwitching() {
     isSyncing,
     error,
   } = useSyncedModel(RouteMetricsModel, fetchRouteMetrics, {
-    autoSync: false,
     onSuccess: () => console.log('[RouteSwitching] Synced with server'),
     onError: (err) => console.error('[RouteSwitching] Sync failed:', err),
   });

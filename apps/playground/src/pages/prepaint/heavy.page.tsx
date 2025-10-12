@@ -28,7 +28,6 @@ export default function HeavyPage() {
       };
     },
     {
-      autoSync: false,
       onSuccess: (data) => {
         console.log('[HeavyPage] Sync success:', data.items.length, 'products');
       },
