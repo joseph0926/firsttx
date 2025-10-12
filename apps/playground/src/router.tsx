@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, type RouteObject } from 'react-rou
 import RootLayout from './pages/root.layout';
 import HomePage from './pages/home.page';
 import { ThemeProvider } from './components/theme-provider';
+import { Analytics } from '@vercel/analytics/next';
 
 const routerObjects: RouteObject[] = [
   {
@@ -131,6 +132,7 @@ export default function Router() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <RouterProvider router={router} />
+      <Analytics />
     </ThemeProvider>
   );
 }
