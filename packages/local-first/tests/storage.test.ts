@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Storage } from '../src/storage';
 import type { StoredModel } from '../src/types';
-import { ValidationError } from '../src/errors';
+import { StorageError, ValidationError } from '../src/errors';
 import { defineModel } from '../src/model';
 import { useModel } from '../src/hooks';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -16,6 +16,10 @@ describe('Storage', () => {
     indexedDB.deleteDatabase('firsttx-local-first');
     Storage.setInstance(undefined);
     storage = Storage.getInstance();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('set and get', () => {
@@ -101,7 +105,57 @@ describe('Storage', () => {
     });
   });
 
-  // 기존 테스트들...
+  describe('IndexedDB reconnection', () => {
+    it('should reset dbPromise after open error and allow retry', async () => {
+      const originalOpen = indexedDB.open.bind(indexedDB);
+      const openError = new DOMException('Permission denied', 'SecurityError');
+      let callCount = 0;
+
+      vi.spyOn(indexedDB, 'open').mockImplementation((name: string, version?: number) => {
+        callCount += 1;
+
+        if (callCount === 1) {
+          const request = {
+            onerror: null as IDBRequest['onerror'],
+            onsuccess: null as IDBRequest['onsuccess'],
+            onblocked: null as IDBOpenDBRequest['onblocked'],
+            onupgradeneeded: null as IDBOpenDBRequest['onupgradeneeded'],
+            readyState: 'done' as IDBRequestReadyState,
+            error: openError,
+            result: null as unknown as IDBDatabase,
+            source: null,
+            transaction: null,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+            dispatchEvent: () => false,
+          } as unknown as IDBOpenDBRequest;
+
+          setTimeout(() => {
+            request.onerror?.call(request, new Event('error'));
+          }, 0);
+
+          return request;
+        }
+
+        return originalOpen(name, version);
+      });
+
+      await expect(storage.get('reconnect-test')).rejects.toBeInstanceOf(StorageError);
+
+      const model: StoredModel<{ value: string }> = {
+        _v: 1,
+        updatedAt: Date.now(),
+        data: { value: 'ok' },
+      };
+
+      await expect(storage.set('reconnect-test', model)).resolves.toBeUndefined();
+
+      expect(callCount).toBe(2);
+
+      const result = await storage.get<{ value: string }>('reconnect-test');
+      expect(result?.data.value).toBe('ok');
+    });
+  });
 
   describe('useModel - Error Handling', () => {
     beforeEach(() => {

@@ -36,11 +36,19 @@ class Storage {
 
         request.onerror = () => {
           const err = request.error;
+          this.dbPromise = undefined;
 
           if (err) {
-            reject(new Error(`IndexedDB error: ${err.message}`, { cause: err }));
+            reject(convertDOMException(err, { operation: 'open' }));
           } else {
-            reject(new Error('Unknown IndexedDB error'));
+            reject(
+              new StorageError(
+                '[FirstTx] Failed to open IndexedDB: Unknown error',
+                'UNKNOWN',
+                true,
+                { operation: 'open' },
+              ),
+            );
           }
         };
         request.onsuccess = () => {

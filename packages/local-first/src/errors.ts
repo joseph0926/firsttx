@@ -7,16 +7,20 @@ export abstract class FirstTxError extends Error {
 
 export type StorageErrorCode = 'QUOTA_EXCEEDED' | 'PERMISSION_DENIED' | 'UNKNOWN';
 
+export type StorageOperation = 'get' | 'set' | 'delete' | 'open';
+
+export type StorageErrorContext = {
+  key?: string;
+  operation: StorageOperation;
+  originalError?: Error;
+};
+
 export class StorageError extends FirstTxError {
   constructor(
     message: string,
     public readonly code: StorageErrorCode,
     public readonly recoverable: boolean,
-    public readonly context: {
-      key: string;
-      operation: 'get' | 'set' | 'delete';
-      originalError?: Error;
-    },
+    public readonly context: StorageErrorContext,
   ) {
     super(message);
     this.name = 'StorageError';
@@ -34,17 +38,29 @@ export class StorageError extends FirstTxError {
   }
 
   getDebugInfo(): string {
-    return `[${this.code}] ${this.context.operation} "${this.context.key}": ${this.message}`;
+    const keySuffix = this.context.key ? ` "${this.context.key}"` : '';
+    return `[${this.code}] ${this.context.operation}${keySuffix}: ${this.message}`;
   }
 }
 
-export function convertDOMException(
-  domError: Error,
-  context: { key: string; operation: 'get' | 'set' | 'delete' },
-): StorageError {
+function describeOperation(context: StorageErrorContext): string {
+  if (context.operation === 'open') {
+    return 'opening the IndexedDB database';
+  }
+
+  if (context.key) {
+    return `${context.operation} key "${context.key}"`;
+  }
+
+  return `${context.operation} storage entry`;
+}
+
+export function convertDOMException(domError: Error, context: StorageErrorContext): StorageError {
+  const operationDescription = describeOperation(context);
+
   if (domError.name === 'QuotaExceededError') {
     return new StorageError(
-      `[FirstTx] Storage quota exceeded for key "${context.key}"`,
+      `[FirstTx] Storage quota exceeded while ${operationDescription}`,
       'QUOTA_EXCEEDED',
       false,
       { ...context, originalError: domError },
@@ -53,7 +69,7 @@ export function convertDOMException(
 
   if (domError.name === 'SecurityError' || domError.message.includes('permission')) {
     return new StorageError(
-      `[FirstTx] Storage access denied for key "${context.key}"`,
+      `[FirstTx] Storage access denied while ${operationDescription}`,
       'PERMISSION_DENIED',
       false,
       { ...context, originalError: domError },
@@ -61,7 +77,7 @@ export function convertDOMException(
   }
 
   return new StorageError(
-    `[FirstTx] Storage error for key "${context.key}": ${domError.message}`,
+    `[FirstTx] Storage error while ${operationDescription}: ${domError.message}`,
     'UNKNOWN',
     true,
     { ...context, originalError: domError },
