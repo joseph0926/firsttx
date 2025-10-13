@@ -40,17 +40,17 @@ export class Transaction {
 
     this.steps.push(step);
 
+    const timeoutPromise = this.createTimeoutPromise<T>();
+
     try {
-      const result = await Promise.race([
-        executeWithRetry(fn, options?.retry),
-        this.createTimeoutPromise<T>(),
-      ]);
+      const result = await Promise.race([executeWithRetry(fn, options?.retry), timeoutPromise]);
       this.completedSteps++;
       return result;
     } catch (error) {
-      this.clearTimeout();
       await this.rollback();
       throw error;
+    } finally {
+      this.clearTimeout();
     }
   }
 
@@ -72,6 +72,8 @@ export class Transaction {
   }
 
   private createTimeoutPromise<T>(): Promise<T> {
+    this.clearTimeout();
+
     return new Promise<T>((_, reject) => {
       const elapsed = this.startTime ? Date.now() - this.startTime : 0;
       const remaining = this.options.timeout - elapsed;
