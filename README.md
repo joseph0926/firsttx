@@ -6,93 +6,111 @@
 
 > 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.
 
-**Making CSR App Revisits Feel Like SSR**
+**Eliminate blank screens on revisits - Restore last state instantly**
 
-From the second visit onward, instantly restore the last state and safely roll back optimistic updates—delivering fast, consistent experiences without extra server infrastructure.
+<table>
+<tr>
+<td align="center">❌ Before FirstTx</td>
+<td align="center">✅ After FirstTx</td>
+</tr>
+<tr>
+<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-01_vi2svy.gif" /></td>
+<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-02_tfmsy7.gif" /></td>
+</tr>
+<tr>
+<td align="center"><sub>Slow 4G: Blank screen exposed</sub></td>
+<td align="center"><sub>Slow 4G: Instant restore</sub></td>
+</tr>
+</table>
 
----
+## Is FirstTx for you?
 
-## Table of Contents
+Have you experienced any of these?
 
-- [Core Value](#core-value)
-- [Quick Start](#quick-start)
-- [Overlay Mode (Safe Prepaint)](#overlay-mode-safe-prepaint)
-- [Architecture](#architecture)
-- [Packages](#packages)
-- [Key Features](#key-features)
-- [Vite Plugin (Advanced)](#vite-plugin-advanced)
-- [TypeScript & Globals](#typescript--globals)
-- [Router Integration Notes](#router-integration-notes)
-- [Performance Targets](#performance-targets)
-- [Design Philosophy](#design-philosophy)
-- [Browser Support](#browser-support)
-- [Troubleshooting](#troubleshooting)
-- [Examples](#examples)
-- [License](#license)
-- [Links](#links)
+- Users complaining "loading is too slow"
+- Developing internal tools with frequent revisits
+- Losing work progress on refresh
+- Want SSR benefits while keeping CSR architecture
 
----
+→ If any apply, FirstTx can help
 
-## Core Value
+## Installation
 
-### The Problem: CSR Revisit Experience
-
-```
-Every visit: blank screen → API wait → data display
-Refresh loses progress
-Optimistic update failures cause partial rollback inconsistencies
-Server synchronization boilerplate cluttering components
-```
-
-### The Solution: FirstTx = Prepaint + Local-First + Tx
-
-```
-[Revisit Scenario]
-1. Revisit /cart → instantly show yesterday’s 3 items (~0ms)
-2. Main app loads → React hydration → reuse snapshot DOM
-3. Server sync → smooth update via ViewTransition (3 → 5 items)
-4. “+1” click → Tx starts → optimistic patch → server error
-5. Auto rollback → smooth return to original state via ViewTransition
-```
-
-**Results**
-
-- Blank screen time on revisit ≈ 0ms
-- Smooth animations when transitioning from snapshot to fresh data
-- Consistent atomic rollback on optimistic update failures
-- ~90% reduction in server sync boilerplate
-- Last state persists even offline
-
----
-
-## Quick Start
-
-### Installation
+**For most cases (recommended)**
 
 ```bash
 pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-### Basic Setup
+<details>
+<summary>For specific features only</summary>
 
-#### 1) Vite Plugin
+**Revisit optimization only**
+
+```bash
+pnpm add @firsttx/prepaint
+```
+
+**Revisit + Data synchronization**
+
+```bash
+pnpm add @firsttx/prepaint @firsttx/local-first
+```
+
+**Data synchronization + Optimistic updates**
+
+```bash
+pnpm add @firsttx/local-first @firsttx/tx
+```
+
+> ⚠️ **Dependency** Tx requires Local-First.
+
+</details>
+
+## Quick Start
+
+### 1. Vite Plugin Setup
 
 ```ts
 // vite.config.ts
-import { defineConfig } from 'vite';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [
-    firstTx(), // Injects the boot script that restores snapshots ASAP
-  ],
+  plugins: [firstTx()],
 });
 ```
 
-#### 2) Define a Model
+<details>
+<summary>How does it work?</summary>
+
+The Vite plugin automatically injects a boot script into HTML. This script instantly restores the saved screen from IndexedDB on page load.
+
+</details>
+
+### 2. Entry Point Setup
 
 ```ts
-// models/cart-model.ts
+// main.tsx
+import { createFirstTxRoot } from '@firsttx/prepaint';
+
+createFirstTxRoot(document.getElementById('root')!, <App />);
+```
+
+<details>
+<summary>How does it work?</summary>
+
+`createFirstTxRoot`:
+
+1. Saves the screen to IndexedDB when leaving the page
+2. Restores instantly before React loads on revisit
+3. Mounts the actual app via Hydration or Client Render
+
+</details>
+
+### 3. Define Data Model
+
+```ts
+// models/cart.ts
 import { defineModel } from '@firsttx/local-first';
 import { z } from 'zod';
 
@@ -102,76 +120,27 @@ export const CartModel = defineModel('cart', {
       z.object({
         id: z.string(),
         name: z.string(),
-        price: z.number(),
         qty: z.number(),
       }),
     ),
   }),
-  ttl: 5 * 60 * 1000, // 5 minutes
+  ttl: 5 * 60 * 1000,
 });
 ```
 
-#### 3) Main Entry
-
-```tsx
-// main.tsx
-import { createFirstTxRoot } from '@firsttx/prepaint';
-import App from './App';
-
-createFirstTxRoot(document.getElementById('root')!, <App />);
-```
-
-#### 4) Local-only Usage
-
-```tsx
-import { useModel } from '@firsttx/local-first';
-import { CartModel } from './models/cart-model';
-
-function CartPage() {
-  const [cart, patch, history] = useModel(CartModel);
-  if (!cart) return <Skeleton />;
-  return (
-    <div>
-      {cart.items.map((item) => (
-        <CartItem key={item.id} {...item} />
-      ))}
-    </div>
-  );
-}
-```
-
-#### 5) With Server Sync
+### 4. Use in Component
 
 ```tsx
 import { useSyncedModel } from '@firsttx/local-first';
-import { CartModel } from './models/cart-model';
-
-async function fetchCart() {
-  const res = await fetch('/api/cart');
-  return res.json();
-}
+import { CartModel } from './models/cart';
 
 function CartPage() {
-  const {
-    data: cart,
-    patch,
-    sync,
-    isSyncing,
-    error,
-    history,
-  } = useSyncedModel(CartModel, fetchCart, {
-    syncOnMount: 'stale', // Sync on mount when stale (default)
-    onSuccess: (d) => console.log('Synced:', d),
-    onError: (e) => console.error(e),
-  });
+  const { data: cart } = useSyncedModel(CartModel, () => fetch('/api/cart').then((r) => r.json()));
 
   if (!cart) return <Skeleton />;
-  if (error) return <ErrorBanner error={error} onRetry={sync} />;
 
   return (
     <div>
-      {isSyncing && <SyncIndicator />}
-      {history.isStale && <Badge>Updating...</Badge>}
       {cart.items.map((item) => (
         <CartItem key={item.id} {...item} />
       ))}
@@ -180,320 +149,289 @@ function CartPage() {
 }
 ```
 
-**syncOnMount strategies**
-
-| Strategy            | When to use                  | Examples                               |
-| ------------------- | ---------------------------- | -------------------------------------- |
-| `'stale'` (default) | Sync when data exceeds TTL   | Most cases - balance freshness & UX    |
-| `'always'`          | Always fetch latest on mount | Critical data - stock prices, balances |
-| `'never'`           | Manual sync only             | Drafts, offline-first, user-controlled |
-
-```tsx
-// Manual sync (syncOnMount: 'never')
-const { data, sync, isSyncing } = useSyncedModel(Model, fetcher, {
-  syncOnMount: 'never',
-});
-<button onClick={sync} disabled={isSyncing}>
-  {isSyncing ? 'Syncing…' : 'Refresh'}
-</button>;
-```
-
-#### 6) Optimistic Updates with Tx
+### 5. Optimistic Updates (Optional)
 
 ```ts
 import { startTransaction } from '@firsttx/tx';
-import { CartModel } from './models/cart-model';
 
-async function addItem(product) {
-  const tx = startTransaction({ transition: true });
+async function addToCart(item) {
+  const tx = startTransaction();
 
   await tx.run(
     () =>
-      CartModel.patch((d) => {
-        d.items.push({ ...product, qty: 1 });
+      CartModel.patch((draft) => {
+        draft.items.push(item);
       }),
     {
       compensate: () =>
-        CartModel.patch((d) => {
-          d.items.pop();
+        CartModel.patch((draft) => {
+          draft.items.pop();
         }),
     },
   );
 
-  await tx.run(() => api.post('/cart/add', { id: product.id }));
+  await tx.run(() =>
+    fetch('/api/cart', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    }),
+  );
 
   await tx.commit();
 }
 ```
 
----
+<details>
+<summary>How does it work?</summary>
 
-## Overlay Mode (Safe Prepaint)
+Transactions bundle multiple steps into one atomic operation. If the server request fails, the `compensate` function automatically executes to revert local changes.
 
-Some client routers and third‑party code may temporarily inject or reorder root-level nodes during startup. If a snapshot is directly injected into `#root` in these cases, you might see **duplicate UI** on refresh. To avoid this, FirstTx provides **Overlay Mode**
+</details>
 
-- The snapshot is rendered in a **fixed, pointer‑events:none** overlay using **Shadow DOM**.
-- Your app hydrates underneath without touching the overlay.
-- Once hydration stabilizes, FirstTx removes the overlay and any prepaint styles.
-- Result: instant visual feedback with no double rendering risk.
+## Examples
 
-**Enable Overlay**
+Experience FirstTx with working examples
 
-You can enable it globally, per route, or at runtime
+### Interactive Playground
 
-1. **Vite plugin option** (recommended)
+Test each feature with 9 different scenarios
 
-```ts
-firstTx({
-  overlay: true, // enable for all routes
-  overlayRoutes: ['/prepaint/'], // or only for specific prefixes
-});
-```
+**[Open Playground](https://firsttx-playground.vercel.app)**<br/>
+**[Playground Code](https://github.com/joseph0926/firsttx/tree/main/apps/playground)**
 
-2. **LocalStorage toggles** (no rebuild)
-
-```js
-localStorage.setItem('firsttx:overlay', '1');
-// or prefix list
-localStorage.setItem('firsttx:overlayRoutes', '/prepaint/,/cart/');
-```
-
-3. **Runtime global**
-
-```html
-<script>
-  window.__FIRSTTX_OVERLAY__ = true;
-</script>
-```
-
-**Mark Volatile Regions (optional)**
-If a sub-tree often changes between visits (timestamps, counters), mark it to be blanked in snapshots
-
-```html
-<span data-firsttx-volatile>42 notifications</span>
-```
-
-The snapshot will capture the structure but clear the text, reducing hydration mismatch risk.
+- Prepaint: Instant restore / Router integration
+- Sync: Conflict resolution / Timing attacks / Staleness
+- Tx: Concurrent updates / Rollback chains / Network chaos
 
 ---
 
-## Architecture
+💡 **Curious about API options?** → Jump to [API Reference](#api-reference)
 
-### Three-Layer System
+## API Reference
 
-```
-┌──────────────────────────────────────────┐
-│   Render Layer (Prepaint)                │
-│   - Instant Replay                       │
-│   - beforeunload / pagehide capture      │
-│   - Overlay + Hydration guard            │
-└──────────────────────────────────────────┘
-                     ↓ read
-┌──────────────────────────────────────────┐
-│   Local-First (Data Layer)               │
-│   - IndexedDB snapshot/model management  │
-│   - React integration (useSyncExtStore)  │
-│   - Memory cache pattern                 │
-│   - useSyncedModel (server sync)         │
-└──────────────────────────────────────────┘
-                     ↑ write
-┌──────────────────────────────────────────┐
-│   Tx (Execution Layer)                   │
-│   - Optimistic updates                   │
-│   - Atomic rollback                      │
-│   - ViewTransition integration           │
-└──────────────────────────────────────────┘
-```
+### Prepaint
 
-### Data Flow
+#### `createFirstTxRoot(container, element, options?)`
 
-```
-[Boot - ~0ms]
-HTML load → Prepaint boot → read snapshot → render (overlay or direct)
-
-[Handoff]
-createFirstTxRoot() → hydration under overlay or reusing injected DOM
-→ hydration guard ensures single root → prepaint cleanup
-
-[Sync]
-useSyncedModel → staleness detection → fetcher()
-→ optional ViewTransition → minimal re-render
-
-[Interaction]
-Tx → optimistic patch → server call
-→ success: commit / failure: auto rollback with ViewTransition
-```
-
----
-
-## Packages
-
-### [`@firsttx/prepaint`](./packages/prepaint)
-
-Render layer – instant replay system
-
-- `boot()` – Boot script (IndexedDB → DOM)
-- `createFirstTxRoot()` – React helper with hydration guard and cleanup
-- `handoff()` – Decide `'has-prepaint' | 'cold-start'`
-- `setupCapture()` – Capture on `beforeunload`, `pagehide`, `visibilitychange`
-- Overlay rendering via Shadow DOM
-
-### [`@firsttx/local-first`](./packages/local-first)
-
-Data layer – IndexedDB + React
-
-- `defineModel()` / `useModel()` / `useSyncedModel()`
-- Memory cache bridge (`useSyncExternalStore`)
-- TTL, version, history metadata
-
-### [`@firsttx/tx`](./packages/tx)
-
-Execution layer – optimistic + atomic
-
-- `startTransaction()` → `tx.run()` → `tx.commit()`
-- Compensation handlers, built-in retry
-- ViewTransition integration
-
----
-
-## Key Features
-
-1. **Instant Replay** (~0ms perceived)
-2. **Safe Hydration** (overlay + guard)
-3. **Server Sync** (boilerplate-free)
-4. **Atomic Rollback** (Tx)
-5. **Smooth Transitions** (ViewTransition)
-6. **Local-First** (works offline, sync when needed)
-
----
-
-## Vite Plugin (Advanced)
-
-```ts
-export interface FirstTxPluginOptions {
-  inline?: boolean; // default: true
-  minify?: boolean; // default: !dev
-  injectTo?: 'head' | 'head-prepend' | 'body' | 'body-prepend'; // default: 'head-prepend'
-  nonce?: string | (() => string); // CSP nonce support
-  overlay?: boolean; // default: undefined (off)
-  overlayRoutes?: string[]; // e.g. ['/prepaint/','/cart']
-  devFlagOverride?: boolean; // force dev/production define
-}
-```
-
-**Examples**
-
-Enable overlay for selected areas and set CSP nonce
-
-```ts
-firstTx({
-  overlayRoutes: ['/prepaint/'],
-  nonce: () => process.env.CSP_NONCE ?? '',
-});
-```
-
----
-
-## TypeScript & Globals
-
-The Prepaint package provides globals via `define` during build
-
-- `__FIRSTTX_DEV__` – `boolean` set by the plugin (no need to reference `import.meta.env.DEV` inside the library).
-- `window.__FIRSTTX_OVERLAY__?: boolean` – optional runtime switch to force overlay.
-
-If your app’s TS setup needs explicit declarations (e.g., strict monorepo settings), add
-
-```ts
-// src/types/firsttx-globals.d.ts
-declare const __FIRSTTX_DEV__: boolean;
-declare global {
-  interface Window {
-    __FIRSTTX_OVERLAY__?: boolean;
-  }
-}
-export {};
-```
-
----
-
-## Router Integration Notes
-
-- **React Router (v7+)**: If you see a hydration warning about missing fallback, pass a fallback element
+Creates React entry point and sets up Prepaint capture.
 
 ```tsx
-import { RouterProvider } from 'react-router-dom';
-<RouterProvider router={router} hydrateFallbackElement={<div />} />;
+import { createFirstTxRoot } from '@firsttx/prepaint';
+
+createFirstTxRoot(document.getElementById('root')!, <App />, { transition: true });
 ```
 
-- Overlay mode is recommended for complex route shells or when nested roots/portals may appear before hydration completes.
+**Parameters**
+
+- `container: HTMLElement` - DOM element to mount to
+- `element: ReactElement` - React element to render
+- `options?: { transition?: boolean }` - Whether to use ViewTransition (default: `true`)
 
 ---
 
-## Performance Targets
+### Local-First
 
-| Metric                   | Target | Status     |
-| ------------------------ | ------ | ---------- |
-| BlankScreenTime (BST)    | ~0ms   | ✅ ~0ms    |
-| PrepaintTime (PPT)       | <20ms  | ✅ ~15ms   |
-| HydrationSuccess         | >80%   | ✅ ~82%    |
-| ViewTransitionSmooth     | >90%   | ✅ ~95%    |
-| BootScriptSize           | <2KB   | ✅ ~1.74KB |
-| ReactSyncLatency         | <50ms  | ✅ ~42ms   |
-| TxRollbackTime           | <100ms | ✅ ~85ms   |
-| SyncBoilerplateReduction | >90%   | ✅ ~90%    |
+#### `defineModel(key, options)`
+
+Defines an IndexedDB model.
+
+```tsx
+import { defineModel } from '@firsttx/local-first';
+import { z } from 'zod';
+
+const CartModel = defineModel('cart', {
+  schema: z.object({ items: z.array(...) }),
+  ttl: 5 * 60 * 1000,
+});
+```
+
+**Parameters**
+
+- `key: string` - IndexedDB key (must be unique)
+- `options.schema: ZodSchema` - Zod schema
+- `options.ttl?: number` - Time-to-live in milliseconds (default: unlimited)
+
+#### `useSyncedModel(model, fetcher, options?)`
+
+Automatically syncs model with server.
+
+```tsx
+const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartModel, fetchCart, {
+  syncOnMount: 'stale',
+  onSuccess: (data) => console.log('Synced'),
+  onError: (err) => console.error(err),
+});
+```
+
+**Parameters**
+
+- `model: Model<T>` - Model created with defineModel
+- `fetcher: () => Promise<T>` - Function to fetch server data
+- `options?: SyncOptions`
+
+**SyncOptions**
+
+- `syncOnMount?: 'always' | 'stale' | 'never'` (default: `'stale'`)
+  - `'always'`: Always sync on mount
+  - `'stale'`: Only sync when TTL exceeded
+  - `'never'`: Manual sync only
+- `onSuccess?: (data: T) => void`
+- `onError?: (error: Error) => void`
+
+**Returns**
+
+- `data: T | null` - Current data
+- `patch: (fn: (draft: T) => void) => Promise<void>` - Local update
+- `sync: () => Promise<void>` - Manual sync
+- `isSyncing: boolean` - Whether syncing
+- `error: Error | null` - Sync error
+- `history: ModelHistory` - Metadata
+  - `age: number` - Time elapsed since last update (ms)
+  - `isStale: boolean` - Whether TTL exceeded
+  - `updatedAt: number` - Last update timestamp
 
 ---
 
-## Design Philosophy
+### Tx
 
-**Best fit**
+#### `startTransaction(options?)`
 
-- Internal tools (CRM, dashboards, admin)
-- Frequent revisits (10+ per day)
-- No SEO requirement (behind login)
-- Complex interactive UIs
-- Minimal server infra
+Starts an atomic transaction.
 
-**Not ideal**
+```tsx
+import { startTransaction } from '@firsttx/tx';
 
-- Public marketing sites (SSR/SSG)
-- First-visit is the top priority
-- “Always fresh” data requirements
-- Very simple CRUD apps
+const tx = startTransaction({ transition: true });
 
-Trade-offs vs SSR/RSC
+await tx.run(
+  () =>
+    CartModel.patch((draft) => {
+      /* update */
+    }),
+  {
+    compensate: () =>
+      CartModel.patch((draft) => {
+        /* rollback */
+      }),
+    retry: { maxAttempts: 1 },
+  },
+);
 
-| Aspect            | FirstTx              | SSR/RSC      |
-| ----------------- | -------------------- | ------------ |
-| First visit       | CSR (slower)         | Fast         |
-| Revisit           | ~0ms (instant)       | Fast         |
-| Data freshness    | Snapshot → Sync      | Always fresh |
-| Server complexity | Minimal (APIs only)  | Required     |
-| SEO               | Not targeted         | Full support |
-| Offline           | Preserves last state | No           |
+await tx.commit();
+```
+
+**Parameters**
+
+- `options?: { transition?: boolean }` - Whether to use ViewTransition (default: `true`)
+
+**Methods**
+
+- `tx.run(fn, options?)` - Add transaction step
+  - `fn: () => Promise<void>` - Function to execute
+  - `options.compensate?: () => Promise<void>` - Rollback function
+  - `options.retry?: { maxAttempts: number }` - Retry config (default: 1 attempt)
+- `tx.commit()` - Commit transaction (auto-rollback on failure)
+
+---
+
+💡 **Need practical examples?** → Return to [Examples](#examples)
+
+## Features
+
+### Prepaint - Revisit 0ms
+
+Automatically saves screen to IndexedDB when leaving page, and instantly restores before React loads on revisit.
+
+**Core Technology**
+
+- Inline boot script (<2KB)
+- ViewTransition integration
+- Automatic hydration fallback
+
+**Performance**
+
+- Blank Screen Time: ~0ms
+- Prepaint Time: <20ms
+- Hydration Success: >80%
+
+---
+
+### Local-First - Auto Sync
+
+Connects IndexedDB and React via useSyncExternalStore to guarantee synchronous state reads.
+
+**Core Features**
+
+- TTL-based auto expiration
+- Stale detection and auto refetch
+- Zod schema validation
+- Version management
+
+**DX Improvements**
+
+- ~90% reduction in sync boilerplate
+- React Sync Latency: <50ms
+
+---
+
+### Tx - Atomic Rollback
+
+Bundles optimistic updates and server requests into one transaction, with automatic rollback on failure.
+
+**Core Features**
+
+- Compensation-based rollback (reverse execution)
+- Retry strategies (linear/exponential backoff)
+- ViewTransition integration
+
+**Reliability**
+
+- Rollback Time: <100ms
+- ViewTransition Smooth: >90%
+
+---
+
+## Browser Support
+
+| Browser     | Min Version | ViewTransition   | Status                  |
+| ----------- | ----------- | ---------------- | ----------------------- |
+| Chrome/Edge | 111+        | ✅ Full support  | ✅ Tested               |
+| Firefox     | Latest      | ❌ Not supported | ✅ Graceful degradation |
+| Safari      | 16+         | ❌ Not supported | ✅ Graceful degradation |
+
+> Core features work everywhere even without ViewTransition.
+
+---
+
+## When to Use
+
+✅ **Choose FirstTx**
+
+- Internal tools (CRM, dashboards, admin panels)
+- Apps with frequent revisits (10+ times/day)
+- Apps without SEO requirements
+- Complex client-side interactions
+
+❌ **Consider alternatives**
+
+- Public landing/marketing sites → SSR/SSG
+- First-visit performance is critical → SSR
+- Always need latest data → Server-driven UI
 
 ---
 
 ## Troubleshooting
 
-**Duplicate UI after refresh**
-Use **Overlay Mode**. It renders the snapshot above your app in a Shadow DOM and is removed after hydration, eliminating multiple-root issues caused by routers or early DOM mutations.
+**Q: UI duplicates on refresh**
+A: Enable `overlay: true` option in Vite plugin.
 
-**Hydration mismatch due to changing text**
-Mark changing segments with `data-firsttx-volatile`. They’ll be blanked in snapshots, reducing mismatch risk.
+**Q: Hydration warnings occur**
+A: Add `data-firsttx-volatile` attribute to frequently changing elements.
 
-**TypeScript error: `import.meta.env`**
-Inside FirstTx we rely on `__FIRSTTX_DEV__` injected by the plugin, not `import.meta.env`. Apps do not need to set this manually. If your TS complains about the globals, add the small `d.ts` from the [TypeScript & Globals](#typescript--globals) section.
+**Q: TypeScript errors**
+A: Add global declaration: `declare const __FIRSTTX_DEV__: boolean`
 
-**CSP**
-Set `nonce` in the plugin options so the auto‑injected boot script passes CSP.
-
----
-
-## Examples
-
-- [`apps/demo`](./apps/demo) — Simple cart demo
-- [`apps/playground`](./apps/playground) — Interactive scenarios (Prepaint, Sync, Tx)
+Find more solutions at [GitHub Issues](https://github.com/joseph0926/firsttx/issues).
 
 ---
 
@@ -505,5 +443,6 @@ MIT © [joseph0926](https://github.com/joseph0926)
 
 ## Links
 
-- Repo: [https://github.com/joseph0926/firsttx](https://github.com/joseph0926/firsttx)
+- [GitHub Repository](https://github.com/joseph0926/firsttx)
+- [Issues](https://github.com/joseph0926/firsttx/issues)
 - Email: [joseph0926.dev@gmail.com](mailto:joseph0926.dev@gmail.com)
