@@ -1,5 +1,17 @@
 # @firsttx/tx
 
+## 0.1.2
+
+### Patch Changes
+
+FIX
+
+- reset step timeout timer between runs
+
+DOCS
+
+- update README
+
 ## 0.1.1
 
 ### Patch Changes

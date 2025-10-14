@@ -1,5 +1,17 @@
 # @firsttx/prepaint
 
+## 0.3.1
+
+### Patch Changes
+
+TEST
+
+- hydration failure tests
+
+DOCS
+
+- update README
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,5 +1,21 @@
 # @firsttx/local-first
 
+## 0.3.2
+
+### Patch Changes
+
+FIX
+
+- reset IndexedDB promise after open errors
+
+TEST
+
+- add comprehensive first-visit
+
+DOCS
+
+- update README
+
 ## 0.3.1
 
 ### Patch Changes
