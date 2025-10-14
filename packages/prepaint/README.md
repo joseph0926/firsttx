@@ -1,241 +1,175 @@
-# `@firsttx/prepaint`
+# @firsttx/prepaint
 
-**Instant Replay for CSR Apps — ~0ms blank screen on revisit**
+**Instant replay for CSR apps — ~0ms blank screen on revisit**
 
-Prepaint removes the blank screen on return visits by restoring your app’s last visual state **before** your main JavaScript loads. It reads a snapshot from IndexedDB and paints immediately, then hands off to React for hydration or fresh rendering.
+Restores your app's last visual state from IndexedDB before JavaScript loads. No blank screens. Automatic React hydration with graceful fallback.
+
+<table>
+<tr>
+<td align="center">❌ Before prepaint</td>
+<td align="center">✅ After prepaint</td>
+</tr>
+<tr>
+<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-01_vi2svy.gif" /></td>
+<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-02_tfmsy7.gif" /></td>
+</tr>
+<tr>
+<td align="center"><sub>Slow 4G: Blank screen exposed</sub></td>
+<td align="center"><sub>Slow 4G: Instant restore</sub></td>
+</tr>
+</table>
+
+```bash
+npm install @firsttx/prepaint
+```
+
+[![npm version](https://img.shields.io/npm/v/@firsttx/prepaint.svg)](https://www.npmjs.com/package/@firsttx/prepaint)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
-## Contents
-
-- [What is Prepaint?](#what-is-prepaint)
-- [Quick Start](#quick-start)
-- [How It Works](#how-it-works)
-- [API Reference](#api-reference)
-- [Overlay Mode](#overlay-mode)
-- [Hydration & Root Guards](#hydration--root-guards)
-- [Best Practices](#best-practices)
-- [Debugging](#debugging)
-- [Performance](#performance)
-- [Current Limitations](#current-limitations)
-- [Browser Support](#browser-support)
-- [FAQ](#faq)
-- [License](#license)
-- [Links](#links)
-
----
-
-## What is Prepaint?
-
-Traditional CSR apps show a blank screen on each page load while waiting for:
-
-1. HTML parsing
-2. JS download & execution
-3. React initialization
-4. Component render & API resolution
-
-**Prepaint’s idea**
+## The Problem
 
 ```
-Traditional CSR
-User visits  → Blank screen (2000ms) → Content appears
+Traditional CSR on revisit:
+User clicks → Blank screen (2000ms) → Content appears
 
-With Prepaint
-User revisits → Last snapshot (~0ms) → React hydrates → Fresh data syncs
+With Prepaint:
+User clicks → Last snapshot (~0ms) → React hydrates → Fresh data
 ```
 
-Prepaint persists a DOM snapshot per route, and replays it on the next visit. Hydration then reuses that DOM, or cleanly switches to a fresh render when mismatches happen.
+Prepaint captures DOM snapshots per route and replays them instantly on the next visit.
 
 ---
 
 ## Quick Start
 
-### Install
-
-```bash
-pnpm add @firsttx/prepaint
-```
-
-### Setup (2 steps)
-
-#### 1) Add the Vite plugin
+### 1. Vite Plugin
 
 ```ts
 // vite.config.ts
-import { defineConfig } from 'vite';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [
-    firstTx(), // auto-injects a tiny boot script (<2KB)
-  ],
+  plugins: [firstTx()],
 });
 ```
 
-What it does:
-
-- Bundles a tiny IIFE boot script and injects it into the HTML (default: `<head>` prepend).
-- Defines `__FIRSTTX_DEV__` at build-time for development logs.
-- Runs **before** your main bundle, restoring the last snapshot instantly.
-
-#### 2) Wrap your React entry
+### 2. React Entry
 
 ```tsx
 // main.tsx
 import { createFirstTxRoot } from '@firsttx/prepaint';
-import App from './App';
 
-// Instead of:
-// createRoot(document.getElementById('root')!).render(<App />);
-
-// Use:
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-That’s it. Prepaint will now:
+**Done.** Prepaint now:
 
-- Capture snapshots automatically on page hide/unload
-- Restore them on revisit in ~0ms
-- Hydrate with React and optionally use ViewTransition for smoothness
+- Captures snapshots on page hide/unload
+- Restores them in ~0ms on revisit
+- Hydrates with React (or falls back gracefully)
 
 ---
 
 ## How It Works
 
-### Three phases
+### Three Phases
 
 ```
-┌────────────────────────────────────────┐
-│ 1) Capture                             │
-│  - Runs on visibilitychange/pagehide/  │
-│    beforeunload                        │
-│  - Saves { route, body, styles, ts }   │
-│    to IndexedDB                        │
-└────────────────────────────────────────┘
-                  ↓
-┌────────────────────────────────────────┐
-│ 2) Boot (~0ms)                         │
-│  - HTML loads → boot script runs       │
-│  - Reads snapshot from IndexedDB       │
-│  - Restores into #root (or overlay)    │
-│  - Marks <html data-prepaint="true">   │
-└────────────────────────────────────────┘
-                  ↓
-┌────────────────────────────────────────┐
-│ 3) Handoff (~500ms)                    │
-│  - Main bundle loads                   │
-│  - createFirstTxRoot() chooses         │
-│    hydrateRoot() or createRoot()       │
-│  - Cleans up injected styles/overlay   │
-│  - Guards ensure single-child #root    │
-└────────────────────────────────────────┘
+┌─────────────────────────────────┐
+│ 1) Capture (on page leave)     │
+│  - beforeunload/pagehide/       │
+│    visibilitychange             │
+│  - Saves DOM + styles to        │
+│    IndexedDB                    │
+└─────────────────────────────────┘
+              ↓
+┌─────────────────────────────────┐
+│ 2) Boot (~0ms on revisit)       │
+│  - Inline script runs           │
+│  - Reads snapshot from IndexedDB│
+│  - Injects into #root           │
+└─────────────────────────────────┘
+              ↓
+┌─────────────────────────────────┐
+│ 3) Handoff (~500ms)             │
+│  - Main bundle loads            │
+│  - Hydrates or client-renders   │
+│  - Cleans up prepaint artifacts │
+└─────────────────────────────────┘
 ```
 
 **Storage**
 
 - DB: `firsttx-prepaint`
-- Object store: `snapshots`
-- Key: `route`
-- Expiry: 7 days (discarded on boot if stale)
-
-**Markers**
-
-- `<html data-prepaint="true" data-prepaint-timestamp="...">`
-- When using overlay: `data-prepaint-overlay="true"`
-- Prepaint-injected style tags include `data-firsttx-prepaint`
+- Store: `snapshots`
+- Key: route pathname
+- TTL: 7 days
 
 ---
 
-## API Reference
+## API
 
 ### `createFirstTxRoot(container, element, options?)`
 
-Drop-in replacement for `createRoot()` that performs handoff:
-
-```ts
+```typescript
 createFirstTxRoot(
   container: HTMLElement,
-  element: React.ReactElement,
+  element: ReactElement,
   options?: {
-    transition?: boolean;           // Use ViewTransition API if available (default: true)
-    onCapture?: (s: Snapshot) => void;
+    transition?: boolean;  // ViewTransition (default: true)
+    onCapture?: (snapshot: Snapshot) => void;
     onHandoff?: (strategy: 'has-prepaint' | 'cold-start') => void;
-    onHydrationError?: (err: Error) => void;
+    onHydrationError?: (error: Error) => void;
   }
 );
 ```
 
-Behavior:
+**Behavior**
 
-- If a snapshot was injected and `#root` has exactly one child → `hydrateRoot()`.
-- Otherwise → `createRoot()` fresh render.
-- On recoverable hydration error, falls back to a clean client render (optionally inside a ViewTransition).
-- After mount, removes prepaint styles/overlay and installs a **root guard** (see below).
+- If snapshot exists + `#root` has 1 child → `hydrateRoot()`
+- Otherwise → `createRoot()` fresh render
+- On hydration error → fallback to clean render (with ViewTransition)
 
-### `setupCapture(options?)`
+### `firstTx(options?)` (Vite Plugin)
 
-Installed automatically by `createFirstTxRoot()`. You don’t need to call it yourself, but it’s exported if you want manual control.
-
-```ts
-setupCapture({
-  routes?: string[];           // capture allow-list
-  onCapture?: (s: Snapshot) => void;
-});
-```
-
-Capture triggers are coalesced via `queueMicrotask` behind these events:
-
-- `visibilitychange` (when hidden)
-- `pagehide`
-- `beforeunload`
-
-### `handoff()`
-
-Internal strategy probe:
-
-```ts
-type HandoffStrategy = 'has-prepaint' | 'cold-start';
-function handoff(): HandoffStrategy;
+```typescript
+firstTx({
+  inline?: boolean,              // Inline boot script (default: true)
+  minify?: boolean,              // Minify boot script (default: !isDev)
+  injectTo?: 'head-prepend' | 'head' | 'body-prepend' | 'body',
+  nonce?: string | (() => string),
+  overlay?: boolean,             // Enable overlay mode globally
+  overlayRoutes?: string[],      // Overlay for specific routes
+})
 ```
 
 ---
 
 ## Overlay Mode
 
-In some apps, injecting HTML directly into `#root` can race with router or meta frameworks and cause duplicate DOM. **Overlay mode** avoids that by painting the snapshot **above** the app in a Shadow DOM, then fading out on hydration.
+**Problem** Direct injection into `#root` can race with routers, causing duplicate DOM.
 
-How it works:
+**Solution** Overlay mode paints the snapshot **above** your app in Shadow DOM, then fades out after hydration.
 
-- The boot script mounts a fixed overlay host with id `__firsttx_prepaint__`.
-- Snapshot HTML + styles are rendered in the overlay’s shadow root.
-- React hydrates underneath; once ready, the overlay is removed.
-
-Enable overlay (pick any):
+### Enable Overlay
 
 ```js
-// 1) Global switch (for all routes in current page)
+// Option 1: Global flag
 window.__FIRSTTX_OVERLAY__ = true;
 
-// 2) LocalStorage flag (persists across reloads)
-localStorage.setItem('firsttx:overlay', '1'); // or 'true'
+// Option 2: localStorage (persists)
+localStorage.setItem('firsttx:overlay', '1');
 
-// 3) Route prefix list (comma-separated)
+// Option 3: Specific routes
 localStorage.setItem('firsttx:overlayRoutes', '/prepaint,/dashboard');
+
+// Option 4: Vite plugin
+firstTx({ overlay: true });
 ```
 
-TypeScript hint (optional):
-
-```ts
-// src/global.d.ts
-declare global {
-  interface Window {
-    __FIRSTTX_OVERLAY__?: boolean;
-  }
-}
-export {};
-```
-
-Disable:
+### Disable
 
 ```js
 delete window.__FIRSTTX_OVERLAY__;
@@ -245,141 +179,262 @@ localStorage.removeItem('firsttx:overlayRoutes');
 
 ---
 
-## Hydration & Root Guards
+## Real-World Patterns
 
-### Single‑child rule
+### With Local-First
 
-Prepaint will only attempt hydration if `#root` has **exactly one** child (the restored snapshot). If not, it falls back to a clean `createRoot()` render.
+```tsx
+import { useModel } from '@firsttx/local-first';
 
-### Root guard
+function ProductsPage() {
+  const [products] = useModel(ProductsModel);
 
-After mount, a guard watches `#root`:
+  // Prepaint shows last snapshot
+  // useModel provides instant data from IndexedDB
+  if (!products) return <Skeleton />;
 
-- If it detects `#root` gaining extra children (e.g., a router or script appending siblings), it **unmounts**, clears `#root`, and re‑renders cleanly.
-- This prevents “double UI” issues when frameworks/routing layers also write into `#root`.
+  return <ProductList products={products} />;
+}
+```
+
+### Mark Volatile Content
+
+```tsx
+// These change on every render → exclude from snapshot
+<span data-firsttx-volatile>{Date.now()}</span>
+<div data-firsttx-volatile>{Math.random()}</div>
+<Timer data-firsttx-volatile />
+```
+
+### Debug Lifecycle
+
+```tsx
+createFirstTxRoot(root, <App />, {
+  onCapture: (snapshot) => console.log('Captured:', snapshot.route),
+  onHandoff: (strategy) => console.log('Strategy:', strategy),
+  onHydrationError: (err) => console.error('Hydration failed:', err),
+});
+```
+
+---
+
+## Hydration & Fallback
+
+### Single-Child Rule
+
+Prepaint only attempts hydration if `#root` has **exactly 1 child**. Otherwise → fresh render.
+
+### Root Guard
+
+After mount, a MutationObserver watches `#root`:
+
+- Detects extra children (e.g., router appending siblings)
+- Unmounts → clears → re-renders cleanly
+- Prevents "double UI" issues
 
 ### Cleanup
 
-- All prepaint‑injected styles (`style[data-firsttx-prepaint]`) are removed post-mount.
-- If overlay mode was used, the overlay host `#__firsttx_prepaint__` is removed post-mount.
+Post-mount:
+
+- Removes `<html data-prepaint="true">`
+- Removes `style[data-firsttx-prepaint]`
+- Removes overlay host `#__firsttx_prepaint__`
 
 ---
 
 ## Best Practices
 
-### Combine with Local‑First
+### DO
 
-Use `@firsttx/local-first` to render data instantly from memory/IndexedDB while the network refreshes in the background.
+✅ **Use ViewTransition (default)**
 
 ```tsx
-const [data] = useModel(ProductsModel);
-return data ? <List items={data.items} /> : <Skeleton />;
+createFirstTxRoot(root, <App />, { transition: true });
 ```
 
-### Use ViewTransition (default)
-
-`createFirstTxRoot(..., { transition: true })` will wrap hydration/fallback in a ViewTransition when supported, smoothing visual differences.
-
-### Mark volatile text
-
-If certain subtrees contain volatile content (e.g., timers, counters), mark them to be cleared during capture:
+✅ **Mark volatile content**
 
 ```html
-<span data-firsttx-volatile>00:00</span>
+<span data-firsttx-volatile>{timestamp}</span>
+```
+
+✅ **Combine with Local-First**
+
+```tsx
+const [data] = useModel(Model);
+// Instant data from IndexedDB while network refreshes
+```
+
+### DON'T
+
+❌ **Don't expect instant availability on first visit**
+
+```tsx
+// First visit: snapshot doesn't exist yet
+// Only kicks in on second+ visits
+```
+
+❌ **Don't capture sensitive data**
+
+```tsx
+// Snapshots are plain HTML in IndexedDB
+// Avoid capturing auth tokens, PII, etc.
 ```
 
 ---
 
 ## Debugging
 
-### Development logs
-
-The plugin injects a build‑time define `__FIRSTTX_DEV__` used by the library for DEV‑only logs.
-
-Typical console output:
+### Development Logs
 
 ```
 [FirstTx] Snapshot restored (age: 63ms)
 [FirstTx] Prepaint detected (age: 63ms)
-[FirstTx] Snapshot captured for /prepaint/route-switching
+[FirstTx] Snapshot captured for /products
 ```
 
-### Inspect snapshots
+### Inspect IndexedDB
 
 ```js
 indexedDB.open('firsttx-prepaint').onsuccess = (e) => {
   const db = e.target.result;
   const tx = db.transaction('snapshots', 'readonly');
-  const store = tx.objectStore('snapshots');
-  store.getAll().onsuccess = (e2) => console.log(e2.target.result);
+  tx.objectStore('snapshots').getAll().onsuccess = (e2) => {
+    console.log(e2.target.result);
+  };
 };
 ```
 
-### Verify injection
+### Check Injection
 
-Look for a script injected near the top of `<head>` that calls the boot function. On revisit, you should also see:
+On revisit, look for:
 
-- `<html data-prepaint="true" ...>`
-- If overlay: `<html data-prepaint-overlay="true" ...>`
-- Temporary `style[data-firsttx-prepaint]` tags
+- `<html data-prepaint="true" data-prepaint-timestamp="...">`
+- Boot script near `<head>` top
+- Temporary `style[data-firsttx-prepaint]`
 
 ---
 
 ## Performance
 
-| Metric                 | Target | Typical |
-| ---------------------- | ------ | ------- |
-| Boot script size       | <2KB   | ~1.7KB  |
-| Boot time              | <20ms  | ~15ms   |
-| Hydration success rate | >80%   | ~80–85% |
+| Metric            | Target | Actual  |
+| ----------------- | ------ | ------- |
+| Boot script size  | <2KB   | ~1.7KB  |
+| Boot execution    | <20ms  | ~15ms   |
+| Hydration success | >80%   | ~80-85% |
 
-When hydration mismatches occur (dynamic timestamps, randomized CSS class names, client‑only branches), Prepaint automatically falls back to a clean client render. With ViewTransition, the change remains smooth.
-
----
-
-## Current Limitations
-
-| Limitation         | Workaround                                     |
-| ------------------ | ---------------------------------------------- |
-| Vite‑only plugin   | Manual `<script>` for other bundlers           |
-| Capture timing     | Triggers on `visibilitychange/pagehide/unload` |
-| Full‑page capture  | Snapshotting sub‑trees not supported (yet)     |
-| Fixed TTL (7 days) | Override in source; config planned             |
+**Hydration mismatches** (timestamps, random IDs, client-only branches) automatically fallback to clean render with ViewTransition.
 
 ---
 
 ## Browser Support
 
-- **Chrome/Edge 111+**: Full (ViewTransition supported)
-- **Firefox/Safari**: Core instant replay works; falls back without ViewTransition
-- **Mobile**: iOS Safari 16+, Chrome Android 111+
+| Browser     | Min Version                  | ViewTransition | Status        |
+| ----------- | ---------------------------- | -------------- | ------------- |
+| Chrome/Edge | 111+                         | ✅ Full        | ✅ Tested     |
+| Firefox     | Latest                       | ❌ No          | ✅ Fallback   |
+| Safari      | 16+                          | ❌ No          | ✅ Fallback   |
+| Mobile      | iOS 16+, Android Chrome 111+ | Varies         | ✅ Core works |
+
+---
+
+## Limitations
+
+| Issue                  | Workaround                           |
+| ---------------------- | ------------------------------------ |
+| Vite-only plugin       | Manual `<script>` for other bundlers |
+| Fixed 7-day TTL        | Override in source (config planned)  |
+| Full-page capture only | Sub-tree snapshots not supported yet |
 
 ---
 
 ## FAQ
 
-**Does this work with SSR/Next.js?**
-No. Prepaint targets pure CSR apps. For SSR, use the framework’s SSR/RSC features.
+**Q: Does this work with SSR/Next.js?**
 
-**Will this increase memory usage?**
-Snapshots are kept in IndexedDB (disk). Memory overhead during boot is small.
+A: No. Prepaint targets pure CSR apps. For SSR, use framework's native features.
 
-**Can I restrict capture to certain routes?**
-Yes. Use `setupCapture({ routes: [...] })` if you manually wire it, or filter at the app layer. The default auto‑capture installed by `createFirstTxRoot` captures all routes.
+---
 
-**How do I prevent duplicate UI?**
-Use overlay mode or rely on the built‑in root guard. Overlay paints above your app and avoids writing into `#root`; the guard enforces single‑child `#root`.
+**Q: Will this increase memory usage?**
+
+A: Snapshots live in IndexedDB (disk). Memory overhead is minimal during boot.
+
+---
+
+**Q: How do I prevent duplicate UI?**
+
+A: Use overlay mode or rely on the root guard:
+
+```tsx
+firstTx({ overlay: true });
+```
+
+---
+
+**Q: Can I restrict capture to certain routes?**
+
+A: Use `setupCapture()` manually or filter at app layer. Default captures all routes.
+
+---
+
+**Q: What if hydration fails?**
+
+A: Automatic fallback to clean client render (with ViewTransition if enabled). No manual intervention needed.
+
+---
+
+## Changelog
+
+### [0.3.0](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Fprepaint%400.3.0) - 2025.10.12
+
+**Add overlay mode and hard hydration bailout to prepaint**
+
+This release introduces significant improvements to snapshot capture and hydration reliability:
+
+**Breaking Changes**
+
+- `captureSnapshot()` now uses root element serialization instead of `body.innerHTML`
+- Requires `#root` element to be present for capture to work
+
+**New Features**
+
+- **Overlay mode support** Adds global `__FIRSTTX_DEV__` flag for development logging
+- **Volatile data handling** Elements with `data-firsttx-volatile` attribute are automatically cleared during capture (useful for timestamps, random values)
+- **Style filtering** Prepaint-injected styles are now excluded from capture via `data-firsttx-prepaint` attribute
+- **Enhanced capture timing**
+  - Captures on `visibilitychange` (when page becomes hidden)
+  - Captures on `pagehide` (mobile-friendly)
+  - Maintains `beforeunload` capture
+  - Debounced with microtask queue to prevent duplicate saves
+
+**Improvements**
+
+- Cleaner serialization: Only captures first child of root element
+- More reliable hydration: Filters out dynamic content that causes mismatches
+- Better mobile support: `pagehide` event works more reliably on iOS/Android
+- Development experience: `__FIRSTTX_DEV__` replaces `process.env.NODE_ENV` checks
+
+**Migration Guide**
+
+```tsx
+// If you have dynamic content that changes on every render:
+<span data-firsttx-volatile>{Date.now()}</span>
+<div data-firsttx-volatile>{Math.random()}</div>
+
+// Vite plugin automatically injects __FIRSTTX_DEV__ flag
+// No changes needed to your vite.config.ts
+```
+
+---
+
+## Related Packages
+
+- [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
+- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Atomic transactions with rollback
 
 ---
 
 ## License
 
 MIT © [joseph0926](https://github.com/joseph0926)
-
----
-
-## Links
-
-- Main repository: [https://github.com/joseph0926/firsttx](https://github.com/joseph0926/firsttx)
-- [`@firsttx/local-first`](../local-first) – Data layer (IndexedDB + React)
-- [`@firsttx/tx`](../tx) – Transaction layer (optimistic updates + rollback)

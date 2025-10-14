@@ -8,10 +8,14 @@
 
 **Eliminate blank screens on revisits - Restore last state instantly**
 
+## Demo
+
+### Prepaint
+
 <table>
 <tr>
-<td align="center">❌ Before FirstTx</td>
-<td align="center">✅ After FirstTx</td>
+<td align="center">❌ Before prepaint</td>
+<td align="center">✅ After prepaint</td>
 </tr>
 <tr>
 <td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-01_vi2svy.gif" /></td>
@@ -22,6 +26,14 @@
 <td align="center"><sub>Slow 4G: Instant restore</sub></td>
 </tr>
 </table>
+
+### TX
+
+<img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400068/firsttx-tx-01_blkctj.gif" />
+
+### Local First
+
+<img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400559/firsttx-local-01_zwhtge.gif" />
 
 ## Is FirstTx for you?
 
