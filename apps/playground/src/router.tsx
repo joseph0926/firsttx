@@ -74,9 +74,9 @@ const routerObjects: RouteObject[] = [
         path: 'sync',
         children: [
           {
-            path: 'conflict',
+            path: 'instant-cart',
             lazy: async () => {
-              const { default: Component } = await import('./pages/sync/conflict');
+              const { default: Component } = await import('./pages/sync/instant-cart');
               return { Component };
             },
           },

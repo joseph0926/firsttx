@@ -69,11 +69,11 @@ export default function HomePage() {
             description="Handle local and server data conflicts"
             scenarios={[
               {
-                id: 'conflict',
-                title: 'Conflict Resolution',
-                description: 'Watch local modifications resolve against server data',
-                path: '/sync/conflict',
-                metrics: { strategy: 'server-first', time: '<100ms' },
+                id: 'instant-cart',
+                title: 'Instant Cart',
+                description: 'Traditional CSR vs Local-First response time comparison',
+                path: '/sync/instant-cart',
+                metrics: { response: '0ms', savings: '1,300ms' },
               },
               {
                 id: 'timing',
