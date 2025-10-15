@@ -1,4 +1,7 @@
-export function mountOverlay(html: string, styles?: string[]): void {
+import { normalizeSnapshotStyleEntry } from './style-utils';
+import type { SnapshotStyle } from './types';
+
+export function mountOverlay(html: string, styles?: Array<SnapshotStyle | string>): void {
   const existing = document.getElementById('__firsttx_prepaint__');
   if (existing) return;
 
@@ -37,10 +40,25 @@ export function mountOverlay(html: string, styles?: string[]): void {
 
   const shadow = host.attachShadow({ mode: 'open' });
   if (styles && styles.length > 0) {
-    for (const css of styles) {
-      const s = document.createElement('style');
-      s.textContent = css;
-      shadow.appendChild(s);
+    for (const entry of styles) {
+      const normalized = normalizeSnapshotStyleEntry(entry);
+      if (!normalized) continue;
+      if (normalized.type === 'inline') {
+        const s = document.createElement('style');
+        s.textContent = normalized.content;
+        shadow.appendChild(s);
+        continue;
+      }
+      if (normalized.content) {
+        const s = document.createElement('style');
+        s.textContent = normalized.content;
+        shadow.appendChild(s);
+      } else {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = normalized.href;
+        shadow.appendChild(link);
+      }
     }
   }
 

@@ -1,8 +1,9 @@
 declare const __FIRSTTX_DEV__: boolean;
 
-import { STORAGE_CONFIG, type Snapshot } from './types';
+import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB } from './utils';
 import { mountOverlay } from './overlay';
+import { normalizeSnapshotStyleEntry } from './style-utils';
 
 function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   return new Promise((resolve, reject) => {
@@ -72,11 +73,9 @@ export async function boot(): Promise<void> {
     root.innerHTML = clean;
 
     if (snapshot.styles) {
-      snapshot.styles.forEach((css) => {
-        const style = document.createElement('style');
-        style.setAttribute('data-firsttx-prepaint', '');
-        style.textContent = css;
-        document.head.appendChild(style);
+      snapshot.styles.forEach((entry) => {
+        const normalized = normalizeSnapshotStyleEntry(entry);
+        if (normalized) appendStyleResource(normalized);
       });
     }
 
@@ -89,4 +88,19 @@ export async function boot(): Promise<void> {
   } catch (error) {
     console.error('[FirstTx] Boot failed:', error);
   }
+}
+
+function appendStyleResource(style: SnapshotStyle): void {
+  if (style.type === 'inline' || style.content) {
+    const element = document.createElement('style');
+    element.setAttribute('data-firsttx-prepaint', '');
+    element.textContent = style.type === 'inline' ? style.content : (style.content ?? '');
+    document.head.appendChild(element);
+    return;
+  }
+  const link = document.createElement('link');
+  link.setAttribute('data-firsttx-prepaint', '');
+  link.rel = 'stylesheet';
+  link.href = style.href;
+  document.head.appendChild(link);
 }

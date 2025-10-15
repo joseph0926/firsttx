@@ -63,7 +63,7 @@ describe('setupCapture', () => {
 
   it('captures only for allowed routes filter', async () => {
     const orig = window.location.pathname;
-    Object.defineProperty(window, 'location', { value: { pathname: '/blocked' }, writable: true });
+    window.history.pushState(null, '', '/blocked');
 
     const addWin = vi.spyOn(window, 'addEventListener');
     cleanup = setupCapture({ routes: ['/allowed'] });
@@ -83,7 +83,8 @@ describe('setupCapture', () => {
     });
     db.close();
 
-    Object.defineProperty(window, 'location', { value: { pathname: '/allowed' }, writable: true });
+    window.history.pushState(null, '', '/allowed');
+
     handler();
     await tick();
     await tick();
@@ -98,7 +99,7 @@ describe('setupCapture', () => {
     });
     db.close();
 
-    Object.defineProperty(window, 'location', { value: { pathname: orig }, writable: true });
+    window.history.pushState(null, '', orig || '/');
   });
 });
 
@@ -157,8 +158,15 @@ describe('captureSnapshot', () => {
     const snapshot = await getSnapshot('/');
     expect(snapshot).not.toBeNull();
     expect(snapshot!.styles).toBeDefined();
-    expect(snapshot!.styles!).toContain('.test { color: red; }');
-    expect(snapshot!.styles!).not.toContain('.ignore { display:none; }');
+    expect(snapshot!.styles).toContainEqual({
+      type: 'inline',
+      content: '.test { color: red; }',
+    });
+    const ignored = snapshot!.styles!.filter((style) =>
+      // @ts-expect-error test type
+      style.type === 'inline' ? style.content === '.ignore { display:none; }' : false,
+    );
+    expect(ignored).toHaveLength(0);
   });
 
   it('handles empty styles', async () => {
@@ -168,9 +176,44 @@ describe('captureSnapshot', () => {
     expect(snapshot!.styles).toBeUndefined();
   });
 
+  it('captures same-origin external stylesheets', async () => {
+    const originalFetch = global.fetch;
+    const originalLocation = window.location;
+    const cssText = '.external { color: blue; }';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue(cssText),
+    } as unknown as Response);
+    global.fetch = fetchMock as typeof fetch;
+
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/styles/main.css';
+    document.head.appendChild(link);
+
+    try {
+      Object.defineProperty(window, 'location', { value: { pathname: '/' }, writable: true });
+      await captureSnapshot();
+      const snapshot = await getSnapshot('/');
+      expect(snapshot).not.toBeNull();
+      const expectedHref = new URL('/styles/main.css', document.baseURI).href;
+      expect(fetchMock).toHaveBeenCalledWith(expectedHref, {
+        credentials: 'same-origin',
+      });
+      expect(snapshot!.styles).toContainEqual({
+        type: 'external',
+        href: expectedHref,
+        content: cssText,
+      });
+    } finally {
+      global.fetch = originalFetch;
+      Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
+    }
+  });
+
   it('captures current route from location.pathname', async () => {
     const originalPathname = window.location.pathname;
-    Object.defineProperty(window, 'location', { value: { pathname: '/products' }, writable: true });
+    window.history.pushState(null, '', '/products');
     document.body.innerHTML = '<div id="root"><div>Products Page</div></div>';
 
     await captureSnapshot();
@@ -180,10 +223,7 @@ describe('captureSnapshot', () => {
     expect(snapshot!.route).toBe('/products');
     expect(snapshot!.body).toBe('<div>Products Page</div>');
 
-    Object.defineProperty(window, 'location', {
-      value: { pathname: originalPathname },
-      writable: true,
-    });
+    window.history.pushState(null, '', originalPathname || '/');
   });
 
   it('sets timestamp on snapshot', async () => {

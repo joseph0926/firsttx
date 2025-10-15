@@ -9,5 +9,18 @@ export interface Snapshot {
   route: string;
   body: string;
   timestamp: number;
-  styles?: string[];
+  styles?: Array<SnapshotStyle | string>;
+}
+
+export type SnapshotStyle = InlineSnapshotStyle | ExternalSnapshotStyle;
+
+export interface InlineSnapshotStyle {
+  type: 'inline';
+  content: string;
+}
+
+export interface ExternalSnapshotStyle {
+  type: 'external';
+  href: string;
+  content?: string;
 }

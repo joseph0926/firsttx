@@ -92,7 +92,10 @@ describe('boot', () => {
       route: '/',
       timestamp: Date.now(),
       body: '<div>Content</div>',
-      styles: ['.test { color: red; }', '.another { font-size: 16px; }'],
+      styles: [
+        { type: 'inline', content: '.test { color: red; }' },
+        { type: 'inline', content: '.another { font-size: 16px; }' },
+      ],
     };
     await saveSnapshot(snapshot);
     await boot();
@@ -100,6 +103,22 @@ describe('boot', () => {
     const texts = els.map((e) => e.textContent);
     expect(texts).toContain('.test { color: red; }');
     expect(texts).toContain('.another { font-size: 16px; }');
+  });
+
+  it('normalizes legacy string snapshot styles', async () => {
+    mountRoot('<div>Content</div>');
+    const snapshot: Snapshot = {
+      route: '/',
+      timestamp: Date.now(),
+      body: '<div>Content</div>',
+      styles: ['.legacy { display: block; }'],
+    };
+    await saveSnapshot(snapshot);
+    await boot();
+    const texts = Array.from(document.head.querySelectorAll('style[data-firsttx-prepaint]')).map(
+      (node) => node.textContent,
+    );
+    expect(texts).toContain('.legacy { display: block; }');
   });
 
   it('sets prepaint timestamp attribute', async () => {
@@ -121,7 +140,7 @@ describe('boot', () => {
   it('matches route from location.pathname', async () => {
     mountRoot('');
     const originalPathname = window.location.pathname;
-    Object.defineProperty(window, 'location', { value: { pathname: '/cart' }, writable: true });
+    window.history.pushState(null, '', '/cart');
     const snapshot: Snapshot = {
       route: '/cart',
       timestamp: Date.now(),
@@ -131,10 +150,7 @@ describe('boot', () => {
     await saveSnapshot(snapshot);
     await boot();
     expect(document.getElementById('root')!.innerHTML).toBe('<div>Cart Content</div>');
-    Object.defineProperty(window, 'location', {
-      value: { pathname: originalPathname },
-      writable: true,
-    });
+    window.history.pushState(null, '', originalPathname || '/');
   });
 
   it('mounts overlay and marks attributes when overlay is enabled', async () => {
@@ -144,7 +160,7 @@ describe('boot', () => {
       route: '/',
       timestamp: Date.now(),
       body: '<div id="overlay-body">Hello</div>',
-      styles: ['.x{opacity:1;}'],
+      styles: [{ type: 'inline', content: '.x{opacity:1;}' }],
     };
     await saveSnapshot(snapshot);
     await boot();

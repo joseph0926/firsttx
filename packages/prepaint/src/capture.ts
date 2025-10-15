@@ -1,7 +1,61 @@
-import { STORAGE_CONFIG, type Snapshot } from './types';
+import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB } from './utils';
 
 declare const __FIRSTTX_DEV__: boolean;
+
+function getDocumentBaseUrl(): string | null {
+  try {
+    if (typeof document !== 'undefined') {
+      const baseUri = document.baseURI;
+      if (typeof baseUri === 'string' && baseUri && baseUri !== 'about:blank') {
+        return baseUri;
+      }
+      const docUrl = (document as Document & { URL?: string }).URL;
+      if (typeof docUrl === 'string' && docUrl && docUrl !== 'about:blank') {
+        return docUrl;
+      }
+    }
+  } catch {}
+  try {
+    if (typeof window !== 'undefined') {
+      const { location } = window;
+      if (location) {
+        if (typeof location.href === 'string' && location.href) return location.href;
+        if (typeof location.origin === 'string' && location.origin) return location.origin;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function getCurrentOrigin(): string | null {
+  const base = getDocumentBaseUrl();
+  if (!base) return null;
+  try {
+    const origin = new URL(base).origin;
+    return origin === 'null' ? null : origin;
+  } catch {}
+  return null;
+}
+
+function resolveHref(href: string): URL | null {
+  if (!href) return null;
+  try {
+    if (typeof document !== 'undefined') {
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      if (anchor.href) {
+        return new URL(anchor.href);
+      }
+    }
+  } catch {}
+  const base = getDocumentBaseUrl();
+  if (!base) return null;
+  try {
+    return new URL(href, base);
+  } catch {}
+  return null;
+}
 
 function saveSnapshot(db: IDBDatabase, snapshot: Snapshot): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -20,12 +74,40 @@ function saveSnapshot(db: IDBDatabase, snapshot: Snapshot): Promise<void> {
   });
 }
 
-function collectStyles(): string[] {
-  const styles: string[] = [];
-  document.querySelectorAll('style').forEach((styleEl) => {
-    if (styleEl.hasAttribute('data-firsttx-prepaint')) return;
-    if (styleEl.textContent) styles.push(styleEl.textContent);
-  });
+async function collectStyles(): Promise<SnapshotStyle[]> {
+  const styles: SnapshotStyle[] = [];
+  const elements = document.querySelectorAll('style, link[rel~="stylesheet"]');
+  const currentOrigin = getCurrentOrigin();
+  const fetchFn = typeof globalThis.fetch === 'function' ? globalThis.fetch : null;
+  for (const element of elements) {
+    if (!(element instanceof HTMLElement)) continue;
+    if (element.hasAttribute('data-firsttx-prepaint')) continue;
+    if (element instanceof HTMLStyleElement) {
+      if (element.textContent) {
+        styles.push({ type: 'inline', content: element.textContent });
+      }
+      continue;
+    }
+    if (!(element instanceof HTMLLinkElement)) continue;
+    const relList = element.relList;
+    const isStylesheet = relList ? relList.contains('stylesheet') : element.rel === 'stylesheet';
+    if (!isStylesheet) continue;
+    const href = element.getAttribute('href');
+    if (!href) continue;
+    const url = resolveHref(href);
+    if (!url) continue;
+    const record: SnapshotStyle = { type: 'external', href: url.href };
+    if (fetchFn && currentOrigin && url.origin === currentOrigin) {
+      try {
+        const response = await fetchFn(url.href, { credentials: 'same-origin' });
+        if (response.ok) {
+          const text = await response.text();
+          if (text) record.content = text;
+        }
+      } catch {}
+    }
+    styles.push(record);
+  }
   return styles;
 }
 
@@ -46,7 +128,7 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
     if (!root) return null;
     const body = serializeRoot(root);
     if (!body) return null;
-    const styles = collectStyles();
+    const styles = await collectStyles();
     const snapshot: Snapshot = {
       route,
       body,
