@@ -190,6 +190,30 @@ describe('Model', () => {
         }),
       ).rejects.toThrow('[FirstTx] Patch validation failed');
     });
+
+    it('should apply concurrent patches without losing updates', async () => {
+      const CounterModel = defineModel('counter', {
+        initialData: { count: 0 },
+        schema: z.object({
+          count: z.number(),
+        }),
+        ttl: 5000,
+      });
+
+      await CounterModel.replace({ count: 0 });
+
+      await Promise.all([
+        CounterModel.patch((draft) => {
+          draft.count += 1;
+        }),
+        CounterModel.patch((draft) => {
+          draft.count += 1;
+        }),
+      ]);
+
+      const snapshot = await CounterModel.getSnapshot();
+      expect(snapshot?.count).toBe(2);
+    });
   });
 
   describe('getHistory', () => {

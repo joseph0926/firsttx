@@ -112,6 +112,29 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     };
   };
 
+  let operationQueue: Promise<void> = Promise.resolve();
+  const enqueue = <R>(operation: () => Promise<R>): Promise<R> => {
+    const run = operationQueue.then(operation);
+    operationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
+
+  const persist = async (storage: Storage, data: T, updatedAt: number) => {
+    await storage.set(name, {
+      _v: options.version ?? 1,
+      updatedAt,
+      data,
+    });
+
+    cacheState = { status: 'success', data };
+    updateHistory(updatedAt);
+    updateSnapshot();
+    notifySubscribers();
+  };
+
   const model: Model<T> = {
     name,
     schema: options.schema,
@@ -186,73 +209,92 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     /**
      * Replaces entire model data (used for server sync)
      */
-    replace: async (data: T): Promise<void> => {
-      const parseResult = options.schema.safeParse(data);
-      if (!parseResult.success) {
-        throw new ValidationError(
-          `[FirstTx] Invalid data for model "${name}"`,
-          name,
-          parseResult.error,
-        );
-      }
+    replace: async (data: T): Promise<void> =>
+      enqueue(async () => {
+        const parseResult = options.schema.safeParse(data);
+        if (!parseResult.success) {
+          throw new ValidationError(
+            `[FirstTx] Invalid data for model "${name}"`,
+            name,
+            parseResult.error,
+          );
+        }
 
-      const storage = Storage.getInstance();
-      const now = Date.now();
+        const storage = Storage.getInstance();
+        const now = Date.now();
 
-      await storage.set(name, {
-        _v: options.version ?? 1,
-        updatedAt: now,
-        data: parseResult.data,
-      });
-
-      cacheState = { status: 'success', data: parseResult.data };
-      updateHistory(now);
-      updateSnapshot();
-      notifySubscribers();
-    },
+        await persist(storage, parseResult.data, now);
+      }),
 
     /**
      * Patches model data with mutator function (used for optimistic updates)
      */
-    patch: async (mutator: (draft: T) => void): Promise<void> => {
-      const storage = Storage.getInstance();
-      let current: T | null = await model.getSnapshot();
+    patch: async (mutator: (draft: T) => void): Promise<void> =>
+      enqueue(async () => {
+        const storage = Storage.getInstance();
+        const stored = await storage.get<T>(name);
 
-      if (current === null) {
-        if (options.initialData) {
-          current = options.initialData;
+        let draft: T;
+
+        if (!stored) {
+          if (!options.initialData) {
+            throw new Error(
+              `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
+            );
+          }
+
+          draft = structuredClone(options.initialData);
+        } else if (options.version && stored._v !== options.version) {
+          await storage.delete(name);
+
+          if (!options.initialData) {
+            throw new Error(
+              `[FirstTx] Cannot patch model "${name}" - stored data is outdated and no initialData provided`,
+            );
+          }
+
+          draft = structuredClone(options.initialData);
         } else {
-          throw new Error(
-            `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
+          const parseStored = options.schema.safeParse(stored.data);
+
+          if (!parseStored.success) {
+            await storage.delete(name);
+
+            if (process.env.NODE_ENV !== 'production') {
+              throw new ValidationError(
+                `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
+                name,
+                parseStored.error,
+              );
+            }
+
+            if (!options.initialData) {
+              throw new Error(
+                `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
+              );
+            }
+
+            draft = structuredClone(options.initialData);
+          } else {
+            draft = structuredClone(parseStored.data);
+          }
+        }
+
+        mutator(draft);
+
+        const parseResult = options.schema.safeParse(draft);
+        if (!parseResult.success) {
+          throw new ValidationError(
+            `[FirstTx] Patch validation failed for model "${name}"`,
+            name,
+            parseResult.error,
           );
         }
-      }
 
-      const next = structuredClone(current);
-      mutator(next);
+        const now = Date.now();
 
-      const parseResult = options.schema.safeParse(next);
-      if (!parseResult.success) {
-        throw new ValidationError(
-          `[FirstTx] Patch validation failed for model "${name}"`,
-          name,
-          parseResult.error,
-        );
-      }
-
-      const now = Date.now();
-
-      await storage.set<T>(name, {
-        _v: options.version ?? 1,
-        updatedAt: now,
-        data: parseResult.data,
-      });
-
-      cacheState = { status: 'success', data: parseResult.data };
-      updateHistory(now);
-      updateSnapshot();
-      notifySubscribers();
-    },
+        await persist(storage, parseResult.data, now);
+      }),
 
     getCachedSnapshot: () => {
       return cacheState.status === 'success' ? cacheState.data : null;
