@@ -1,0 +1,105 @@
+/**
+ * Base fields for all broadcast messages
+ */
+type BroadcastMessageBase = {
+  senderId: string;
+  timestamp: number;
+};
+
+/**
+ * Messages broadcast between tabs for model synchronization
+ */
+export type BroadcastMessage = BroadcastMessageBase &
+  (
+    | { type: 'model-patched'; key: string }
+    | { type: 'model-replaced'; key: string }
+    | { type: 'model-deleted'; key: string }
+  );
+
+/**
+ * Generates unique sender ID for this tab
+ */
+function generateSenderId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * Manages cross-tab model synchronization via BroadcastChannel
+ */
+class ModelBroadcaster {
+  private static instance?: ModelBroadcaster;
+  private channel: BroadcastChannel;
+  private senderId: string;
+  private listeners = new Map<string, Set<() => void>>();
+
+  private constructor() {
+    this.channel = new BroadcastChannel('firsttx:models');
+    this.senderId = generateSenderId();
+    this.setupListener();
+  }
+
+  static getInstance(): ModelBroadcaster {
+    if (!ModelBroadcaster.instance) {
+      ModelBroadcaster.instance = new ModelBroadcaster();
+    }
+    return ModelBroadcaster.instance;
+  }
+
+  /**
+   * Subscribe to model changes from other tabs
+   */
+  subscribe(key: string, callback: () => void): () => void {
+    if (!this.listeners.has(key)) {
+      this.listeners.set(key, new Set());
+    }
+    this.listeners.get(key)!.add(callback);
+
+    return () => {
+      this.listeners.get(key)?.delete(callback);
+      if (this.listeners.get(key)?.size === 0) {
+        this.listeners.delete(key);
+      }
+    };
+  }
+
+  /**
+   * Broadcast a message to other tabs
+   */
+  broadcast(message: Omit<BroadcastMessage, 'senderId' | 'timestamp'>): void {
+    const fullMessage: BroadcastMessage = {
+      ...message,
+      senderId: this.senderId,
+      timestamp: Date.now(),
+    };
+
+    this.channel.postMessage(fullMessage);
+  }
+
+  private setupListener(): void {
+    this.channel.onmessage = (event) => {
+      const message = event.data as BroadcastMessage;
+
+      if (message.senderId === this.senderId) {
+        return;
+      }
+
+      const callbacks = this.listeners.get(message.key);
+      if (callbacks) {
+        callbacks.forEach((callback) => callback());
+      }
+    };
+  }
+
+  /**
+   * Close the broadcast channel (cleanup)
+   */
+  close(): void {
+    this.channel.close();
+    this.listeners.clear();
+  }
+}
+
+export { ModelBroadcaster };

@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { ModelHistory, ModelOptions } from './types';
 import { Storage } from './storage';
 import { FirstTxError, StorageError, ValidationError } from './errors';
+import { ModelBroadcaster } from './broadcast';
 
 /**
  * Internal cache state
@@ -122,18 +123,34 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     return run;
   };
 
+  const updateCache = (data: T, updatedAt: number) => {
+    cacheState = { status: 'success', data };
+    updateHistory(updatedAt);
+    updateSnapshot();
+    notifySubscribers();
+  };
+
+  const reloadCache = async () => {
+    const storage = Storage.getInstance();
+    const stored = await storage.get<T>(name);
+    if (stored) {
+      updateCache(stored.data, stored.updatedAt);
+    }
+  };
+
   const persist = async (storage: Storage, data: T, updatedAt: number) => {
     await storage.set(name, {
       _v: options.version ?? 1,
       updatedAt,
       data,
     });
-
-    cacheState = { status: 'success', data };
-    updateHistory(updatedAt);
-    updateSnapshot();
-    notifySubscribers();
+    updateCache(data, updatedAt);
   };
+
+  const broadcaster = ModelBroadcaster.getInstance();
+  broadcaster.subscribe(name, () => {
+    void reloadCache();
+  });
 
   const model: Model<T> = {
     name,
@@ -224,6 +241,8 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         const now = Date.now();
 
         await persist(storage, parseResult.data, now);
+
+        broadcaster.broadcast({ type: 'model-replaced', key: name });
       }),
 
     /**
@@ -294,6 +313,8 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         const now = Date.now();
 
         await persist(storage, parseResult.data, now);
+
+        broadcaster.broadcast({ type: 'model-patched', key: name });
       }),
 
     getCachedSnapshot: () => {
