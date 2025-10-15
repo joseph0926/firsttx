@@ -1,5 +1,17 @@
 # @firsttx/prepaint
 
+## 0.3.2
+
+### Patch Changes
+
+**REFACTOR**
+
+- align stylesheet capture expectations
+
+**FIX**
+
+- defer overlay mount until body exists
+
 ## 0.3.1
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @firsttx/local-first
 
+## 0.3.3
+
+### Patch Changes
+
+**FIX**
+
+- serialize mutations and recover from invalid state
+
 ## 0.3.2
 
 ### Patch Changes
