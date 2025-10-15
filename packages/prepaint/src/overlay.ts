@@ -2,6 +2,30 @@ export function mountOverlay(html: string, styles?: string[]): void {
   const existing = document.getElementById('__firsttx_prepaint__');
   if (existing) return;
 
+  if (!document.body) {
+    const deferred = () => {
+      if (!document.body) {
+        requestAnimationFrame(deferred);
+        return;
+      }
+      mountOverlay(html, styles);
+    };
+
+    document.addEventListener('DOMContentLoaded', deferred, { once: true });
+
+    if (document.readyState !== 'loading') {
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(deferred);
+      } else {
+        Promise.resolve()
+          .then(deferred)
+          .catch(() => {});
+      }
+    }
+
+    return;
+  }
+
   const host = document.createElement('div');
   host.id = '__firsttx_prepaint__';
   host.style.position = 'fixed';
