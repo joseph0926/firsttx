@@ -341,17 +341,49 @@ await tx.run(
 await tx.commit();
 ```
 
+#### `useTx(config)`
+
+React hook for simplified transaction management.
+
+```tsx
+import { useTx } from '@firsttx/tx';
+
+const { mutate, isPending, isError, error } = useTx({
+  optimistic: async (item) => {
+    await CartModel.patch((draft) => draft.items.push(item));
+  },
+  rollback: async (item) => {
+    await CartModel.patch((draft) => draft.items.pop());
+  },
+  request: async (item) =>
+    fetch('/api/cart', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    }),
+  onSuccess: () => toast.success('Done!'),
+});
+
+// Usage
+<button onClick={() => mutate(newItem)} disabled={isPending}>
+  {isPending ? 'Adding...' : 'Add to Cart'}
+</button>;
+```
+
 **Parameters**
 
-- `options?: { transition?: boolean }` - Whether to use ViewTransition (default: `true`)
+- `config.optimistic` - Local state update function
+- `config.rollback` - Rollback function
+- `config.request` - Server request function
+- `config.transition?` - Use ViewTransition (default: `true`)
+- `config.retry?` - Retry config `{ maxAttempts, delayMs, backoff }`
+- `config.onSuccess?` - Success callback
+- `config.onError?` - Error callback
 
-**Methods**
+**Returns**
 
-- `tx.run(fn, options?)` - Add transaction step
-  - `fn: () => Promise<void>` - Function to execute
-  - `options.compensate?: () => Promise<void>` - Rollback function
-  - `options.retry?: { maxAttempts: number }` - Retry config (default: 1 attempt)
-- `tx.commit()` - Commit transaction (auto-rollback on failure)
+- `mutate(variables)` - Execute transaction
+- `isPending`, `isError`, `isSuccess` - State flags
+- `error` - Error object
 
 ---
 

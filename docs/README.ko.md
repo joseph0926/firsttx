@@ -316,7 +316,7 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 
 #### `startTransaction(options?)`
 
-원자적 트랜잭션을 시작합니다.
+원자적(atomic) 트랜잭션을 시작합니다.
 
 ```tsx
 import { startTransaction } from '@firsttx/tx';
@@ -326,12 +326,12 @@ const tx = startTransaction({ transition: true });
 await tx.run(
   () =>
     CartModel.patch((draft) => {
-      /* update */
+      /* 업데이트 */
     }),
   {
     compensate: () =>
       CartModel.patch((draft) => {
-        /* rollback */
+        /* 롤백 */
       }),
     retry: { maxAttempts: 1 },
   },
@@ -340,17 +340,55 @@ await tx.run(
 await tx.commit();
 ```
 
-**Parameters**
+---
 
-- `options?: { transition?: boolean }` - ViewTransition 사용 여부 (기본값: `true`)
+#### `useTx(config)`
 
-**Methods**
+트랜잭션을 간단하게 관리하기 위한 React 훅입니다.
 
-- `tx.run(fn, options?)` - 트랜잭션 단계 추가
-  - `fn: () => Promise<void>` - 실행할 함수
-  - `options.compensate?: () => Promise<void>` - 롤백 함수
-  - `options.retry?: { maxAttempts: number }` - 재시도 설정 (기본값: 1회)
-- `tx.commit()` - 트랜잭션 커밋 (실패 시 자동 롤백)
+```tsx
+import { useTx } from '@firsttx/tx';
+
+const { mutate, isPending, isError, error } = useTx({
+  optimistic: async (item) => {
+    await CartModel.patch((draft) => draft.items.push(item));
+  },
+  rollback: async (item) => {
+    await CartModel.patch((draft) => draft.items.pop());
+  },
+  request: async (item) =>
+    fetch('/api/cart', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    }),
+  onSuccess: () => toast.success('완료되었습니다!'),
+});
+
+// 사용 예시
+<button onClick={() => mutate(newItem)} disabled={isPending}>
+  {isPending ? '추가 중...' : '장바구니에 추가'}
+</button>;
+```
+
+---
+
+**매개변수 (Parameters)**
+
+- `config.optimistic` — 로컬 상태를 즉시 업데이트하는 함수
+- `config.rollback` — 실패 시 롤백 함수
+- `config.request` — 서버 요청 함수
+- `config.transition?` — ViewTransition 사용 여부 (기본값: `true`)
+- `config.retry?` — 재시도 설정 `{ maxAttempts, delayMs, backoff }`
+- `config.onSuccess?` — 성공 콜백
+- `config.onError?` — 실패 콜백
+
+---
+
+**반환값 (Returns)**
+
+- `mutate(variables)` — 트랜잭션 실행 함수
+- `isPending`, `isError`, `isSuccess` — 상태 플래그
+- `error` — 오류 객체
 
 ---
 

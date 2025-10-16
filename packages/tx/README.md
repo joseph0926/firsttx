@@ -51,7 +51,59 @@ async function addToCart(item: Item) {
 
 ---
 
+## React Hook (useTx)
+
+**Simplified API for React apps**
+
+```tsx
+import { useTx } from '@firsttx/tx';
+
+function CartPage() {
+  const { mutate, isPending, isError, error } = useTx({
+    optimistic: async (item: Item) => {
+      await CartModel.patch((draft) => {
+        draft.items.push(item);
+      });
+    },
+    rollback: async (item: Item) => {
+      await CartModel.patch((draft) => {
+        draft.items = draft.items.filter((i) => i.id !== item.id);
+      });
+    },
+    request: async (item: Item) => {
+      return fetch('/api/cart/items', {
+        method: 'POST',
+        body: JSON.stringify(item),
+      });
+    },
+    onSuccess: (result, item) => {
+      toast.success('Added to cart!');
+    },
+    onError: (err, item) => {
+      toast.error(err.message);
+    },
+  });
+
+  return (
+    <button onClick={() => mutate(newItem)} disabled={isPending}>
+      {isPending ? 'Adding...' : 'Add to Cart'}
+    </button>
+  );
+}
+```
+
+**Benefits:**
+
+- No manual transaction lifecycle management
+- Built-in loading/error states
+- Automatic cleanup on unmount
+- Fire-and-forget API (no await needed)
+
+---
+
 ## Retry
+
+**Low-level API**
 
 ```tsx
 await tx.run(
@@ -62,12 +114,30 @@ await tx.run(
   {
     compensate: async () => revertUI(),
     retry: {
-      maxAttempts: 3, // Up to 3 attempts
-      delay: 1000, // 1s interval
+      maxAttempts: 3,
+      delayMs: 1000,
+      backoff: 'exponential', // or 'linear'
     },
   },
 );
 ```
+
+**useTx API**
+
+```tsx
+const { mutate } = useTx({
+  optimistic: async (data) => updateUI(data),
+  rollback: async (data) => revertUI(data),
+  request: async (data) => riskyApiCall(data),
+  retry: {
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoff: 'exponential',
+  },
+});
+```
+
+**Note:** Retry applies only to the `request` step. Optimistic updates don't retry since they're local operations.
 
 ---
 
@@ -221,6 +291,51 @@ try {
   }
 }
 ```
+
+### `useTx(config)`
+
+React hook for optimistic updates.
+
+```typescript
+const { mutate, isPending, isError, isSuccess, error } = useTx({
+  optimistic: (variables) => Promise<void>,
+  rollback: (variables) => Promise<void>,
+  request: (variables) => Promise<unknown>,
+  transition?: boolean,
+  retry?: {
+    maxAttempts?: number,
+    delayMs?: number,
+    backoff?: 'linear' | 'exponential',
+  },
+  onSuccess?: (result, variables) => void,
+  onError?: (error, variables) => void,
+});
+```
+
+**Parameters**
+
+- `optimistic` - Function to update local state
+- `rollback` - Function to revert local state on failure
+- `request` - Server request function
+- `transition` - Enable ViewTransition (default: `true`)
+- `retry` - Retry configuration for request step
+- `onSuccess` - Success callback
+- `onError` - Error callback
+
+**Returns**
+
+- `mutate(variables)` - Trigger the transaction (void return)
+- `isPending` - Whether transaction is in progress
+- `isError` - Whether transaction failed
+- `isSuccess` - Whether transaction succeeded
+- `error` - Error object if failed
+
+**Notes**
+
+- `mutate()` returns `void` (fire-and-forget)
+- Use callbacks (`onSuccess`/`onError`) for side effects
+- Automatically prevents state updates after unmount
+- Retry applies only to the `request` step, not `optimistic`
 
 ---
 
