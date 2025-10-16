@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { GitBranch, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   ScenarioLayout,
@@ -7,7 +7,7 @@ import {
   SectionHeader,
 } from '../../components/scenario-layout';
 import { useSyncedModel } from '@firsttx/local-first';
-import { startTransaction } from '@firsttx/tx';
+import { useTx } from '@firsttx/tx';
 import { ConcurrentInventoryModel } from '@/models/concurrent-inventory.model';
 import { reserveItem, fetchInventory } from '@/api/concurrent-inventory.api';
 import { sleep } from '@/lib/utils';
@@ -38,6 +38,73 @@ export default function ConcurrentUpdates() {
   const [failureRate, setFailureRate] = useState(30);
   const [stats, setStats] = useState({ success: 0, failed: 0, total: 0 });
 
+  const updateTransaction = useCallback((id: number, status: TransactionLog['status']) => {
+    setTransactions((prev) =>
+      prev.map((tx) =>
+        tx.id === id
+          ? { ...tx, status, endTime: status !== 'running' ? Date.now() : undefined }
+          : tx,
+      ),
+    );
+  }, []);
+
+  const optimistic = useCallback(
+    async ({ txId, itemId }: { txId: number; itemId: string }) => {
+      updateTransaction(txId, 'running');
+      await patch((draft) => {
+        const item = draft.items[itemId];
+        if (item) {
+          item.reserved += 1;
+          item.stock -= 1;
+        }
+      });
+      console.log(`[Tx ${txId}] Optimistic reserve: ${itemId}`);
+    },
+    [patch, updateTransaction],
+  );
+
+  const rollback = useCallback(
+    async ({ txId, itemId }: { txId: number; itemId: string }) => {
+      await patch((draft) => {
+        const item = draft.items[itemId];
+        if (item) {
+          item.reserved -= 1;
+          item.stock += 1;
+        }
+      });
+      console.log(`[Tx ${txId}] Rollback: ${itemId}`);
+      updateTransaction(txId, 'rolled-back');
+    },
+    [patch, updateTransaction],
+  );
+
+  const request = useCallback(
+    async ({ txId, itemId }: { txId: number; itemId: string }) => {
+      await sleep(50 + Math.random() * 100);
+      await reserveItem(itemId, failureRate);
+      console.log(`[Tx ${txId}] Server confirmed: ${itemId}`);
+      return { txId, itemId };
+    },
+    [failureRate],
+  );
+
+  const onSuccess = useCallback(
+    (_: unknown, { txId }: { txId: number }) => {
+      updateTransaction(txId, 'success');
+    },
+    [updateTransaction],
+  );
+
+  const { mutateAsync: reserveItemTx } = useTx({
+    optimistic,
+    rollback,
+    request,
+    transition: true,
+    retry: { maxAttempts: 1 },
+    onSuccess,
+    onError: () => {},
+  });
+
   const launchConcurrent = async () => {
     setIsRunning(true);
     setTransactions([]);
@@ -58,7 +125,7 @@ export default function ConcurrentUpdates() {
     setTransactions(newTransactions);
 
     const results = await Promise.allSettled(
-      newTransactions.map((tx) => executeTransaction(tx.id, tx.itemId)),
+      newTransactions.map((tx) => reserveItemTx({ txId: tx.id, itemId: tx.itemId })),
     );
 
     const successCount = results.filter((r) => r.status === 'fulfilled').length;
@@ -71,67 +138,6 @@ export default function ConcurrentUpdates() {
     });
 
     setIsRunning(false);
-  };
-
-  const executeTransaction = async (txId: number, itemId: string): Promise<void> => {
-    updateTransaction(txId, 'running');
-
-    const tx = startTransaction({ transition: true });
-
-    try {
-      await tx.run(
-        async () => {
-          await patch((draft) => {
-            const item = draft.items[itemId];
-            if (item) {
-              item.reserved += 1;
-              item.stock -= 1;
-            }
-          });
-          console.log(`[Tx ${txId}] Optimistic reserve: ${itemId}`);
-        },
-        {
-          compensate: async () => {
-            await patch((draft) => {
-              const item = draft.items[itemId];
-              if (item) {
-                item.reserved -= 1;
-                item.stock += 1;
-              }
-            });
-            console.log(`[Tx ${txId}] Rollback: ${itemId}`);
-          },
-        },
-      );
-
-      await sleep(50 + Math.random() * 100);
-
-      await tx.run(
-        async () => {
-          await reserveItem(itemId, failureRate);
-          console.log(`[Tx ${txId}] Server confirmed: ${itemId}`);
-        },
-        {
-          retry: { maxAttempts: 1 },
-        },
-      );
-
-      await tx.commit();
-      updateTransaction(txId, 'success');
-    } catch (error) {
-      updateTransaction(txId, 'rolled-back');
-      throw error;
-    }
-  };
-
-  const updateTransaction = (id: number, status: TransactionLog['status']) => {
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.id === id
-          ? { ...tx, status, endTime: status !== 'running' ? Date.now() : undefined }
-          : tx,
-      ),
-    );
   };
 
   const resetInventory = async () => {
@@ -154,7 +160,7 @@ export default function ConcurrentUpdates() {
     ? Object.values(inventory.items).reduce((sum, item) => sum + item.reserved, 0)
     : 0;
 
-  const isDataConsistent = totalReserved === stats.success;
+  const isDataConsistent = stats.total > 0 ? totalReserved === stats.success : true;
 
   return (
     <ScenarioLayout
@@ -162,21 +168,21 @@ export default function ConcurrentUpdates() {
       title="Concurrent Updates"
       badge={{
         icon: <GitBranch className="h-3 w-3" />,
-        label: isRunning ? 'Running' : 'Ready',
+        label: 'Atomic Rollback',
       }}
     >
       <MetricsGrid>
         <MetricCard
           icon={<CheckCircle2 className="h-5 w-5" />}
           label="Success Rate"
-          value={stats.total > 0 ? `${Math.round((stats.success / stats.total) * 100)}%` : '0%'}
-          target={`${stats.success}/${stats.total}`}
+          value={stats.total > 0 ? `${((stats.success / stats.total) * 100).toFixed(0)}%` : '--'}
+          target={`${stats.success}/${stats.total} succeeded`}
           status={
             stats.total === 0
               ? 'good'
-              : stats.success / stats.total > 0.7
+              : stats.success / stats.total >= 0.7
                 ? 'excellent'
-                : stats.success / stats.total > 0.5
+                : stats.success / stats.total >= 0.5
                   ? 'good'
                   : 'poor'
           }
@@ -184,21 +190,21 @@ export default function ConcurrentUpdates() {
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
           label="Avg Duration"
-          value={`${avgDuration.toFixed(0)}ms`}
-          target="<250ms"
+          value={avgDuration > 0 ? `${avgDuration.toFixed(0)}ms` : '--'}
+          target="Per Transaction"
           status={
             avgDuration === 0
               ? 'good'
-              : avgDuration < 250
+              : avgDuration < 200
                 ? 'excellent'
-                : avgDuration < 400
+                : avgDuration < 300
                   ? 'good'
                   : 'poor'
           }
         />
         <MetricCard
           icon={<AlertTriangle className="h-5 w-5" />}
-          label="Data Consistency"
+          label="Data Integrity"
           value={stats.total === 0 ? 'Not tested' : isDataConsistent ? '✓ Verified' : '✗ Mismatch'}
           target="Reserved = Success"
           status={stats.total === 0 ? 'good' : isDataConsistent ? 'excellent' : 'poor'}

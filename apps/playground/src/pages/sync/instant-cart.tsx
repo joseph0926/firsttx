@@ -7,9 +7,9 @@ import {
   SectionHeader,
 } from '../../components/scenario-layout';
 import { useSyncedModel } from '@firsttx/local-first';
+import { useTx } from '@firsttx/tx';
 import { CartModel, type Cart, type CartItem } from '@/models/cart.model';
 import { fetchCart, updateCartItem } from '@/api/cart.api';
-import { sleep } from '@/lib/utils';
 
 export default function InstantCart() {
   const { data: firstTxCart, patch, isSyncing } = useSyncedModel(CartModel, fetchCart);
@@ -21,6 +21,51 @@ export default function InstantCart() {
   const [firstTxResponseTime, setFirstTxResponseTime] = useState(0);
   const [traditionalResponseTime, setTraditionalResponseTime] = useState(0);
   const [actionLatency, setActionLatency] = useState({ firstTx: 0, traditional: 0 });
+
+  const { mutate: incrementItem, isPending: isIncrementing } = useTx({
+    optimistic: async (itemId: string) => {
+      await patch((draft) => {
+        const item = draft.items.find((i) => i.id === itemId);
+
+        if (item) {
+          item.quantity += 1;
+          draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+          draft.lastModified = new Date().toISOString();
+        }
+      });
+    },
+
+    rollback: async (itemId: string) => {
+      await patch((draft) => {
+        const item = draft.items.find((i) => i.id === itemId);
+        if (item) {
+          item.quantity -= 1;
+          draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+          draft.lastModified = new Date().toISOString();
+        }
+      });
+    },
+
+    request: async (itemId: string) => {
+      const item = firstTxCart?.items.find((i) => i.id === itemId);
+      if (!item) {
+        throw new Error('Item not found');
+      }
+
+      const result = await updateCartItem(itemId, item.quantity);
+      return result;
+    },
+
+    transition: true,
+
+    onSuccess: (result, itemId) => {
+      console.log('✅ [SUCCESS]', itemId, result);
+    },
+
+    onError: (error, itemId) => {
+      console.error('❌ [ERROR]', itemId, error);
+    },
+  });
 
   const loadTraditionalCart = async () => {
     const start = performance.now();
@@ -42,22 +87,18 @@ export default function InstantCart() {
     }
   }, [firstTxCart]);
 
-  const handleFirstTxIncrement = async (itemId: string) => {
+  const handleFirstTxIncrement = (itemId: string) => {
     const start = performance.now();
 
-    await patch((draft) => {
-      const item = draft.items.find((i) => i.id === itemId);
-      if (item) {
-        item.quantity += 1;
-        draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-        draft.lastModified = new Date().toISOString();
-      }
-    });
+    if (!firstTxCart) {
+      console.warn('❌ firstTxCart is null!');
+      return;
+    }
+
+    incrementItem(itemId);
 
     const end = performance.now();
     setActionLatency((prev) => ({ ...prev, firstTx: end - start }));
-
-    await sleep(500);
   };
 
   const handleTraditionalIncrement = async (itemId: string) => {
@@ -116,12 +157,10 @@ export default function InstantCart() {
           status={timeSaved > 1000 ? 'excellent' : timeSaved > 500 ? 'good' : 'poor'}
         />
       </MetricsGrid>
-
       <SectionHeader
         title="Traditional CSR vs FirstTx"
         description="Click +1 buttons to see the response time difference. FirstTx updates instantly using local cache."
       />
-
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-card p-6">
@@ -212,10 +251,10 @@ export default function InstantCart() {
                     <span>Total:</span>
                     <span>${firstTxCart.total.toFixed(2)}</span>
                   </div>
-                  {isSyncing && (
+                  {(isSyncing || isIncrementing) && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                       <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>Syncing in background...</span>
+                      <span>{isIncrementing ? 'Updating...' : 'Syncing in background...'}</span>
                     </div>
                   )}
                 </div>
