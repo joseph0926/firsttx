@@ -373,4 +373,144 @@ describe('useTx', () => {
 
     process.removeListener('unhandledRejection', unhandledRejection);
   });
+
+  it('should return result from mutateAsync when transaction succeeds', async () => {
+    const serverResponse = { id: '123', name: 'Item' };
+
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        // eslint-disable-next-line
+        request: async () => serverResponse,
+      }),
+    );
+
+    let actualResult;
+    await act(async () => {
+      actualResult = await result.current.mutateAsync({});
+    });
+
+    expect(actualResult).toEqual(serverResponse);
+    expect(result.current.isSuccess).toBe(true);
+  });
+
+  it('should reject mutateAsync promise when transaction fails', async () => {
+    const testError = new Error('Request failed');
+
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        // eslint-disable-next-line
+        request: async () => {
+          throw testError;
+        },
+      }),
+    );
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({})).rejects.toThrow();
+    });
+
+    expect(result.current.isError).toBe(true);
+  });
+
+  it('should handle concurrent mutateAsync calls', async () => {
+    let counter = 0;
+
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        request: async () => {
+          counter++;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return counter;
+        },
+      }),
+    );
+
+    let results: number[] = [];
+    await act(async () => {
+      results = await Promise.all([
+        result.current.mutateAsync({}),
+        result.current.mutateAsync({}),
+        result.current.mutateAsync({}),
+      ]);
+    });
+
+    expect(results).toEqual([3, 3, 3]);
+    expect(result.current.isSuccess).toBe(true);
+  });
+
+  it('mutate should not return promise while mutateAsync should', async () => {
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        // eslint-disable-next-line
+        request: async () => ({ id: '123' }),
+      }),
+    );
+
+    const mutateResult = result.current.mutate({});
+    expect(mutateResult).toBeUndefined();
+
+    let mutateAsyncResult;
+    // eslint-disable-next-line
+    await act(async () => {
+      mutateAsyncResult = result.current.mutateAsync({});
+    });
+    expect(mutateAsyncResult).toBeInstanceOf(Promise);
+  });
+
+  it('should call onSuccess with correct result type for mutateAsync', async () => {
+    const onSuccess = vi.fn();
+    const serverResponse = { id: '456', data: 'test' };
+
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        // eslint-disable-next-line
+        request: async () => serverResponse,
+        onSuccess,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ input: 'test' });
+    });
+
+    expect(onSuccess).toHaveBeenCalledWith(serverResponse, { input: 'test' });
+  });
+
+  it('should process different data in concurrent calls', async () => {
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        request: async (id: number) => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return { id, processed: true };
+        },
+      }),
+    );
+
+    let results;
+    await act(async () => {
+      results = await Promise.all([
+        result.current.mutateAsync(1),
+        result.current.mutateAsync(2),
+        result.current.mutateAsync(3),
+      ]);
+    });
+
+    expect(results).toEqual([
+      { id: 1, processed: true },
+      { id: 2, processed: true },
+      { id: 3, processed: true },
+    ]);
+  });
 });

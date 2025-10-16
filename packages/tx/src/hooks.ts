@@ -1,86 +1,103 @@
 import { useEffect, useRef, useState } from 'react';
 import { startTransaction } from '.';
 
-export type UseTxConfig<TVariables> = {
+export type UseTxConfig<TVariables, TResult = unknown> = {
   optimistic: (variables: TVariables) => Promise<void>;
   rollback: (variables: TVariables) => Promise<void>;
-  request: (variables: TVariables) => Promise<unknown>;
+  request: (variables: TVariables) => Promise<TResult>;
   transition?: boolean;
   retry?: {
     maxAttempts?: number;
     delayMs?: number;
     backoff?: 'linear' | 'exponential';
   };
-  onSuccess?: (result: unknown, variables: TVariables) => void;
+  onSuccess?: (result: TResult, variables: TVariables) => void;
   onError?: (error: Error, variables: TVariables) => void;
 };
 
-export type UseTxResult<TVariables> = {
+export type UseTxResult<TVariables, TResult = unknown> = {
   mutate: (variables: TVariables) => void;
+  mutateAsync: (variables: TVariables) => Promise<TResult>;
   isPending: boolean;
   isError: boolean;
   isSuccess: boolean;
   error: Error | null;
 };
 
-export function useTx<TVariables>(config: UseTxConfig<TVariables>): UseTxResult<TVariables> {
+export function useTx<TVariables, TResult = unknown>(
+  config: UseTxConfig<TVariables, TResult>,
+): UseTxResult<TVariables, TResult> {
   const [isPending, setIsPending] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const configRef = useRef<UseTxConfig<TVariables>>(config);
+  const configRef = useRef<UseTxConfig<TVariables, TResult>>(config);
   configRef.current = config;
 
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
+
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
-  const mutate = (variables: TVariables) => {
-    const execute = async () => {
-      if (!isMountedRef.current) return;
+  const executeTransaction = async (variables: TVariables): Promise<TResult> => {
+    if (!isMountedRef.current) {
+      throw new Error('Component unmounted');
+    }
 
-      setIsPending(true);
-      setIsError(false);
-      setIsSuccess(false);
-      setError(null);
+    setIsPending(true);
+    setIsError(false);
+    setIsSuccess(false);
+    setError(null);
 
-      try {
-        const tx = startTransaction({
-          transition: configRef.current.transition,
-        });
+    try {
+      const tx = startTransaction({
+        transition: configRef.current.transition,
+      });
 
-        await tx.run(() => configRef.current.optimistic(variables), {
-          compensate: () => configRef.current.rollback(variables),
-        });
+      await tx.run(() => configRef.current.optimistic(variables), {
+        compensate: () => configRef.current.rollback(variables),
+      });
 
-        const result = await tx.run(() => configRef.current.request(variables), {
-          retry: configRef.current.retry,
-        });
+      const result = await tx.run(() => configRef.current.request(variables), {
+        retry: configRef.current.retry,
+      });
 
-        await tx.commit();
+      await tx.commit();
 
-        if (!isMountedRef.current) return;
-        setIsSuccess(true);
-        configRef.current.onSuccess?.(result, variables);
-      } catch (err) {
-        if (!isMountedRef.current) return;
+      if (!isMountedRef.current) {
+        throw new Error('Component unmounted');
+      }
+
+      setIsSuccess(true);
+      configRef.current.onSuccess?.(result as TResult, variables);
+
+      return result as TResult;
+    } catch (err) {
+      if (isMountedRef.current) {
         setIsError(true);
         setError(err as Error);
         configRef.current.onError?.(err as Error, variables);
-      } finally {
-        if (isMountedRef.current) {
-          setIsPending(false);
-        }
       }
-    };
-
-    execute().catch(() => {});
+      throw err;
+    } finally {
+      if (isMountedRef.current) {
+        setIsPending(false);
+      }
+    }
   };
 
-  return { mutate, isPending, isError, isSuccess, error };
+  const mutate = (variables: TVariables) => {
+    executeTransaction(variables).catch(() => {});
+  };
+
+  const mutateAsync = (variables: TVariables): Promise<TResult> => {
+    return executeTransaction(variables);
+  };
+
+  return { mutate, mutateAsync, isPending, isError, isSuccess, error };
 }
