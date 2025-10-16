@@ -1,5 +1,29 @@
 # @firsttx/local-first
 
+## 0.4.0
+
+### Minor Changes
+
+Implement real-time model synchronization across browser tabs using BroadcastChannel API.
+
+- Add ModelBroadcaster singleton for managing cross-tab communication
+- Integrate broadcast into model.ts patch/replace operations
+- Refactor persist logic to separate updateCache and reloadCache
+- Add comprehensive test coverage for broadcast functionality
+
+**Benefits**
+
+- Eliminates stale UI state in inactive tabs
+- Zero network overhead (browser-internal messaging)
+- Maintains data consistency across all open tabs
+- Prevents user confusion from outdated displays
+
+**Technical details**
+
+- Messages include senderId to prevent infinite loops
+- `Map<string, Set<callback>>` for multi-model support
+- Graceful degradation for unsupported browsers
+
 ## 0.3.3
 
 ### Patch Changes
