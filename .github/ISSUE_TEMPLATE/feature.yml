@@ -1,46 +1,39 @@
 name: Feature request
 description: Propose a change or improvement.
-title: 'feat: <short summary>'
-labels: ['type: enhancement']
+title: 'feat: '
+labels: ['type-enhancement']
 body:
   - type: dropdown
     id: area
     attributes:
       label: Area
-      description: 'Select the target area. Also add the matching `area-...` label in the right sidebar.'
+      description: Which package would this affect?
       options:
-        - 'area-prepaint'
-        - 'area-local-first'
-        - 'area-tx'
-        - 'area-demo'
-        - 'area-playground'
+        - prepaint
+        - local-first
+        - tx
+        - demo
+        - playground
+        - other
     validations:
       required: true
 
   - type: textarea
     id: problem
     attributes:
-      label: Problem statement
-      description: What user problem are we solving? Why now?
+      label: Problem
+      description: What user problem are we solving?
+    validations:
+      required: true
 
   - type: textarea
-    id: proposal
+    id: solution
     attributes:
       label: Proposed solution
-      description: API shape, UX flow, constraints, or examples.
+      description: How should we solve it?
 
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
-      description: Summarize other approaches and why this one is preferred.
-
-  - type: checkboxes
-    id: checklist
-    attributes:
-      label: Checklist
-      options:
-        - label: I added exactly one area label (prepaint | local-first | tx | demo) in the right sidebar.
-          required: true
-        - label: I am willing to help with a PR.
-          required: false
+      description: What other approaches did you think about?
