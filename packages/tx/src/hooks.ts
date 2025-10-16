@@ -34,6 +34,7 @@ export function useTx<TVariables>(config: UseTxConfig<TVariables>): UseTxResult<
 
   const isMountedRef = useRef(true);
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
