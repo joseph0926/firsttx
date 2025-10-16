@@ -1,5 +1,17 @@
 # @firsttx/tx
 
+## 0.2.1
+
+### Patch Changes
+
+- Add mutateAsync method to useTx hook for Promise-based API
+- Support concurrent transaction execution with Promise.all/allSettled
+- Add generic TResult type parameter for type-safe return values
+- Fix isMountedRef initialization in useEffect for React 18 StrictMode
+- Add test cases for mutateAsync scenarios
+
+BREAKING CHANGE: UseTxConfig and UseTxResult now accept optional TResult generic parameter
+
 ## 0.2.0
 
 ### Minor Changes
