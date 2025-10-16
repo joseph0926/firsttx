@@ -1,5 +1,20 @@
 # @firsttx/tx
 
+## 0.2.0
+
+### Minor Changes
+
+add useTx hook for React integration
+
+- Add useTx hook with React Query-style API
+- Support optimistic updates with automatic rollback
+- Include isPending, isError, isSuccess states
+- Add onSuccess/onError callbacks
+- Fix retry options to apply to request step (not optimistic step)
+- Add unmount safety checks to prevent memory leaks
+- Export UseTxConfig and UseTxResult types
+- Add comprehensive test suite (13 tests)
+
 ## 0.1.2
 
 ### Patch Changes

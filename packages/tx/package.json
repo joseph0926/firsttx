@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/tx",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Tx turns optimistic updates and server effects into a single atomic transaction with run(fn, { compensate, retry }). On failure it performs automatic rollback (reverse compensation), optionally wrapped in a View Transition, ensuring UI and data stay consistent.",
   "license": "MIT",
   "author": "joseph0926",
