@@ -542,6 +542,21 @@ A: With default `syncOnMount: 'stale'`:
 3. Data is stored to IndexedDB
 4. Component re-renders with synced data
 
+**Q: Do changes sync across tabs?**
+
+A: Yes! Cross-tab synchronization is automatic via BroadcastChannel API.
+
+```tsx
+// Tab A
+await patch((draft) => {
+  draft.count++;
+});
+
+// Tab B - automatically updated (~1ms)
+```
+
+Works in Chrome 54+, Firefox 38+, Safari 15.4+ (97%+ coverage).
+
 ---
 
 ## Changelog

@@ -302,6 +302,15 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
   - `isStale: boolean` - Whether TTL exceeded
   - `updatedAt: number` - Last update timestamp
 
+#### Cross-Tab Synchronization
+
+Automatically synchronizes model changes across all open tabs using BroadcastChannel API.
+
+- ~1ms sync latency between tabs
+- Zero network overhead (browser-internal)
+- Automatic consistency across all tabs
+- Graceful degradation for older browsers (97%+ support)
+
 ---
 
 ### Tx
