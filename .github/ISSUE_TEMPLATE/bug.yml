@@ -1,58 +1,45 @@
 name: Bug report
 description: Report a defect that affects users or developers.
-title: 'bug: <short summary>'
-labels: ['type: bug']
+title: 'bug: '
+labels: ['type-bug']
 body:
   - type: dropdown
     id: area
     attributes:
       label: Area
-      description: 'Select the affected area. Also add the matching `area-...` label in the right sidebar.'
+      description: Which package is affected?
       options:
-        - 'area-prepaint'
-        - 'area-local-first'
-        - 'area-tx'
-        - 'area-demo'
-        - 'area-playground'
+        - prepaint
+        - local-first
+        - tx
+        - demo
+        - playground
+        - other
     validations:
       required: true
 
   - type: textarea
-    id: steps
+    id: description
+    attributes:
+      label: Description
+      description: What's wrong?
+      placeholder: |
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
     attributes:
       label: Steps to reproduce
-      description: Provide a minimal, deterministic sequence that reproduces the issue.
       placeholder: |
-        1) ...
-        2) ...
-        3) ...
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      placeholder: What should happen?
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-      placeholder: What happens instead (include error text, screenshots, or logs if useful)?
+        1. ...
+        2. ...
+        3. ...
 
   - type: input
     id: env
     attributes:
       label: Environment
-      placeholder: Browser/OS and versions (e.g., Chrome 128, macOS 14.5)
-
-  - type: checkboxes
-    id: checklist
-    attributes:
-      label: Checklist
-      options:
-        - label: I added exactly one area label (prepaint | local-first | tx | demo) in the right sidebar.
-          required: true
-        - label: I searched existing issues to avoid duplicates.
-          required: true
+      placeholder: Browser/OS (e.g., Chrome 128, macOS 14.5)
