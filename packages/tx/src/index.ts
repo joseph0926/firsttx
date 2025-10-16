@@ -22,3 +22,7 @@ export { CompensationFailedError, RetryExhaustedError, TransactionTimeoutError }
 export function startTransaction(options?: TxOptions): Transaction {
   return new Transaction(options);
 }
+
+export type { UseTxConfig, UseTxResult } from './hooks';
+
+export { useTx } from './hooks';
