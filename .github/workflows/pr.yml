@@ -22,8 +22,6 @@ jobs:
 
   ci:
     name: CI
-    if: always() && (github.event_name == 'push')
-    needs: [add-labels]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
