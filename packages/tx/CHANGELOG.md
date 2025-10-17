@@ -1,5 +1,35 @@
 # @firsttx/tx
 
+## 0.3.0
+
+### Minor Changes
+
+BREAKING CHANGE: Error constructor signatures have changed
+
+- Add TxError abstract base class with getUserMessage(), getDebugInfo(), and isRecoverable() methods
+- Restructure RetryExhaustedError to store all attempt errors (not just last)
+- Add stepId parameter to RetryExhaustedError for better debugging
+- Add completedSteps to CompensationFailedError
+- Add elapsedMs to TransactionTimeoutError
+- Add TransactionStateError for invalid state transitions
+- Replace generic Error throws with TransactionStateError in transaction.ts
+- Update retry.ts to collect all errors and pass stepId
+- Maintain backward-compatible error messages for existing tests
+
+**Benefits**
+
+- Consistent error handling across all transaction errors
+- User-friendly messages suitable for UI display
+- Detailed debug information for developers
+- Clear recoverability flags for retry logic
+- Better debugging with complete error history
+
+**Migration**
+
+- RetryExhaustedError: Use `errors` array instead of `lastError`
+- Error checks: Can now use `instanceof TransactionStateError`
+- All error classes expose `getUserMessage()`, `getDebugInfo()`, `isRecoverable()`
+
 ## 0.2.2
 
 ### Patch Changes
