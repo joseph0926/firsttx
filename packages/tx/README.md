@@ -25,13 +25,10 @@ async function addToCart(item: Item) {
 
   await tx.run(
     async () => {
-      // Optimistic update
       setCart((prev) => [...prev, item]);
-      // Server request
       await api.addItem(item);
     },
     {
-      // Auto-executed on failure
       compensate: async () => {
         setCart((prev) => prev.filter((i) => i.id !== item.id));
       },
@@ -42,7 +39,7 @@ async function addToCart(item: Item) {
 }
 ```
 
-**How it works:**
+**How it works**
 
 1. `setCart` executes immediately (optimistic)
 2. If `api.addItem` fails
@@ -92,7 +89,7 @@ function CartPage() {
 }
 ```
 
-**Benefits:**
+**Benefits**
 
 - No manual transaction lifecycle management
 - Built-in loading/error states
@@ -101,7 +98,7 @@ function CartPage() {
 
 ---
 
-## Retry
+## Retry with Backoff
 
 **Low-level API**
 
@@ -137,7 +134,12 @@ const { mutate } = useTx({
 });
 ```
 
-**Note:** Retry applies only to the `request` step. Optimistic updates don't retry since they're local operations.
+**Backoff Strategies**
+
+- `exponential` (default): 100ms → 200ms → 400ms → 800ms (delay × 2^attempt)
+- `linear`: 100ms → 200ms → 300ms → 400ms (delay × attempt)
+
+**Note** Retry applies only to the `request` step. Optimistic updates don't retry since they're local operations.
 
 ---
 
@@ -149,7 +151,6 @@ async function checkout(cartId: string) {
 
   let orderId: string;
 
-  // Step 1: Create order
   await tx.run(
     async () => {
       const order = await api.orders.create(cartId);
@@ -164,7 +165,6 @@ async function checkout(cartId: string) {
     },
   );
 
-  // Step 2: Payment
   await tx.run(
     async () => {
       await api.payments.charge(orderId);
@@ -178,7 +178,6 @@ async function checkout(cartId: string) {
     },
   );
 
-  // Step 3: Complete
   await tx.run(
     async () => {
       await api.cart.clear(cartId);
@@ -193,26 +192,22 @@ async function checkout(cartId: string) {
 }
 ```
 
-**On failure:** Automatic rollback in reverse order (Step 3 → 2 → 1)
+**On failure** Automatic rollback in reverse order (Step 3 → 2 → 1)
 
 ---
 
 ## ViewTransition
 
 ```tsx
-// transition: true → smooth rollback
 const tx = startTransaction({ transition: true });
-
-// transition: false (default) → instant rollback
-const tx = startTransaction();
 ```
 
-**Browser support:**
+**Browser support**
 
 - Chrome 111+: Full support
 - Firefox/Safari: Auto-fallback (instant rollback)
 
-**Custom animations:**
+**Custom animations**
 
 ```css
 ::view-transition-old(root) {
@@ -226,202 +221,121 @@ const tx = startTransaction();
 
 ---
 
-## API
+## API Reference
 
 ### `startTransaction(options?)`
 
+Creates a new transaction instance.
+
 ```typescript
 const tx = startTransaction({
-  transition?: boolean  // Use ViewTransition (default: false)
+  id?: string,           // Custom transaction ID (default: auto-generated)
+  transition?: boolean,  // Use ViewTransition (default: false)
+  timeout?: number       // Overall timeout in ms (default: 30000)
 });
 ```
 
+**Options**
+
+- `id?: string` - Custom transaction identifier for debugging
+- `transition?: boolean` - Enable smooth ViewTransition animations (default: `false`)
+- `timeout?: number` - Maximum total execution time in milliseconds (default: `30000`)
+
+**Returns** `Transaction` instance
+
+---
+
 ### `tx.run(fn, options?)`
+
+Executes a step within the transaction.
 
 ```typescript
 await tx.run(
-  fn: () => Promise<void>,
+  async () => {
+    // Your logic
+  },
   {
     compensate?: () => Promise<void>,
     retry?: {
-      maxAttempts?: number,  // default: 1
-      delay?: number          // default: 1000ms
+      maxAttempts?: number,
+      delayMs?: number,
+      backoff?: 'exponential' | 'linear'
     }
   }
 );
 ```
 
-### `tx.commit()`
+**Parameters**
 
-```typescript
-await tx.commit(); // Finalize transaction
-```
+- `fn: () => Promise<T>` - Function to execute
+- `options?.compensate: () => Promise<void>` - Rollback function (executed in reverse order on failure)
+- `options?.retry: RetryConfig` - Retry configuration
+  - `maxAttempts?: number` - Maximum retry attempts (default: `1`)
+  - `delayMs?: number` - Base delay between retries in milliseconds (default: `100`)
+  - `backoff?: 'exponential' | 'linear'` - Backoff strategy (default: `'exponential'`)
+
+**Returns** `Promise<T>` - Result of the function
+
+**Throws**
+
+- `RetryExhaustedError` - When all retry attempts fail
+- `TransactionTimeoutError` - When execution exceeds timeout
 
 ---
 
-## Error Handling
+### `tx.commit()`
 
-### Execution Failure (auto-recovery)
-
-```tsx
-await tx.run(
-  async () => {
-    throw new Error('API failed');
-  },
-  {
-    compensate: async () => {
-      console.log('Auto-rolled back');
-    },
-  },
-);
-// If compensate succeeds → original error is re-thrown
-```
-
-### Compensation Failure (critical)
-
-```tsx
-import { CompensationFailedError } from '@firsttx/tx';
-
-try {
-  await tx.commit();
-} catch (error) {
-  if (error instanceof CompensationFailedError) {
-    // Data consistency broken
-    console.error('Rollback failed:', error.failures);
-  }
-}
-```
-
-### `useTx(config)`
-
-React hook for optimistic updates.
+Finalizes the transaction.
 
 ```typescript
-const { mutate, isPending, isError, isSuccess, error } = useTx({
-  optimistic: (variables) => Promise<void>,
-  rollback: (variables) => Promise<void>,
-  request: (variables) => Promise<unknown>,
+await tx.commit();
+```
+
+**After commit**
+
+- Transaction becomes immutable
+- No more steps can be added
+- Cleanup tasks are executed
+
+---
+
+### `useTx<TVariables, TResult>(config)`
+
+React hook for declarative transaction management.
+
+```typescript
+const { mutate, mutateAsync, isPending, isError, isSuccess, error } = useTx({
+  optimistic: async (variables: TVariables) => { /* ... */ },
+  rollback: async (variables: TVariables) => { /* ... */ },
+  request: async (variables: TVariables) => { /* ... */ },
   transition?: boolean,
-  retry?: {
-    maxAttempts?: number,
-    delayMs?: number,
-    backoff?: 'linear' | 'exponential',
-  },
-  onSuccess?: (result, variables) => void,
-  onError?: (error, variables) => void,
+  retry?: RetryConfig,
+  onSuccess?: (result: TResult, variables: TVariables) => void,
+  onError?: (error: Error, variables: TVariables) => void
 });
 ```
 
 **Parameters**
 
-- `optimistic` - Function to update local state
-- `rollback` - Function to revert local state on failure
-- `request` - Server request function
-- `transition` - Enable ViewTransition (default: `true`)
-- `retry` - Retry configuration for request step
-- `onSuccess` - Success callback
-- `onError` - Error callback
+- `config.optimistic: (variables: TVariables) => Promise<void>` - Immediate local update
+- `config.rollback: (variables: TVariables) => Promise<void>` - Revert local update on failure
+- `config.request: (variables: TVariables) => Promise<TResult>` - Server request
+- `config.transition?: boolean` - Use ViewTransition (default: `true`)
+- `config.retry?: RetryConfig` - Retry configuration
+  - `maxAttempts?: number` - Default: `1`
+  - `delayMs?: number` - Default: `100`
+  - `backoff?: 'exponential' | 'linear'` - Default: `'exponential'`
+- `config.onSuccess?: (result: TResult, variables: TVariables) => void` - Success callback
+- `config.onError?: (error: Error, variables: TVariables) => void` - Error callback
 
 **Returns**
 
-- `mutate(variables)` - Trigger the transaction (void return)
-- `isPending` - Whether transaction is in progress
-- `isError` - Whether transaction failed
-- `isSuccess` - Whether transaction succeeded
-- `error` - Error object if failed
-
-**Notes**
-
-- `mutate()` returns `void` (fire-and-forget)
-- Use callbacks (`onSuccess`/`onError`) for side effects
-- Automatically prevents state updates after unmount
-- Retry applies only to the `request` step, not `optimistic`
-
----
-
-## Real-World Examples
-
-### Shopping Cart
-
-```tsx
-// Add item
-async function addItem(product: Product, qty: number) {
-  const tx = startTransaction({ transition: true });
-  const newItem = { id: crypto.randomUUID(), ...product, qty };
-
-  await tx.run(
-    async () => {
-      patch((draft) => {
-        draft.items.push(newItem);
-        draft.total += product.price * qty;
-      });
-      await api.cart.add(newItem);
-    },
-    {
-      compensate: async () => {
-        patch((draft) => {
-          draft.items = draft.items.filter((i) => i.id !== newItem.id);
-          draft.total -= product.price * qty;
-        });
-      },
-    },
-  );
-
-  await tx.commit();
-}
-
-// Update quantity
-async function updateQty(itemId: string, newQty: number) {
-  const tx = startTransaction({ transition: true });
-  const item = cart.items.find((i) => i.id === itemId);
-  const oldQty = item.qty;
-  const diff = newQty - oldQty;
-
-  await tx.run(
-    async () => {
-      patch((draft) => {
-        item.qty = newQty;
-        draft.total += item.price * diff;
-      });
-      await api.cart.updateQty(itemId, newQty);
-    },
-    {
-      compensate: async () => {
-        patch((draft) => {
-          item.qty = oldQty;
-          draft.total -= item.price * diff;
-        });
-      },
-    },
-  );
-
-  await tx.commit();
-}
-```
-
-### Collaborative Document
-
-```tsx
-async function applyEdit(docId: string, edit: Edit) {
-  const tx = startTransaction({ transition: true });
-  const snapshot = captureSnapshot(docId);
-
-  await tx.run(
-    async () => {
-      applyEditLocally(docId, edit);
-      await api.docs.sync(docId, edit);
-    },
-    {
-      compensate: async () => {
-        restoreSnapshot(docId, snapshot);
-      },
-      retry: { maxAttempts: 3 },
-    },
-  );
-
-  await tx.commit();
-}
-```
+- `mutate: (variables: TVariables) => void` - Fire-and-forget execution
+- `mutateAsync: (variables: TVariables) => Promise<TResult>` - Promise-based execution
+- `isPending: boolean` - Whether transaction is running
+- `isError: boolean` - Whether transaction failed
+- `isSuccess: boolean` - Whether transaction succeeded
+- `error: Error | null` - Error object if failed
 
 ---
 
@@ -478,7 +392,6 @@ await tx.run(
 async function deleteItem(id: string) {
   const tx = startTransaction({ transition: true });
 
-  // Capture via closure
   const itemToDelete = items.find((i) => i.id === id);
 
   await tx.run(
@@ -494,6 +407,57 @@ async function deleteItem(id: string) {
   );
 
   await tx.commit();
+}
+```
+
+---
+
+## Error Handling
+
+### Execution Failure (auto-recovery)
+
+```tsx
+await tx.run(
+  async () => {
+    throw new Error('API failed');
+  },
+  {
+    compensate: async () => {
+      console.log('Auto-rolled back');
+    },
+  },
+);
+```
+
+If `compensate` succeeds → original error is re-thrown
+
+### Compensation Failure (critical)
+
+```tsx
+import { CompensationFailedError } from '@firsttx/tx';
+
+try {
+  await tx.commit();
+} catch (error) {
+  if (error instanceof CompensationFailedError) {
+    console.error('Rollback failed:', error.failures);
+  }
+}
+```
+
+### Timeout
+
+```tsx
+import { TransactionTimeoutError } from '@firsttx/tx';
+
+try {
+  const tx = startTransaction({ timeout: 5000 });
+  await tx.run(slowOperation);
+  await tx.commit();
+} catch (error) {
+  if (error instanceof TransactionTimeoutError) {
+    console.error('Transaction exceeded 5s timeout');
+  }
 }
 ```
 
@@ -568,7 +532,6 @@ A: Each transaction is independent.
 const parent = startTransaction();
 await parent.run(
   async () => {
-    // Child transaction
     const child = startTransaction();
     await child.run(/* ... */);
     await child.commit();
@@ -579,36 +542,39 @@ await parent.run(
 
 ---
 
-**Q: Exponential backoff for retries?**
+**Q: What backoff strategies are supported?**
 
-A: Currently only fixed delay. Implement manually if needed:
+A: Built-in support for exponential (default) and linear backoff.
 
 ```tsx
-for (let i = 0; i < maxAttempts; i++) {
-  try {
-    await tx.run(fn);
-    break;
-  } catch {
-    await delay(Math.pow(2, i) * 1000);
-  }
-}
+// Exponential (100ms → 200ms → 400ms)
+retry: { maxAttempts: 3, delayMs: 100, backoff: 'exponential' }
+
+// Linear (100ms → 200ms → 300ms)
+retry: { maxAttempts: 3, delayMs: 100, backoff: 'linear' }
 ```
 
 ---
 
 ## Changelog
 
-### [0.1.1](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Ftx%400.1.1) - 2025-10-13
+### [0.2.1](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Ftx%400.2.1) - 2025-01-15
 
 **Added**
 
-Transaction timeout mechanism using Promise.race() to prevent indefinite hanging
-Proper 'failed' status when compensation fails (previously remained as 'rolled-back')
+- `mutateAsync` alias for promise-based execution in `useTx`
+
+### [0.1.1](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Ftx%400.1.1) - 2025-01-13
+
+**Added**
+
+- Transaction timeout mechanism using Promise.race()
+- Proper 'failed' status when compensation fails
 
 **Improved**
 
-Comprehensive test coverage for timeout scenarios and status transitions
-Accurate reflection of final transaction state
+- Comprehensive test coverage for timeout scenarios
+- Accurate reflection of final transaction state
 
 ---
 

@@ -136,6 +136,7 @@ export const CartModel = defineModel('cart', {
       }),
     ),
   }),
+  // ttl is optional - defaults to 5 minutes
   ttl: 5 * 60 * 1000,
 });
 ```
@@ -253,7 +254,7 @@ import { z } from 'zod';
 
 const CartModel = defineModel('cart', {
   schema: z.object({ items: z.array(...) }),
-  ttl: 5 * 60 * 1000,
+  ttl: 5 * 60 * 1000, // optional
 });
 ```
 
@@ -261,7 +262,10 @@ const CartModel = defineModel('cart', {
 
 - `key: string` - IndexedDB key (must be unique)
 - `options.schema: ZodSchema` - Zod schema
-- `options.ttl?: number` - Time-to-live in milliseconds (default: unlimited)
+- `options.ttl?: number` - Time-to-live in milliseconds (default: `5 * 60 * 1000` = 5 minutes)
+- `options.version?: number` - Schema version for migrations
+- `options.initialData?: T` - Initial data (required if version is set)
+- `options.merge?: (current: T, incoming: T) => T` - Conflict resolution function
 
 #### `useSyncedModel(model, fetcher, options?)`
 
@@ -334,12 +338,30 @@ await tx.run(
       CartModel.patch((draft) => {
         /* rollback */
       }),
-    retry: { maxAttempts: 1 },
+    retry: {
+      maxAttempts: 3,
+      delayMs: 1000,
+      backoff: 'exponential', // or 'linear'
+    },
   },
 );
 
 await tx.commit();
 ```
+
+**tx.run Parameters**
+
+- `fn: () => Promise<T>` - Function to execute
+- `options?.compensate: () => Promise<void>` - Rollback function on failure
+- `options?.retry: RetryConfig` - Retry configuration
+  - `maxAttempts?: number` - Maximum retry attempts (default: `1`)
+  - `delayMs?: number` - Base delay between retries in milliseconds (default: `100`)
+  - `backoff?: 'exponential' | 'linear'` - Backoff strategy (default: `'exponential'`)
+
+**Backoff strategies:**
+
+- `exponential`: 100ms → 200ms → 400ms → 800ms (delay × 2^attempt)
+- `linear`: 100ms → 200ms → 300ms → 400ms (delay × attempt)
 
 #### `useTx(config)`
 
@@ -375,7 +397,7 @@ const { mutate, isPending, isError, error } = useTx({
 - `config.rollback` - Rollback function
 - `config.request` - Server request function
 - `config.transition?` - Use ViewTransition (default: `true`)
-- `config.retry?` - Retry config `{ maxAttempts, delayMs, backoff }`
+- `config.retry?` - Retry config `{ maxAttempts?, delayMs?, backoff?: 'exponential' | 'linear' }`
 - `config.onSuccess?` - Success callback
 - `config.onError?` - Error callback
 
