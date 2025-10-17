@@ -5,7 +5,13 @@ export type { TxOptions, TxStatus, StepOptions, RetryConfig } from './types';
 
 export { DEFAULT_RETRY_CONFIG } from './types';
 
-export { CompensationFailedError, RetryExhaustedError, TransactionTimeoutError } from './errors';
+export {
+  TxError,
+  CompensationFailedError,
+  RetryExhaustedError,
+  TransactionTimeoutError,
+  TransactionStateError,
+} from './errors';
 
 /**
  * startTransaction

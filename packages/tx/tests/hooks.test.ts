@@ -136,7 +136,9 @@ describe('useTx', () => {
     // eslint-disable-next-line
     const errorArg = onError.mock.calls[0][0];
     expect(errorArg).toBeInstanceOf(RetryExhaustedError);
-    expect((errorArg as RetryExhaustedError).lastError.message).toBe('Request failed');
+
+    const retryError = errorArg as RetryExhaustedError;
+    expect(retryError.errors[retryError.attempts - 1].message).toBe('Request failed');
 
     expect(result.current.error).toBeInstanceOf(RetryExhaustedError);
   });
