@@ -43,7 +43,7 @@ export function defineModel<T>(
     version: number;
     initialData: T;
     schema: z.ZodType<T>;
-    ttl: number;
+    ttl?: number;
     merge?: (current: T, incoming: T) => T;
   },
 ): Model<T>;
@@ -53,13 +53,15 @@ export function defineModel<T>(
     version?: never;
     initialData?: T;
     schema: z.ZodType<T>;
-    ttl: number;
+    ttl?: number;
     merge?: (current: T, incoming: T) => T;
   },
 ): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
   let cacheState: CacheState<T> = { status: 'loading' };
   const subscribers = new Set<() => void>();
+
+  const effectiveTTL = options.ttl ?? 5 * 60 * 1000;
 
   let cachedHistory: ModelHistory = {
     updatedAt: 0,
@@ -86,7 +88,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     cachedHistory = {
       updatedAt,
       age,
-      isStale: age > options.ttl,
+      isStale: age >= effectiveTTL,
       isConflicted: false,
     };
   };
@@ -155,7 +157,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   const model: Model<T> = {
     name,
     schema: options.schema,
-    ttl: options.ttl,
+    ttl: effectiveTTL,
     merge: options.merge ?? ((_, next) => next),
 
     /**
@@ -218,7 +220,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       return {
         updatedAt: stored.updatedAt,
         age,
-        isStale: age > options.ttl,
+        isStale: age >= effectiveTTL,
         isConflicted: false,
       };
     },
