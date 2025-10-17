@@ -1,5 +1,17 @@
 # @firsttx/tx
 
+## 0.2.2
+
+### Patch Changes
+
+**Documentation**
+
+- Fixed incorrect FAQ claiming "only fixed delay" for retries
+- Documented exponential and linear backoff strategies with examples
+- Added complete API Reference for `startTransaction`, `tx.run`, and `useTx`
+- Included backoff comparison: exponential (100→200→400ms) vs linear (100→200→300ms)
+- Added error handling section with `CompensationFailedError` and `TransactionTimeoutError`
+
 ## 0.2.1
 
 ### Patch Changes

@@ -35,7 +35,7 @@ export const CartModel = defineModel('cart', {
     ),
     total: z.number(),
   }),
-  ttl: 5 * 60 * 1000, // 5 minutes
+  ttl: 5 * 60 * 1000, // optional - defaults to 5 minutes
   initialData: { items: [], total: 0 },
 });
 ```
@@ -69,40 +69,11 @@ function CartPage() {
 }
 ```
 
-### 3. Server Sync with `useSyncedModel`
-
-**Before (Traditional):**
-
-```tsx
-const [cart, setCart] = useState(null);
-const [isSyncing, setIsSyncing] = useState(false);
-const [error, setError] = useState(null);
-
-useEffect(() => {
-  setIsSyncing(true);
-  fetch('/api/cart')
-    .then((r) => r.json())
-    .then(setCart)
-    .catch(setError)
-    .finally(() => setIsSyncing(false));
-}, []);
-```
-
-**After (`useSyncedModel`):**
+### 3. Sync with Server (Auto)
 
 ```tsx
 import { useSyncedModel } from '@firsttx/local-first';
 
-const {
-  data: cart,
-  isSyncing,
-  error,
-} = useSyncedModel(CartModel, () => fetch('/api/cart').then((r) => r.json()));
-```
-
-**Full Example:**
-
-```tsx
 function CartPage() {
   const {
     data: cart,
@@ -110,31 +81,26 @@ function CartPage() {
     sync,
     isSyncing,
     error,
-    history,
   } = useSyncedModel(
     CartModel,
-    async (current) => {
-      // Receives current local data (useful for delta sync)
-      const response = await fetch('/api/cart');
-      return response.json();
+    async () => {
+      const res = await fetch('/api/cart');
+      return res.json();
     },
     {
-      syncOnMount: 'stale', // Default: sync when data is stale
-      onSuccess: (data) => console.log('Synced:', data),
+      syncOnMount: 'stale', // auto-sync when stale (default)
+      onSuccess: () => toast.success('Synced'),
       onError: (err) => toast.error(err.message),
     },
   );
 
   if (!cart) return <Skeleton />;
-  if (error) return <ErrorBanner error={error} onRetry={sync} />;
 
   return (
     <div>
-      {isSyncing && <SyncIndicator />}
-      {history.isStale && <Badge>Updating...</Badge>}
-      {cart.items.map((item) => (
-        <CartItem key={item.id} {...item} />
-      ))}
+      {isSyncing && <Spinner />}
+      <button onClick={() => sync()}>Refresh</button>
+      {/* ... */}
     </div>
   );
 }
@@ -142,462 +108,318 @@ function CartPage() {
 
 ---
 
-## syncOnMount Strategies
+## API Reference
 
-```tsx
-// Default: Sync when data exceeds TTL
-useSyncedModel(Model, fetcher);
-// Same as: { syncOnMount: 'stale' }
+### `defineModel(key, options)`
 
-// Always sync on mount (critical data)
-useSyncedModel(Model, fetcher, { syncOnMount: 'always' });
+Defines a type-safe IndexedDB model with automatic React integration.
 
-// Never auto-sync (manual control)
-useSyncedModel(Model, fetcher, { syncOnMount: 'never' });
-```
-
-| Strategy            | When to Sync         | Use Case                                     |
-| ------------------- | -------------------- | -------------------------------------------- |
-| `'stale'` (default) | Data age > TTL       | Most cases - balance freshness & performance |
-| `'always'`          | Every mount          | Critical data (balance, stock price)         |
-| `'never'`           | Manual `sync()` only | Draft content, offline-first                 |
-
----
-
-## API
-
-### `defineModel(name, options)`
-
-```typescript
-const Model = defineModel('key', {
-  schema: ZodSchema,
-  ttl?: number,              // Time-to-live (ms)
-  version?: number,          // Schema version
-  initialData?: T,           // Default data
-  merge?: (current, incoming) => T
+```ts
+const Model = defineModel('cart', {
+  schema: z.object({ items: z.array(...) }),
+  ttl: 5 * 60 * 1000,
+  version: 1,
+  initialData: { items: [] },
+  merge: (current, incoming) => ({ ...current, ...incoming }),
 });
 ```
+
+**Parameters**
+
+- `key: string` - Unique IndexedDB key for this model
+- `options.schema: ZodSchema` - Zod schema for validation
+- `options.ttl?: number` - Time-to-live in milliseconds (default: `5 * 60 * 1000` = 5 minutes)
+  - Set to `Infinity` for data that never expires
+  - Set to `0` for always-stale behavior
+- `options.version?: number` - Schema version for migrations (requires `initialData`)
+- `options.initialData?: T` - Default value when no data exists or version changes
+- `options.merge?: (current: T, incoming: T) => T` - Custom conflict resolution for cross-tab sync
+
+**Returns** `Model<T>`
+
+**Model Properties**
+
+- `name: string` - Model key
+- `schema: ZodSchema` - Validation schema
+- `ttl: number` - Effective TTL value
+- `merge: (current, incoming) => T` - Conflict resolver
+
+**Model Methods**
+
+- `getSnapshot(): Promise<T | null>` - Load data from IndexedDB
+- `getHistory(): Promise<ModelHistory>` - Get metadata (age, staleness)
+- `replace(data: T): Promise<void>` - Replace entire data (used by sync)
+- `patch(mutator: (draft: T) => void): Promise<void>` - Update via Immer
+- `subscribe(callback: () => void): () => void` - Listen to changes
+- `getCachedSnapshot(): T | null` - Synchronous cached read
+- `getCachedHistory(): ModelHistory` - Synchronous cached metadata
+- `getCachedError(): FirstTxError | null` - Get last error
+
+---
 
 ### `useModel(model)`
 
-```typescript
-const [data, patch, history, error] = useModel(Model);
+React hook for local-only model usage (no server sync).
 
-// data: T | null
-// patch: (mutator: (draft: T) => void) => Promise<void>
-// history: { updatedAt, age, isStale }
-// error: Error | null
+```tsx
+const [data, patch, history, error] = useModel(CartModel);
 ```
+
+**Parameters**
+
+- `model: Model<T>` - Model created with `defineModel`
+
+**Returns** `[data, patch, history, error]`
+
+- `data: T | null` - Current data (null while loading)
+- `patch: (mutator: (draft: T) => void) => Promise<void>` - Update function (Immer-style)
+  ```ts
+  await patch((draft) => {
+    draft.items.push(newItem);
+  });
+  ```
+- `history: ModelHistory` - Metadata
+  - `updatedAt: number` - Unix timestamp of last update
+  - `age: number` - Time elapsed since last update (ms)
+  - `isStale: boolean` - Whether `age > ttl`
+  - `isConflicted: boolean` - Whether cross-tab conflict occurred
+- `error: FirstTxError | null` - Validation or storage error
+
+**Example**
+
+```tsx
+const [cart, patch, history] = useModel(CartModel);
+
+if (!cart) return <Skeleton />;
+
+return (
+  <div>
+    {history.isStale && <Badge>Data is {Math.floor(history.age / 1000)}s old</Badge>}
+    <button onClick={() => patch((draft) => draft.items.push(item))}>Add Item</button>
+  </div>
+);
+```
+
+---
 
 ### `useSyncedModel(model, fetcher, options?)`
 
-```typescript
+React hook for model with automatic server synchronization.
+
+```tsx
+const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartModel, fetchCart, {
+  syncOnMount: 'stale',
+  onSuccess: (data) => console.log('Synced', data),
+  onError: (err) => console.error(err),
+});
+```
+
+**Parameters**
+
+- `model: Model<T>` - Model created with `defineModel`
+- `fetcher: (current: T | null) => Promise<T>` - Function to fetch server data
+  - Receives current local data for delta sync support
+  - Should return full data to replace local state
+- `options?: SyncOptions`
+  - `syncOnMount?: 'always' | 'stale' | 'never'` (default: `'stale'`)
+    - `'always'`: Always sync on component mount
+    - `'stale'`: Only sync when `history.isStale === true`
+    - `'never'`: Never auto-sync, only manual `sync()` calls
+  - `onSuccess?: (data: T) => void` - Called after successful sync
+  - `onError?: (error: Error) => void` - Called on sync failure
+
+**Returns** `SyncedModelResult<T>`
+
+- `data: T | null` - Current data
+- `patch: (mutator: (draft: T) => void) => Promise<void>` - Local update
+- `sync: () => Promise<void>` - Manual sync trigger
+  - Safe to call multiple times (automatically deduplicated)
+  - Uses ViewTransition for smooth updates (if available)
+- `isSyncing: boolean` - Whether sync is in progress
+- `error: Error | null` - Sync error (not validation errors)
+- `history: ModelHistory` - Metadata (same as `useModel`)
+
+**Example**
+
+```tsx
 const {
-  data,      // T | null
-  patch,     // (mutator) => Promise<void>
-  sync,      // () => Promise<void> - Manual sync
-  isSyncing, // boolean
-  error,     // Error | null
-  history    // { updatedAt, age, isStale }
-} = useSyncedModel(Model, fetcher, {
-  syncOnMount?: 'always' | 'stale' | 'never',
-  onSuccess?: (data: T) => void,
-  onError?: (error: Error) => void
-});
+  data: cart,
+  sync,
+  isSyncing,
+} = useSyncedModel(
+  CartModel,
+  async (current) => {
+    // Delta sync example
+    const since = current ? new Date(current.lastSync) : null;
+    const res = await fetch(`/api/cart?since=${since}`);
+    return res.json();
+  },
+  { syncOnMount: 'stale' },
+);
 
-// fetcher: (current: T | null) => Promise<T>
+return (
+  <div>
+    <button onClick={() => sync()} disabled={isSyncing}>
+      {isSyncing ? 'Syncing...' : 'Refresh'}
+    </button>
+    {/* ... */}
+  </div>
+);
+```
+
+**Sync Behavior**
+
+```
+Mount → Load IndexedDB → Check isStale
+  ↓
+if syncOnMount === 'always' → sync()
+if syncOnMount === 'stale' && isStale → sync()
+if syncOnMount === 'never' → do nothing
 ```
 
 ---
 
-## Real-World Examples
+## Features
 
-### Shopping Cart
+### Cross-Tab Synchronization
 
-```tsx
-async function fetchCart(current) {
-  const response = await fetch('/api/cart');
-  return response.json();
-}
+Automatically syncs changes across all open tabs using BroadcastChannel API.
 
-function CartPage() {
-  const { data: cart, patch, isSyncing } = useSyncedModel(CartModel, fetchCart);
+```ts
+// Tab 1
+await CartModel.patch((draft) => draft.items.push(item));
 
-  const addItem = (product: Product) => {
-    patch((draft) => {
-      const existing = draft.items.find((i) => i.id === product.id);
-      if (existing) {
-        existing.qty += 1;
-      } else {
-        draft.items.push({ ...product, qty: 1 });
-      }
-      draft.total += product.price;
-    });
-  };
-
-  const updateQty = (itemId: string, newQty: number) => {
-    patch((draft) => {
-      const item = draft.items.find((i) => i.id === itemId);
-      if (item) {
-        const diff = newQty - item.qty;
-        item.qty = newQty;
-        draft.total += item.price * diff;
-      }
-    });
-  };
-
-  const removeItem = (itemId: string) => {
-    patch((draft) => {
-      const index = draft.items.findIndex((i) => i.id === itemId);
-      if (index >= 0) {
-        const item = draft.items[index];
-        draft.total -= item.price * item.qty;
-        draft.items.splice(index, 1);
-      }
-    });
-  };
-
-  if (!cart) return <Skeleton />;
-
-  return (
-    <div>
-      {isSyncing && <SyncIndicator />}
-      <CartItems items={cart.items} onUpdate={updateQty} onRemove={removeItem} />
-      <AddProductButton onAdd={addItem} />
-      <Total amount={cart.total} />
-    </div>
-  );
-}
+// Tab 2 (instantly receives update via BroadcastChannel)
+// React re-renders with new data (~1ms latency)
 ```
 
-### Delta Sync
+**How it works**
 
-```tsx
-const { data } = useSyncedModel(CartModel, async (current) => {
-  if (!current) {
-    // First visit: full sync
-    return fetch('/api/cart').then((r) => r.json());
-  }
+- Every `patch()` or `replace()` broadcasts to other tabs
+- Tabs auto-reload from IndexedDB on receiving broadcast
+- Custom `merge()` function resolves conflicts
+- Zero network overhead (browser-internal communication)
+- Graceful degradation (97%+ browser support)
 
-  // Subsequent: delta sync
-  const response = await fetch(`/api/cart/delta?since=${current.updatedAt}`);
-  const delta = await response.json();
+**Conflict Resolution**
 
-  return {
-    ...current,
-    items: [...current.items, ...delta.newItems],
-    updatedAt: Date.now(),
-  };
-});
-```
-
-### With Tx (Optimistic Updates)
-
-```tsx
-import { startTransaction } from '@firsttx/tx';
-
-async function addToCart(product: Product) {
-  const tx = startTransaction({ transition: true });
-  const newItem = { ...product, qty: 1 };
-
-  await tx.run(
-    async () => {
-      // Optimistic update
-      await CartModel.patch((draft) => {
-        draft.items.push(newItem);
-        draft.total += product.price;
-      });
-
-      // Server request
-      await fetch('/api/cart/items', {
-        method: 'POST',
-        body: JSON.stringify(newItem),
-      });
-    },
-    {
-      // Auto-rollback on failure
-      compensate: async () => {
-        await CartModel.patch((draft) => {
-          draft.items = draft.items.filter((i) => i.id !== newItem.id);
-          draft.total -= product.price;
-        });
-      },
-    },
-  );
-
-  await tx.commit();
-}
-```
-
----
-
-## Advanced Patterns
-
-### Conditional Sync
-
-```tsx
-const { data, sync, history } = useSyncedModel(Model, fetcher, {
-  syncOnMount: 'never',
-});
-
-// Sync when user explicitly refreshes
-<button onClick={sync} disabled={!history.isStale}>
-  {history.isStale ? 'Refresh' : 'Up to date'}
-</button>;
-```
-
-### Error Recovery
-
-```tsx
-const { data, sync, error } = useSyncedModel(Model, fetcher, {
-  onError: (err) => {
-    if (err.message.includes('401')) {
-      redirectToLogin();
-    } else {
-      toast.error('Sync failed. Using cached data.');
-    }
+```ts
+const Model = defineModel('cart', {
+  schema: CartSchema,
+  merge: (current, incoming) => {
+    // Custom merge logic
+    return {
+      items: [...current.items, ...incoming.items].filter(uniqueById),
+      total: recalculate(merged.items),
+    };
   },
 });
-
-if (error && !data) {
-  return <ErrorState onRetry={sync} />;
-}
-```
-
-### Multiple Models
-
-```tsx
-function Dashboard() {
-  const { data: user } = useSyncedModel(UserModel, fetchUser);
-  const { data: cart } = useSyncedModel(CartModel, fetchCart);
-  const { data: products } = useSyncedModel(ProductsModel, fetchProducts, {
-    syncOnMount: 'always', // Critical data
-  });
-
-  if (!user || !cart || !products) return <Skeleton />;
-
-  return <DashboardView user={user} cart={cart} products={products} />;
-}
 ```
 
 ---
 
-## Best Practices
+### TTL-Based Staleness
 
-### DO
-
-✅ **Use `useSyncedModel` for server-backed data**
+Data automatically expires based on TTL, triggering smart refetches.
 
 ```tsx
-// Eliminates boilerplate
-const { data } = useSyncedModel(Model, fetcher);
-```
-
-✅ **Render skeletons when `data === null`**
-
-```tsx
-if (!data) return <Skeleton />;
-```
-
-✅ **Show sync indicators**
-
-```tsx
-{
-  isSyncing && <Spinner />;
-}
-{
-  history.isStale && <Badge>Updating...</Badge>;
-}
-```
-
-✅ **Use default `syncOnMount` for most cases**
-
-```tsx
-// Syncs when revisiting stale data
-useSyncedModel(Model, fetcher);
-```
-
-✅ **Handle errors gracefully**
-
-```tsx
-{
-  error && <ErrorBanner error={error} onRetry={sync} />;
-}
-```
-
-### DON'T
-
-❌ **Don't store sensitive data without encryption**
-
-```tsx
-// BAD: Passwords, SSN, credit cards in plain text
-defineModel('secrets', { schema: z.object({ password: z.string() }) });
-```
-
-❌ **Don't mutate state directly**
-
-```tsx
-// BAD
-cart.items.push(newItem);
-
-// GOOD
-patch((draft) => {
-  draft.items.push(newItem);
-});
-```
-
-❌ **Don't assume instant availability**
-
-```tsx
-// BAD
-const [cart] = useModel(CartModel);
-console.log(cart.items); // May be null!
-
-// GOOD
-if (!cart) return <Skeleton />;
-console.log(cart.items);
-```
-
----
-
-## Security Notice
-
-⚠️ **FirstTx does NOT encrypt data at rest.**
-
-- IndexedDB is protected by same-origin policy
-- Data is accessible via browser DevTools
-- **Do NOT store sensitive information** without additional encryption
-
-For sensitive data:
-
-- Use session memory (non-persistent)
-- Use encryption libraries (e.g., `crypto-js`)
-- Keep sensitive data server-only
-
----
-
-## Troubleshooting
-
-**Q: Why is `data` always `null`?**
-
-A: In-memory cache is warming up. This happens on:
-
-- First render
-- After clearing IndexedDB
-- After version mismatch
-
-Always render a skeleton/loading state.
-
----
-
-**Q: Why isn't my `patch()` reflecting in UI?**
-
-A: Ensure you're:
-
-1. Using `patch` from the hook (not direct model method)
-2. Mutating the draft object (not returning new object)
-3. Not blocking React re-render
-
-```tsx
-// ❌ BAD
-patch(() => ({ items: [...items, newItem] }));
-
-// ✅ GOOD
-patch((draft) => {
-  draft.items.push(newItem);
-});
-```
-
----
-
-**Q: How do I force a sync?**
-
-A: Call `sync()` manually:
-
-```tsx
-const { sync } = useSyncedModel(Model, fetcher);
-
-<button onClick={sync}>Force Sync</button>;
-```
-
----
-
-**Q: Can I use multiple models?**
-
-A: Yes! Each model is independent:
-
-```tsx
-const { data: cart } = useSyncedModel(CartModel, fetchCart);
-const { data: user } = useSyncedModel(UserModel, fetchUser);
-```
-
----
-
-**Q: What happens on first visit (empty IndexedDB)?**
-
-A: With default `syncOnMount: 'stale'`:
-
-1. `data` starts as `null`
-2. `fetcher(null)` is called automatically
-3. Data is stored to IndexedDB
-4. Component re-renders with synced data
-
-**Q: Do changes sync across tabs?**
-
-A: Yes! Cross-tab synchronization is automatic via BroadcastChannel API.
-
-```tsx
-// Tab A
-await patch((draft) => {
-  draft.count++;
+const Model = defineModel('prices', {
+  schema: PriceSchema,
+  ttl: 30 * 1000, // 30 seconds
 });
 
-// Tab B - automatically updated (~1ms)
+const { data, history } = useSyncedModel(Model, fetchPrices, {
+  syncOnMount: 'stale', // refetch when age > 30s
+});
+
+// Visual feedback
+{
+  history.isStale && <Badge variant="warning">Prices may be outdated</Badge>;
+}
 ```
 
-Works in Chrome 54+, Firefox 38+, Safari 15.4+ (97%+ coverage).
+**TTL Use Cases**
+
+- `30s - 5min`: Real-time data (stock prices, live scores)
+- `5min - 1hr`: Frequently updated (product inventory, user notifications)
+- `1hr - 24hr`: Slow-changing (user profile, settings)
+- `Infinity`: Static content (translations, constants)
 
 ---
 
-## Changelog
+### Schema Validation
 
-### [0.3.1](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Flocal-first%400.3.1) - 2025.10.12
+Zod schema protects against corrupted IndexedDB data.
 
-**delay auto-sync until model hydration to prevent premature stale checks**
+```ts
+const Model = defineModel('cart', {
+  schema: z.object({
+    items: z.array(ItemSchema),
+    total: z.number().nonnegative(),
+  }),
+});
 
-Previously, useSyncedModel triggered sync-on-mount before IndexedDB hydration,
-causing stale mode ('syncOnMount: "stale"') to always refetch on every reload.
-This change defers the auto-sync decision until after the model's history has
-been loaded, ensuring sync only runs when data is actually stale.
+// Invalid data is rejected
+await Model.replace({ items: [], total: -100 }); // ❌ ValidationError
+```
 
-### [0.3.0](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Flocal-first%400.3.0) - 2025.10.12
+**Error Handling**
 
-**replace autoSync with syncOnMount for clarity**
+```tsx
+const [data, patch, history, error] = useModel(Model);
 
-> BREAKING CHANGE: Remove autoSync option in favor of syncOnMount
+if (error) {
+  return <ErrorBanner error={error} onReset={() => Model.replace(initialData)} />;
+}
+```
 
-Replace boolean autoSync with explicit syncOnMount: 'always' | 'stale' | 'never'
-Change default behavior: sync on mount when data is stale (was: no auto-sync)
-Align with React Query's refetch trigger pattern
-Improve synergy with Prepaint's instant replay on revisit
+---
 
-**Migration**
+## Advanced
 
-autoSync: true → syncOnMount: 'stale' (or omit, it's default)
-autoSync: false → syncOnMount: 'never'
+### Schema Migrations
 
-**Fixes**
+```ts
+const UserModel = defineModel('user', {
+  schema: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(), // added in v2
+  }),
+  version: 2,
+  initialData: { id: '', name: '', email: '' },
+});
 
-Remove ambiguity of "when does auto-sync trigger?"
-Fix test assumptions about mount-time sync behavior
-Prevent race conditions in unmount tests with syncInProgressRef
+// On version mismatch:
+// 1. Old data is deleted
+// 2. initialData is written
+// 3. Next sync fetches fresh data
+```
+
+---
+
+## Error Types
+
+```ts
+import { FirstTxError, StorageError, ValidationError } from '@firsttx/local-first';
+
+try {
+  await Model.replace(data);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Schema validation failed:', error.zodError);
+  } else if (error instanceof StorageError) {
+    console.error('IndexedDB error:', error.code, error.context);
+  }
+}
+```
 
 ---
 
 ## Related Packages
 
 - [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Atomic transactions for optimistic updates
-- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant restoration on revisit
+- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant page restoration
 
 ---
 

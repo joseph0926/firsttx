@@ -32,7 +32,7 @@ export interface ModelOptions<T> {
   /**
    * Time-to-live in milliseconds. `Infinity` is allowed for "never expires".
    */
-  ttl: number;
+  ttl?: number;
   /**
    * Conflict-resolution function. Receives the current value and an incoming value,
    * and must return the resolved value to persist.

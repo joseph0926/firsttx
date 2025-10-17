@@ -134,6 +134,7 @@ export const CartModel = defineModel('cart', {
       }),
     ),
   }),
+  // ttl은 선택 사항 - 기본값 5분
   ttl: 5 * 60 * 1000,
 });
 ```
@@ -251,7 +252,7 @@ import { z } from 'zod';
 
 const CartModel = defineModel('cart', {
   schema: z.object({ items: z.array(...) }),
-  ttl: 5 * 60 * 1000,
+  ttl: 5 * 60 * 1000, // 선택 사항
 });
 ```
 
@@ -259,7 +260,10 @@ const CartModel = defineModel('cart', {
 
 - `key: string` - IndexedDB 키 (고유해야 함)
 - `options.schema: ZodSchema` - Zod 스키마
-- `options.ttl?: number` - Time-to-live (밀리초, 기본값: 무제한)
+- `options.ttl?: number` - Time-to-live (밀리초, 기본값: `5 * 60 * 1000` = 5분)
+- `options.version?: number` - 스키마 버전 (마이그레이션용)
+- `options.initialData?: T` - 초기 데이터 (version 설정 시 필수)
+- `options.merge?: (current: T, incoming: T) => T` - 충돌 해결 함수
 
 #### `useSyncedModel(model, fetcher, options?)`
 
@@ -333,12 +337,30 @@ await tx.run(
       CartModel.patch((draft) => {
         /* 롤백 */
       }),
-    retry: { maxAttempts: 1 },
+    retry: {
+      maxAttempts: 3,
+      delayMs: 1000,
+      backoff: 'exponential', // 또는 'linear'
+    },
   },
 );
 
 await tx.commit();
 ```
+
+**tx.run 매개변수**
+
+- `fn: () => Promise<T>` - 실행할 함수
+- `options?.compensate: () => Promise<void>` - 실패 시 롤백 함수
+- `options?.retry: RetryConfig` - 재시도 설정
+  - `maxAttempts?: number` - 최대 재시도 횟수 (기본값: `1`)
+  - `delayMs?: number` - 재시도 간 기본 대기 시간(밀리초, 기본값: `100`)
+  - `backoff?: 'exponential' | 'linear'` - 백오프 전략 (기본값: `'exponential'`)
+
+**백오프 전략:**
+
+- `exponential`: 100ms → 200ms → 400ms → 800ms (delay × 2^시도횟수)
+- `linear`: 100ms → 200ms → 300ms → 400ms (delay × 시도횟수)
 
 ---
 
@@ -378,7 +400,7 @@ const { mutate, isPending, isError, error } = useTx({
 - `config.rollback` — 실패 시 롤백 함수
 - `config.request` — 서버 요청 함수
 - `config.transition?` — ViewTransition 사용 여부 (기본값: `true`)
-- `config.retry?` — 재시도 설정 `{ maxAttempts, delayMs, backoff }`
+- `config.retry?` — 재시도 설정 `{ maxAttempts?, delayMs?, backoff?: 'exponential' | 'linear' }`
 - `config.onSuccess?` — 성공 콜백
 - `config.onError?` — 실패 콜백
 

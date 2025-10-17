@@ -1,5 +1,31 @@
 # @firsttx/local-first
 
+## 0.4.1
+
+### Patch Changes
+
+**Features**
+
+- Made `ttl` parameter optional in `defineModel` with 5-minute default (`5 * 60 * 1000` ms)
+- Added automatic TTL fallback: explicit option > global default > built-in 5min
+
+**Bug Fixes**
+
+- Fixed flaky tests by ensuring IndexedDB cleanup completes before each test
+- Changed staleness check from `age > ttl` to `age >= ttl` for correct 0 TTL handling
+
+**Documentation**
+
+- Added comprehensive API Reference section with all parameters and return types
+- Documented TTL strategies and use cases (30s for real-time, Infinity for static)
+- Added cross-tab synchronization details and conflict resolution examples
+- Included schema validation and migration guides
+
+**Tests**
+
+- Added 6 test cases for TTL edge cases (default, explicit, Infinity, 0, version)
+- Centralized test setup in `tests/setup.ts` for consistent IndexedDB cleanup
+
 ## 0.4.0
 
 ### Minor Changes
