@@ -4,7 +4,7 @@
 
 <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400068/firsttx-tx-01_blkctj.gif" />
 
-Automatic rollback on failure. Smooth transitions with ViewTransition. Framework-agnostic.
+Execute multi-step operations safely with automatic compensation on failure. Perfect for optimistic updates, API calls, and state synchronization.
 
 ```bash
 npm install @firsttx/tx
@@ -15,208 +15,172 @@ npm install @firsttx/tx
 
 ---
 
-## Basic Usage
+## The Problem
+
+```tsx
+// ❌ Without transactions: Manual rollback hell
+async function addToCart(item) {
+  setCart((prev) => [...prev, item]); // Optimistic update
+
+  try {
+    await api.post('/cart', item);
+  } catch (error) {
+    setCart((prev) => prev.filter((i) => i.id !== item.id)); // Manual rollback
+    toast.error('Failed to add item');
+  }
+}
+
+// What if you have 5 steps? 10 steps?
+// What if step 3 fails but step 2's rollback also fails?
+```
+
+---
+
+## The Solution
+
+```tsx
+// ✅ With transactions: Automatic rollback
+import { startTransaction } from '@firsttx/tx';
+
+async function addToCart(item) {
+  const tx = startTransaction({ transition: true });
+
+  await tx.run(() => setCart((prev) => [...prev, item]), {
+    compensate: () => setCart((prev) => prev.filter((i) => i.id !== item.id)),
+  });
+
+  await tx.run(() => api.post('/cart', item), { retry: { maxAttempts: 3 } });
+
+  await tx.commit();
+}
+
+// Automatic rollback on ANY step failure
+// ViewTransition support for smooth UI updates
+// Built-in retry logic
+```
+
+---
+
+## Quick Start
+
+### Imperative API
 
 ```tsx
 import { startTransaction } from '@firsttx/tx';
 
-async function addToCart(item: Item) {
-  const tx = startTransaction({ transition: true });
+const tx = startTransaction({ transition: true });
 
-  await tx.run(
-    async () => {
-      setCart((prev) => [...prev, item]);
-      await api.addItem(item);
-    },
-    {
-      compensate: async () => {
-        setCart((prev) => prev.filter((i) => i.id !== item.id));
-      },
-    },
-  );
+// Step 1: Optimistic update with compensation
+await tx.run(() => CartModel.patch((draft) => draft.items.push(item)), {
+  compensate: () => CartModel.patch((draft) => draft.items.pop()),
+});
 
-  await tx.commit();
-}
+// Step 2: Server request with retry
+await tx.run(() => fetch('/api/cart', { method: 'POST', body: JSON.stringify(item) }), {
+  retry: { maxAttempts: 3, delayMs: 1000 },
+});
+
+await tx.commit();
 ```
 
-**How it works**
-
-1. `setCart` executes immediately (optimistic)
-2. If `api.addItem` fails
-3. `compensate` runs automatically (rollback)
-4. Smooth transition with ViewTransition
-
----
-
-## React Hook (useTx)
-
-**Simplified API for React apps**
+### React Hook API
 
 ```tsx
 import { useTx } from '@firsttx/tx';
 
-function CartPage() {
-  const { mutate, isPending, isError, error } = useTx({
-    optimistic: async (item: Item) => {
-      await CartModel.patch((draft) => {
-        draft.items.push(item);
-      });
+function AddToCartButton({ item }) {
+  const { mutate, isPending, isError } = useTx({
+    optimistic: async (item) => {
+      await CartModel.patch((draft) => draft.items.push(item));
     },
-    rollback: async (item: Item) => {
+    rollback: async (item) => {
       await CartModel.patch((draft) => {
         draft.items = draft.items.filter((i) => i.id !== item.id);
       });
     },
-    request: async (item: Item) => {
-      return fetch('/api/cart/items', {
+    request: async (item) => {
+      return fetch('/api/cart', {
         method: 'POST',
         body: JSON.stringify(item),
-      });
+      }).then((r) => r.json());
     },
-    onSuccess: (result, item) => {
-      toast.success('Added to cart!');
-    },
-    onError: (err, item) => {
-      toast.error(err.message);
-    },
+    retry: { maxAttempts: 3 },
+    onSuccess: () => toast.success('Added to cart'),
+    onError: (err) => toast.error(err.getUserMessage()),
   });
 
   return (
-    <button onClick={() => mutate(newItem)} disabled={isPending}>
+    <button onClick={() => mutate(item)} disabled={isPending}>
       {isPending ? 'Adding...' : 'Add to Cart'}
     </button>
   );
 }
 ```
 
-**Benefits**
+---
 
-- No manual transaction lifecycle management
-- Built-in loading/error states
-- Automatic cleanup on unmount
-- Fire-and-forget API (no await needed)
+## Features
+
+### Automatic Rollback
+
+If any step fails, all completed steps are rolled back **in reverse order**.
+
+```tsx
+const tx = startTransaction();
+
+await tx.run(() => step1(), { compensate: () => undo1() });
+await tx.run(() => step2(), { compensate: () => undo2() });
+await tx.run(() => step3(), { compensate: () => undo3() });
+
+// If step3 fails:
+// 1. Execute undo3 (if step3 started)
+// 2. Execute undo2
+// 3. Execute undo1
+// 4. Re-throw original error
+```
 
 ---
 
-## Retry with Backoff
+### Retry Logic
 
-**Low-level API**
-
-```tsx
-await tx.run(
-  async () => {
-    updateUI();
-    await riskyApiCall();
-  },
-  {
-    compensate: async () => revertUI(),
-    retry: {
-      maxAttempts: 3,
-      delayMs: 1000,
-      backoff: 'exponential', // or 'linear'
-    },
-  },
-);
-```
-
-**useTx API**
+Exponential or linear backoff strategies.
 
 ```tsx
-const { mutate } = useTx({
-  optimistic: async (data) => updateUI(data),
-  rollback: async (data) => revertUI(data),
-  request: async (data) => riskyApiCall(data),
+await tx.run(() => fetch('/api/data'), {
   retry: {
     maxAttempts: 3,
-    delayMs: 1000,
-    backoff: 'exponential',
+    delayMs: 100,
+    backoff: 'exponential', // 100ms → 200ms → 400ms
   },
 });
+
+// Linear backoff: 100ms → 200ms → 300ms
+// backoff: 'linear'
 ```
-
-**Backoff Strategies**
-
-- `exponential` (default): 100ms → 200ms → 400ms → 800ms (delay × 2^attempt)
-- `linear`: 100ms → 200ms → 300ms → 400ms (delay × attempt)
-
-**Note** Retry applies only to the `request` step. Optimistic updates don't retry since they're local operations.
 
 ---
 
-## Multi-Step Transaction
+### ViewTransition Support
 
-```tsx
-async function checkout(cartId: string) {
-  const tx = startTransaction({ transition: true });
-
-  let orderId: string;
-
-  await tx.run(
-    async () => {
-      const order = await api.orders.create(cartId);
-      orderId = order.id;
-      setState('order-created');
-    },
-    {
-      compensate: async () => {
-        setState('idle');
-        await api.orders.cancel(orderId);
-      },
-    },
-  );
-
-  await tx.run(
-    async () => {
-      await api.payments.charge(orderId);
-      setState('paid');
-    },
-    {
-      compensate: async () => {
-        setState('order-created');
-        await api.payments.refund(orderId);
-      },
-    },
-  );
-
-  await tx.run(
-    async () => {
-      await api.cart.clear(cartId);
-      navigate(`/orders/${orderId}`);
-    },
-    {
-      compensate: async () => setState('paid'),
-    },
-  );
-
-  await tx.commit();
-}
-```
-
-**On failure** Automatic rollback in reverse order (Step 3 → 2 → 1)
-
----
-
-## ViewTransition
+Smooth visual transitions during rollback.
 
 ```tsx
 const tx = startTransaction({ transition: true });
+
+// On rollback, changes are wrapped in document.startViewTransition()
+// Provides smooth fade/slide animations
 ```
 
-**Browser support**
+---
 
-- Chrome 111+: Full support
-- Firefox/Safari: Auto-fallback (instant rollback)
+### Timeout Protection
 
-**Custom animations**
+Prevent transactions from hanging indefinitely.
 
-```css
-::view-transition-old(root) {
-  animation: fade-out 300ms;
-}
+```tsx
+const tx = startTransaction({ timeout: 5000 }); // 5 second timeout
 
-::view-transition-new(root) {
-  animation: fade-in 300ms;
-}
+await tx.run(slowOperation); // If takes >5s, automatic rollback
 ```
 
 ---
@@ -225,36 +189,26 @@ const tx = startTransaction({ transition: true });
 
 ### `startTransaction(options?)`
 
-Creates a new transaction instance.
+Creates a new transaction.
 
 ```typescript
-const tx = startTransaction({
-  id?: string,           // Custom transaction ID (default: auto-generated)
-  transition?: boolean,  // Use ViewTransition (default: false)
-  timeout?: number       // Overall timeout in ms (default: 30000)
+startTransaction({
+  id?: string,         // Custom ID (default: auto-generated UUID)
+  transition?: boolean, // Use ViewTransition (default: false)
+  timeout?: number     // Timeout in milliseconds (default: 30000)
 });
 ```
-
-**Options**
-
-- `id?: string` - Custom transaction identifier for debugging
-- `transition?: boolean` - Enable smooth ViewTransition animations (default: `false`)
-- `timeout?: number` - Maximum total execution time in milliseconds (default: `30000`)
-
-**Returns** `Transaction` instance
 
 ---
 
 ### `tx.run(fn, options?)`
 
-Executes a step within the transaction.
+Executes a step with optional compensation and retry.
 
 ```typescript
-await tx.run(
-  async () => {
-    // Your logic
-  },
-  {
+await tx.run<T>(
+  fn: () => Promise<T>,
+  options?: {
     compensate?: () => Promise<void>,
     retry?: {
       maxAttempts?: number,
@@ -414,40 +368,113 @@ async function deleteItem(id: string) {
 
 ## Error Handling
 
-### Execution Failure (auto-recovery)
+FirstTx provides structured error classes with user-friendly messages and debug information.
 
-```tsx
-await tx.run(
-  async () => {
-    throw new Error('API failed');
-  },
-  {
-    compensate: async () => {
-      console.log('Auto-rolled back');
-    },
-  },
-);
+### Error Base Class
+
+All transaction errors extend `TxError`:
+
+```typescript
+import { TxError } from '@firsttx/tx';
+
+try {
+  await tx.commit();
+} catch (error) {
+  if (error instanceof TxError) {
+    // User-friendly message for UI
+    alert(error.getUserMessage());
+
+    // Detailed info for debugging
+    console.error(error.getDebugInfo());
+
+    // Check if retryable
+    if (error.isRecoverable()) {
+      // Offer retry option
+    } else {
+      // Suggest page refresh
+    }
+  }
+}
 ```
 
-If `compensate` succeeds → original error is re-thrown
+---
 
-### Compensation Failure (critical)
+### CompensationFailedError (Critical)
 
-```tsx
+Thrown when rollback fails, indicating potential data inconsistency.
+
+```typescript
 import { CompensationFailedError } from '@firsttx/tx';
 
 try {
   await tx.commit();
 } catch (error) {
   if (error instanceof CompensationFailedError) {
-    console.error('Rollback failed:', error.failures);
+    console.error(`${error.failures.length} rollback(s) failed`);
+    console.error(`Completed ${error.completedSteps} steps before failure`);
+
+    // User message: "Failed to undo changes. Your data may be in an inconsistent state. Please refresh the page."
+    alert(error.getUserMessage());
+
+    // NOT recoverable - requires page refresh
+    if (!error.isRecoverable()) {
+      window.location.reload();
+    }
   }
 }
 ```
 
-### Timeout
+**Fields**
 
-```tsx
+- `failures: Error[]` - All compensation errors (in reverse order)
+- `completedSteps: number` - Number of steps that were completed
+
+---
+
+### RetryExhaustedError (Recoverable)
+
+Thrown when a step fails after all retry attempts.
+
+```typescript
+import { RetryExhaustedError } from '@firsttx/tx';
+
+try {
+  await tx.run(apiCall, { retry: { maxAttempts: 3 } });
+} catch (error) {
+  if (error instanceof RetryExhaustedError) {
+    console.log(`Step ${error.stepId} failed after ${error.attempts} attempts`);
+
+    // Inspect all attempt errors
+    error.errors.forEach((err, i) => {
+      console.log(`Attempt ${i + 1}: ${err.message}`);
+    });
+
+    // User message: "The operation failed after 3 attempts. Please try again later."
+    toast.error(error.getUserMessage(), {
+      action: error.isRecoverable()
+        ? {
+            label: 'Retry',
+            onClick: retryOperation,
+          }
+        : undefined,
+    });
+  }
+}
+```
+
+**Fields**
+
+- `stepId: string` - Step identifier (e.g., "step-0")
+- `attempts: number` - Total number of attempts made
+- `errors: Error[]` - All attempt errors (in chronological order)
+
+---
+
+### TransactionTimeoutError (Recoverable)
+
+Thrown when transaction exceeds configured timeout.
+
+```typescript
 import { TransactionTimeoutError } from '@firsttx/tx';
 
 try {
@@ -456,132 +483,253 @@ try {
   await tx.commit();
 } catch (error) {
   if (error instanceof TransactionTimeoutError) {
-    console.error('Transaction exceeded 5s timeout');
+    console.log(`Timeout: ${error.timeoutMs}ms (elapsed: ${error.elapsedMs}ms)`);
+
+    // User message: "The operation took too long (over 5000ms). Please try again."
+    toast.error(error.getUserMessage());
+
+    // Recoverable - can retry with longer timeout
+    if (error.isRecoverable()) {
+      const newTx = startTransaction({ timeout: 10000 });
+      // ... retry with 10s timeout
+    }
+  }
+}
+```
+
+**Fields**
+
+- `timeoutMs: number` - Configured timeout value
+- `elapsedMs: number` - Actual elapsed time before timeout
+
+---
+
+### TransactionStateError (Programming Error)
+
+Thrown when attempting invalid operations (e.g., adding steps after commit).
+
+```typescript
+import { TransactionStateError } from '@firsttx/tx';
+
+const tx = startTransaction();
+await tx.commit();
+
+try {
+  await tx.run(() => {}); // Invalid!
+} catch (error) {
+  if (error instanceof TransactionStateError) {
+    console.error(`Cannot ${error.attemptedAction} in state '${error.currentState}'`);
+    console.error(`Transaction ID: ${error.transactionId}`);
+
+    // User message: "This operation is no longer available. The transaction has already completed or failed."
+    // NOT recoverable - indicates a bug
+  }
+}
+```
+
+**Fields**
+
+- `currentState: string` - Current transaction status ("committed", "rolled-back", "failed")
+- `attemptedAction: string` - What was attempted ("add step", "commit")
+- `transactionId: string` - Transaction identifier
+
+---
+
+### Practical Error Handling Pattern
+
+```typescript
+import {
+  TxError,
+  CompensationFailedError,
+  RetryExhaustedError,
+  TransactionTimeoutError,
+  TransactionStateError,
+} from '@firsttx/tx';
+
+async function handleTransaction() {
+  try {
+    const tx = startTransaction({ timeout: 5000 });
+
+    await tx.run(() => updateUI(), { compensate: () => revertUI() });
+
+    await tx.run(() => fetch('/api/update'), { retry: { maxAttempts: 3 } });
+
+    await tx.commit();
+
+    toast.success('Update successful');
+  } catch (error) {
+    if (error instanceof CompensationFailedError) {
+      // Critical: data may be inconsistent
+      alert(error.getUserMessage());
+      window.location.reload();
+    } else if (error instanceof RetryExhaustedError) {
+      // Network issue: offer retry
+      toast.error(error.getUserMessage(), {
+        action: {
+          label: 'Retry',
+          onClick: () => handleTransaction(),
+        },
+      });
+    } else if (error instanceof TransactionTimeoutError) {
+      // Slow operation: suggest waiting
+      toast.error(error.getUserMessage());
+    } else if (error instanceof TransactionStateError) {
+      // Programming error: log for debugging
+      console.error(error.getDebugInfo());
+      Sentry.captureException(error);
+    } else if (error instanceof TxError) {
+      // Generic TxError fallback
+      toast.error(error.getUserMessage());
+      console.error(error.getDebugInfo());
+    }
   }
 }
 ```
 
 ---
 
-## Constraints
+### Error Methods Reference
 
-### 1. Compensate functions must not fail
+All transaction errors provide:
 
-```tsx
-// ❌ Risky
-compensate: async () => {
-  await riskyOperation();
-};
+| Method             | Returns   | Purpose                                              |
+| ------------------ | --------- | ---------------------------------------------------- |
+| `getUserMessage()` | `string`  | User-friendly message for UI display                 |
+| `getDebugInfo()`   | `string`  | Detailed technical information for debugging         |
+| `isRecoverable()`  | `boolean` | Whether the error can be recovered from (retry-able) |
 
-// ✅ Safe
-compensate: async () => {
-  try {
-    await riskyOperation();
-  } catch {
-    await safeFallback();
-  }
-};
+**Recoverability**
+
+- ✅ `RetryExhaustedError`: Recoverable (network/temporary issues)
+- ✅ `TransactionTimeoutError`: Recoverable (retry with longer timeout)
+- ❌ `CompensationFailedError`: Not recoverable (data inconsistency)
+- ❌ `TransactionStateError`: Not recoverable (programming error)
+
+---
+
+## Exports
+
+```typescript
+import {
+  // Main API
+  startTransaction,
+  useTx,
+
+  // Error Classes
+  TxError, // Base class
+  CompensationFailedError,
+  RetryExhaustedError,
+  TransactionTimeoutError,
+  TransactionStateError,
+
+  // Types
+  type TxOptions,
+  type TxStatus,
+  type StepOptions,
+  type RetryConfig,
+  type UseTxConfig,
+  type UseTxResult,
+
+  // Constants
+  DEFAULT_RETRY_CONFIG,
+} from '@firsttx/tx';
 ```
 
-### 2. Immutable after commit
+---
+
+## Constraints
+
+### 1. No Nested Transactions
 
 ```tsx
-await tx.commit();
-
-// ❌ Error
-await tx.run(async () => {
-  /* ... */
+// ❌ Not supported
+const tx1 = startTransaction();
+await tx1.run(async () => {
+  const tx2 = startTransaction(); // Avoid this
+  await tx2.run(...);
 });
 ```
 
-### 3. Compensation runs in reverse order automatically
+**Workaround** Use a single transaction with multiple steps.
+
+---
+
+### 2. Compensation Must Be Idempotent
+
+Compensation functions may be called multiple times in edge cases.
 
 ```tsx
-await tx.run(step1, { compensate: undo1 }); // 1
-await tx.run(step2, { compensate: undo2 }); // 2
-await tx.run(step3, { compensate: undo3 }); // 3
+// ✅ Good: Idempotent compensation
+compensate: () => {
+  setCount(0); // Always safe to call multiple times
+};
 
-// If step3 fails: undo3 → undo2 → undo1
+// ❌ Bad: Non-idempotent compensation
+compensate: () => {
+  setCount(count - 1); // Dangerous if called twice
+};
+```
+
+---
+
+### 3. Async Compensation Only
+
+```tsx
+// ❌ Sync compensation not supported
+compensate: () => {
+  updateState();
+};
+
+// ✅ Async compensation required
+compensate: async () => {
+  updateState();
+};
 ```
 
 ---
 
 ## FAQ
 
-**Q: Difference from React Query?**
+**Q: What happens if compensation fails?**
 
-A: They're complementary. Tx is framework-agnostic and can be used inside React Query.
-
-```tsx
-const mutation = useMutation({
-  mutationFn: async (data) => {
-    const tx = startTransaction();
-    await tx.run(/* ... */);
-    await tx.commit();
-  },
-});
-```
+A: `CompensationFailedError` is thrown with all failure details. The transaction is marked as `'failed'`, and you should handle it as a critical error (e.g., page refresh).
 
 ---
 
-**Q: Nested transactions?**
+**Q: Can I retry a failed transaction?**
 
-A: Each transaction is independent.
-
-```tsx
-const parent = startTransaction();
-await parent.run(
-  async () => {
-    const child = startTransaction();
-    await child.run(/* ... */);
-    await child.commit();
-  },
-  { compensate: /* parent compensation */ }
-);
-```
+A: Yes, just call the same function again. Each transaction is independent.
 
 ---
 
-**Q: What backoff strategies are supported?**
+**Q: What's the difference between `mutate` and `mutateAsync`?**
 
-A: Built-in support for exponential (default) and linear backoff.
+A:
 
-```tsx
-// Exponential (100ms → 200ms → 400ms)
-retry: { maxAttempts: 3, delayMs: 100, backoff: 'exponential' }
-
-// Linear (100ms → 200ms → 300ms)
-retry: { maxAttempts: 3, delayMs: 100, backoff: 'linear' }
-```
+- `mutate`: Fire-and-forget (no return value, errors caught internally)
+- `mutateAsync`: Returns a Promise (allows `await`, errors bubble up)
 
 ---
 
-## Changelog
+**Q: Do I need to use ViewTransition?**
 
-### [0.2.1](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Ftx%400.2.1) - 2025-01-15
+A: No, it's optional. Set `transition: false` to disable. ViewTransition provides smooth animations but requires browser support (Chrome 111+).
 
-**Added**
+---
 
-- `mutateAsync` alias for promise-based execution in `useTx`
+**Q: How does retry backoff work?**
 
-### [0.1.1](https://github.com/joseph0926/firsttx/releases/tag/%40firsttx%2Ftx%400.1.1) - 2025-01-13
+A:
 
-**Added**
-
-- Transaction timeout mechanism using Promise.race()
-- Proper 'failed' status when compensation fails
-
-**Improved**
-
-- Comprehensive test coverage for timeout scenarios
-- Accurate reflection of final transaction state
+- **Exponential** (default): `100ms → 200ms → 400ms → 800ms` (delay × 2^attempt)
+- **Linear**: `100ms → 200ms → 300ms → 400ms` (delay × attempt)
 
 ---
 
 ## Related Packages
 
-- [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB models
-- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant restoration
+- [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
+- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant page restoration
 
 ---
 

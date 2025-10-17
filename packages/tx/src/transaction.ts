@@ -1,5 +1,5 @@
 import type { TxOptions, TxStatus, TxStep, StepOptions } from './types';
-import { CompensationFailedError, TransactionTimeoutError } from './errors';
+import { CompensationFailedError, TransactionTimeoutError, TransactionStateError } from './errors';
 import { executeWithRetry } from './retry';
 
 export class Transaction {
@@ -22,7 +22,7 @@ export class Transaction {
 
   async run<T = void>(fn: () => Promise<T>, options?: StepOptions): Promise<T> {
     if (this.status !== 'pending' && this.status !== 'running') {
-      throw new Error(`Cannot add step: transaction is ${this.status}`);
+      throw new TransactionStateError(this.status, 'add step', this.id);
     }
 
     this.status = 'running';
@@ -43,7 +43,10 @@ export class Transaction {
     const timeoutPromise = this.createTimeoutPromise<T>();
 
     try {
-      const result = await Promise.race([executeWithRetry(fn, options?.retry), timeoutPromise]);
+      const result = await Promise.race([
+        executeWithRetry(fn, step.id, options?.retry),
+        timeoutPromise,
+      ]);
       this.completedSteps++;
       return result;
     } catch (error) {
@@ -62,13 +65,11 @@ export class Transaction {
     }
 
     if (this.status !== 'pending' && this.status !== 'running') {
-      throw new Error(`[FirstTx] Cannot commit ${this.status} transaction`);
+      throw new TransactionStateError(this.status, 'commit', this.id);
     }
 
     this.clearTimeout();
     this.status = 'committed';
-
-    // TODO Phase 1: await Storage.getInstance().delete(`tx:${this.id}`)
   }
 
   private createTimeoutPromise<T>(): Promise<T> {
@@ -79,22 +80,13 @@ export class Transaction {
       const remaining = this.options.timeout - elapsed;
 
       if (remaining <= 0) {
-        reject(
-          new TransactionTimeoutError(
-            `[FirstTx] Transaction exceeded timeout of ${this.options.timeout}ms`,
-            this.options.timeout,
-          ),
-        );
+        reject(new TransactionTimeoutError(this.options.timeout, elapsed));
         return;
       }
 
       this.timeoutTimer = setTimeout(() => {
-        reject(
-          new TransactionTimeoutError(
-            `[FirstTx] Transaction exceeded timeout of ${this.options.timeout}ms`,
-            this.options.timeout,
-          ),
-        );
+        const finalElapsed = this.startTime ? Date.now() - this.startTime : 0;
+        reject(new TransactionTimeoutError(this.options.timeout, finalElapsed));
       }, remaining);
     });
   }
@@ -124,10 +116,7 @@ export class Transaction {
       }
 
       if (errors.length > 0) {
-        throw new CompensationFailedError(
-          `[FirstTx] Rollback failed for ${errors.length} step(s)`,
-          errors,
-        );
+        throw new CompensationFailedError(errors, this.completedSteps);
       }
     };
 

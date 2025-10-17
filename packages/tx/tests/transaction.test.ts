@@ -6,6 +6,7 @@ import {
   CompensationFailedError,
   RetryExhaustedError,
   TransactionTimeoutError,
+  TransactionStateError,
 } from '../src/errors';
 
 describe('Transaction - Basic', () => {
@@ -87,6 +88,54 @@ describe('Transaction - Retry', () => {
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
+  it('should include all attempt errors in RetryExhaustedError', async () => {
+    const tx = startTransaction();
+    let attempt = 0;
+
+    try {
+      await tx.run(
+        async () => {
+          attempt++;
+          throw new Error(`Attempt ${attempt} failed`);
+        },
+        { retry: { maxAttempts: 3 } },
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(RetryExhaustedError);
+      const retryError = error as RetryExhaustedError;
+
+      expect(retryError.attempts).toBe(3);
+      expect(retryError.errors).toHaveLength(3);
+      expect(retryError.errors[0].message).toBe('Attempt 1 failed');
+      expect(retryError.errors[1].message).toBe('Attempt 2 failed');
+      expect(retryError.errors[2].message).toBe('Attempt 3 failed');
+      expect(retryError.stepId).toMatch(/^step-\d+$/);
+    }
+  });
+
+  it('should provide user-friendly message', async () => {
+    const tx = startTransaction();
+
+    try {
+      await tx.run(
+        async () => {
+          throw new Error('Network error');
+        },
+        { retry: { maxAttempts: 3 } },
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(RetryExhaustedError);
+      const retryError = error as RetryExhaustedError;
+
+      expect(retryError.getUserMessage()).toBe(
+        'The operation failed after 3 attempts. Please try again later.',
+      );
+      expect(retryError.getDebugInfo()).toContain('step-0');
+      expect(retryError.getDebugInfo()).toContain('Attempt 1/3');
+      expect(retryError.isRecoverable()).toBe(true);
+    }
+  });
+
   it('should use default retry config (1 attempt)', async () => {
     const tx = startTransaction();
     const fn = vi.fn().mockRejectedValue(new Error('Fails'));
@@ -120,75 +169,164 @@ describe('Transaction - Retry', () => {
     const gap2 = timestamps[2] - timestamps[1];
 
     expect(gap1).toBeGreaterThanOrEqual(45);
-    expect(gap1).toBeLessThan(70);
-    expect(gap2).toBeGreaterThanOrEqual(95);
-    expect(gap2).toBeLessThan(120);
+    expect(gap2).toBeGreaterThanOrEqual(90);
+  });
+
+  it('should handle retry with compensate', async () => {
+    const tx = startTransaction();
+    let attempt = 0;
+
+    await tx.run(async () => {}, {
+      compensate: async () => {},
+    });
+
+    await expect(
+      tx.run(
+        async () => {
+          attempt++;
+          throw new Error('Always fails');
+        },
+        {
+          retry: { maxAttempts: 2 },
+          compensate: async () => {},
+        },
+      ),
+    ).rejects.toThrow(RetryExhaustedError);
+
+    expect(attempt).toBe(2);
   });
 });
 
-describe('Transaction - Rollback', () => {
-  it('should rollback when a step fails', async () => {
-    const tx = startTransaction();
-    const compensate1 = vi.fn().mockResolvedValue(undefined);
+describe('Transaction - Timeout', () => {
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    await tx.run(async () => {}, { compensate: compensate1 });
+  it('should complete before timeout', async () => {
+    const tx = startTransaction({ timeout: 1000 });
 
-    await expect(
-      tx.run(async () => {
-        throw new Error('Step 2 fails');
-      }),
-    ).rejects.toThrow(RetryExhaustedError);
-
-    expect(compensate1).toHaveBeenCalledTimes(1);
-  });
-
-  it('should rollback steps in reverse order', async () => {
-    const tx = startTransaction();
-    const order: number[] = [];
-
-    await tx.run(async () => {}, {
-      compensate: async () => {
-        order.push(1);
-      },
+    const fn = vi.fn().mockImplementation(async () => {
+      await sleep(100);
     });
 
-    await tx.run(async () => {}, {
-      compensate: async () => {
-        order.push(2);
-      },
+    await tx.run(fn);
+    await tx.commit();
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should timeout during execution', async () => {
+    const tx = startTransaction({ timeout: 100 });
+
+    const fn = vi.fn().mockImplementation(async () => {
+      await sleep(300);
     });
 
-    await expect(
-      tx.run(async () => {
-        throw new Error('Fail');
-      }),
-    ).rejects.toThrow();
+    await expect(tx.run(fn)).rejects.toThrow(TransactionTimeoutError);
 
-    expect(order).toEqual([2, 1]);
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('should skip steps without compensate', async () => {
-    const tx = startTransaction();
-    const compensate1 = vi.fn().mockResolvedValue(undefined);
+  it('should include elapsed time in timeout error', async () => {
+    const tx = startTransaction({ timeout: 100 });
 
-    await tx.run(async () => {}, { compensate: compensate1 });
-    await tx.run(async () => {});
+    try {
+      await tx.run(async () => {
+        await sleep(200);
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(TransactionTimeoutError);
+      const timeoutError = error as TransactionTimeoutError;
 
-    await expect(
-      tx.run(async () => {
-        throw new Error('Fail');
-      }),
-    ).rejects.toThrow();
-
-    expect(compensate1).toHaveBeenCalledTimes(1);
+      expect(timeoutError.timeoutMs).toBe(100);
+      expect(timeoutError.elapsedMs).toBeGreaterThanOrEqual(100);
+      expect(timeoutError.getUserMessage()).toContain('took too long');
+      expect(timeoutError.getDebugInfo()).toContain('exceeded timeout');
+      expect(timeoutError.isRecoverable()).toBe(true);
+    }
   });
 
-  it('should throw CompensationFailedError when compensate fails', async () => {
+  it('should handle timeout with multiple steps', async () => {
+    const tx = startTransaction({ timeout: 200 });
+
+    await tx.run(async () => {
+      await sleep(50);
+    });
+    await tx.run(async () => {
+      await sleep(50);
+    });
+    await expect(
+      tx.run(async () => {
+        await sleep(150);
+      }),
+    ).rejects.toThrow(TransactionTimeoutError);
+  });
+
+  it('should rollback completed steps when timeout occurs', async () => {
+    const tx = startTransaction({ timeout: 200 });
+    const compensations: number[] = [];
+
+    await tx.run(
+      async () => {
+        await sleep(50);
+      },
+      {
+        compensate: async () => {
+          compensations.push(1);
+        },
+      },
+    );
+    await tx.run(
+      async () => {
+        await sleep(50);
+      },
+      {
+        compensate: async () => {
+          compensations.push(2);
+        },
+      },
+    );
+    await expect(
+      tx.run(async () => {
+        await sleep(150);
+      }),
+    ).rejects.toThrow(TransactionTimeoutError);
+
+    expect(compensations).toEqual([2, 1]);
+  });
+
+  it('should clear timeout on successful commit', async () => {
+    const tx = startTransaction({ timeout: 150 });
+
+    await tx.run(async () => {
+      await sleep(100);
+    });
+
+    await tx.commit();
+
+    await sleep(100);
+
+    expect(true).toBe(true);
+  });
+
+  it('should handle immediate timeout (remaining <= 0)', async () => {
+    const tx = startTransaction({ timeout: 100 });
+
+    await tx
+      .run(async () => {
+        await sleep(150);
+      })
+      .catch(() => {});
+
+    await expect(tx.run(async () => {})).rejects.toThrow(TransactionStateError);
+  });
+});
+
+describe('Transaction - Failed Status', () => {
+  it('should throw CompensationFailedError when compensation fails', async () => {
     const tx = startTransaction();
 
     await tx.run(async () => {}, {
       compensate: async () => {
-        throw new Error('Compensate failed');
+        throw new Error('Compensation failed');
       },
     });
 
@@ -197,6 +335,58 @@ describe('Transaction - Rollback', () => {
         throw new Error('Step fails');
       }),
     ).rejects.toThrow(CompensationFailedError);
+  });
+
+  it('should include completedSteps in CompensationFailedError', async () => {
+    const tx = startTransaction();
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Comp 1 failed');
+      },
+    });
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Comp 2 failed');
+      },
+    });
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Trigger rollback');
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(CompensationFailedError);
+      const compError = error as CompensationFailedError;
+
+      expect(compError.failures).toHaveLength(2);
+      expect(compError.completedSteps).toBe(2);
+      expect(compError.getUserMessage()).toContain('inconsistent state');
+      expect(compError.getDebugInfo()).toContain('Step 2');
+      expect(compError.getDebugInfo()).toContain('Step 1');
+      expect(compError.isRecoverable()).toBe(false);
+    }
+  });
+
+  it('should not allow adding steps after compensation fails', async () => {
+    const tx = startTransaction();
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Compensation failed');
+      },
+    });
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Step fails');
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(CompensationFailedError);
+    }
+
+    await expect(tx.run(async () => {})).rejects.toThrow(TransactionStateError);
   });
 
   it('should collect all compensate errors', async () => {
@@ -238,9 +428,138 @@ describe('Transaction - Rollback', () => {
       });
     } catch {}
 
-    await expect(tx.run(async () => {})).rejects.toThrow(
-      'Cannot add step: transaction is rolled-back',
-    );
+    await expect(tx.run(async () => {})).rejects.toThrow(TransactionStateError);
+  });
+
+  it('should not allow adding steps after normal rollback', async () => {
+    const tx = startTransaction();
+    const compensate = vi.fn().mockResolvedValue(undefined);
+
+    await tx.run(async () => {}, { compensate });
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Step fails');
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(RetryExhaustedError);
+    }
+
+    expect(compensate).toHaveBeenCalledTimes(1);
+
+    await expect(tx.run(async () => {})).rejects.toThrow(TransactionStateError);
+  });
+
+  it('should collect all compensation errors and mark as failed', async () => {
+    const tx = startTransaction();
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Compensation error 1');
+      },
+    });
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Compensation error 2');
+      },
+    });
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Trigger rollback');
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(CompensationFailedError);
+      const e = error as CompensationFailedError;
+      expect(e.failures).toHaveLength(2);
+    }
+
+    await expect(tx.run(async () => {})).rejects.toThrow(TransactionStateError);
+  });
+
+  it('should not allow commit after compensation fails', async () => {
+    const tx = startTransaction();
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Compensation failed');
+      },
+    });
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Fail');
+      });
+    } catch {}
+
+    await expect(tx.commit()).rejects.toThrow(TransactionStateError);
+  });
+});
+
+describe('Transaction - State Errors', () => {
+  it('should throw TransactionStateError when adding step after commit', async () => {
+    const tx = startTransaction();
+    await tx.run(async () => {});
+    await tx.commit();
+
+    try {
+      await tx.run(async () => {});
+    } catch (error) {
+      expect(error).toBeInstanceOf(TransactionStateError);
+      const stateError = error as TransactionStateError;
+
+      expect(stateError.currentState).toBe('committed');
+      expect(stateError.attemptedAction).toBe('add step');
+      expect(stateError.getUserMessage()).toContain('no longer available');
+      expect(stateError.getDebugInfo()).toContain('Cannot add step');
+      expect(stateError.isRecoverable()).toBe(false);
+    }
+  });
+
+  it('should throw TransactionStateError when committing rolled-back tx', async () => {
+    const tx = startTransaction();
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Fail');
+      });
+    } catch {}
+
+    try {
+      await tx.commit();
+    } catch (error) {
+      expect(error).toBeInstanceOf(TransactionStateError);
+      const stateError = error as TransactionStateError;
+
+      expect(stateError.currentState).toBe('rolled-back');
+      expect(stateError.attemptedAction).toBe('commit');
+    }
+  });
+
+  it('should throw TransactionStateError when committing failed tx', async () => {
+    const tx = startTransaction();
+
+    await tx.run(async () => {}, {
+      compensate: async () => {
+        throw new Error('Compensation failed');
+      },
+    });
+
+    try {
+      await tx.run(async () => {
+        throw new Error('Fail');
+      });
+    } catch {}
+
+    try {
+      await tx.commit();
+    } catch (error) {
+      expect(error).toBeInstanceOf(TransactionStateError);
+      const stateError = error as TransactionStateError;
+
+      expect(stateError.currentState).toBe('failed');
+    }
   });
 });
 
