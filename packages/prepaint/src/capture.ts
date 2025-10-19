@@ -1,7 +1,8 @@
+declare const __FIRSTTX_DEV__: boolean;
+
 import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB } from './utils';
-
-declare const __FIRSTTX_DEV__: boolean;
+import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
 
 function getDocumentBaseUrl(): string | null {
   try {
@@ -64,11 +65,8 @@ function saveSnapshot(db: IDBDatabase, snapshot: Snapshot): Promise<void> {
     const request = store.put(snapshot);
     request.onerror = () => {
       const err = request.error;
-      if (err) {
-        reject(new Error(`Failed to save snapshot: ${err.message}`, { cause: err }));
-      } else {
-        reject(new Error('Unknown error saving snapshot'));
-      }
+      if (err) reject(convertDOMException(err, 'write'));
+      else reject(new PrepaintStorageError('Unknown error saving snapshot', 'UNKNOWN', 'write'));
     };
     request.onsuccess = () => resolve();
   });
@@ -122,30 +120,73 @@ function serializeRoot(rootEl: HTMLElement): string {
 }
 
 export async function captureSnapshot(): Promise<Snapshot | null> {
+  const route = window.location.pathname;
+
+  let root: HTMLElement | null = null;
+  let body: string;
+
   try {
-    const route = window.location.pathname;
-    const root = document.getElementById('root');
-    if (!root) return null;
-    const body = serializeRoot(root);
-    if (!body) return null;
-    const styles = await collectStyles();
-    const snapshot: Snapshot = {
-      route,
-      body,
-      timestamp: Date.now(),
-      styles: styles.length > 0 ? styles : undefined,
-    };
-    const db = await openDB();
-    await saveSnapshot(db, snapshot);
-    db.close();
-    if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
-      console.log(`[FirstTx] Snapshot captured for ${route}`);
+    root = document.getElementById('root');
+    if (!root) {
+      throw new CaptureError('Root element not found', 'dom-serialize', route);
     }
-    return snapshot;
+    body = serializeRoot(root);
+    if (!body) {
+      throw new CaptureError('No valid child in root element', 'dom-serialize', route);
+    }
   } catch (error) {
-    console.error('[FirstTx] Capture failed:', error);
+    const captureError =
+      error instanceof CaptureError
+        ? error
+        : new CaptureError('Failed to serialize DOM', 'dom-serialize', route, error as Error);
+    console.error(captureError.getDebugInfo());
     return null;
   }
+
+  let styles: SnapshotStyle[];
+  try {
+    styles = await collectStyles();
+  } catch (error) {
+    const captureError = new CaptureError(
+      'Failed to collect styles',
+      'style-collect',
+      route,
+      error as Error,
+    );
+    console.error(captureError.getDebugInfo());
+    return null;
+  }
+
+  const snapshot: Snapshot = {
+    route,
+    body,
+    timestamp: Date.now(),
+    styles: styles.length > 0 ? styles : undefined,
+  };
+
+  let db: IDBDatabase | null = null;
+  try {
+    db = await openDB();
+    await saveSnapshot(db, snapshot);
+    db.close();
+  } catch (error) {
+    if (db) db.close();
+    const captureError =
+      error instanceof PrepaintStorageError
+        ? new CaptureError(error.message, 'db-write', route, error)
+        : new CaptureError('Failed to save snapshot', 'db-write', route, error as Error);
+    console.error(captureError.getDebugInfo());
+
+    if (error instanceof PrepaintStorageError && !error.isRecoverable()) {
+      return null;
+    }
+    return null;
+  }
+
+  if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+    console.log(`[FirstTx] Snapshot captured for ${route}`);
+  }
+  return snapshot;
 }
 
 export interface SetupCaptureOptions {
