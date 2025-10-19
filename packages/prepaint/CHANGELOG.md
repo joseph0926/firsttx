@@ -1,5 +1,41 @@
 # @firsttx/prepaint
 
+## 0.4.0
+
+### Minor Changes
+
+implement structured error handling with custom error classes
+
+BREAKING CHANGE: Error logging format has changed from generic console.error to structured error classes
+
+**Added**
+
+- PrepaintError abstract base class with getUserMessage(), getDebugInfo(), isRecoverable()
+- BootError for boot phase failures (db-open, snapshot-read, dom-restore, style-injection)
+- CaptureError for capture phase failures (dom-serialize, style-collect, db-write)
+- HydrationError for React hydration mismatches (content, attribute, structure)
+- PrepaintStorageError for IndexedDB operations (QUOTA_EXCEEDED, PERMISSION_DENIED, UNKNOWN)
+- convertDOMException utility to transform DOMExceptions into PrepaintStorageError
+
+**Changed**
+
+- All error paths now use structured error classes instead of generic Error
+- Error logs always output (removed **FIRSTTX_DEV** conditional for errors)
+- Success logs remain conditional on **FIRSTTX_DEV** flag
+- Hydration errors use console.warn instead of console.error
+- Updated CreateFirstTxRootOptions.onHydrationError to accept HydrationError type
+
+**Tests**
+
+- Enhanced boot.test.ts with 5 error handling scenarios
+- Enhanced capture.test.ts with 7 error handling scenarios
+- Added comprehensive error validation (phase, message, recoverability)
+- All tests verify structured error output format
+
+This aligns prepaint's error handling with local-first and tx packages,
+providing consistent error interfaces across the FirstTx ecosystem while
+maintaining the "silent failure" philosophy (errors don't break the app).
+
 ## 0.3.2
 
 ### Patch Changes
