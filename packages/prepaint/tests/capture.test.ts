@@ -238,15 +238,126 @@ describe('captureSnapshot', () => {
     expect(snapshot!.timestamp).toBeLessThanOrEqual(after);
   });
 
-  it('handles capture errors gracefully', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const openSpy = vi.spyOn(utilsModule, 'openDB').mockRejectedValueOnce(new Error('DB Error'));
+  describe('Error Handling', () => {
+    it('handles missing root element gracefully', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      document.body.innerHTML = '<div>No root</div>';
 
-    await captureSnapshot();
+      const result = await captureSnapshot();
 
-    expect(errSpy).toHaveBeenCalledWith('[FirstTx] Capture failed:', expect.any(Error));
+      expect(result).toBeNull();
+      expect(spy).toHaveBeenCalled();
+      const errorCall = spy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[CaptureError]');
+      expect(errorCall).toContain('dom-serialize');
+      expect(errorCall).toContain('Root element not found');
 
-    openSpy.mockRestore();
-    errSpy.mockRestore();
+      spy.mockRestore();
+    });
+
+    it('handles empty root element gracefully', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      document.body.innerHTML = '<div id="root"></div>';
+
+      const result = await captureSnapshot();
+
+      expect(result).toBeNull();
+      expect(spy).toHaveBeenCalled();
+      const errorCall = spy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[CaptureError]');
+      expect(errorCall).toContain('dom-serialize');
+
+      spy.mockRestore();
+    });
+
+    it('handles style collection errors gracefully', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      vi.spyOn(document, 'querySelectorAll').mockImplementationOnce(() => {
+        throw new Error('querySelectorAll failed');
+      });
+
+      const result = await captureSnapshot();
+
+      expect(result).toBeNull();
+      expect(spy).toHaveBeenCalled();
+      const errorCall = spy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[CaptureError]');
+      expect(errorCall).toContain('style-collect');
+
+      spy.mockRestore();
+    });
+
+    it('handles IndexedDB write errors gracefully', async () => {
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const openSpy = vi.spyOn(utilsModule, 'openDB').mockRejectedValueOnce(new Error('DB Error'));
+
+      const result = await captureSnapshot();
+
+      expect(result).toBeNull();
+      expect(errSpy).toHaveBeenCalled();
+      const errorCall = errSpy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[CaptureError]');
+      expect(errorCall).toContain('db-write');
+
+      openSpy.mockRestore();
+      errSpy.mockRestore();
+    });
+
+    it('handles storage quota exceeded errors', async () => {
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const dbMock = {
+        transaction: vi.fn().mockReturnValue({
+          objectStore: vi.fn().mockReturnValue({
+            put: vi.fn().mockReturnValue({
+              onerror: null as ((this: IDBRequest, ev: Event) => unknown) | null,
+              onsuccess: null as ((this: IDBRequest, ev: Event) => unknown) | null,
+            }),
+          }),
+        }),
+        close: vi.fn(),
+      };
+
+      vi.spyOn(utilsModule, 'openDB').mockResolvedValueOnce(dbMock as unknown as IDBDatabase);
+
+      const capturePromise = captureSnapshot();
+
+      await tick();
+
+      // eslint-disable-next-line
+      const putRequest = dbMock.transaction().objectStore().put();
+      const quotaError = new Error('QuotaExceededError');
+      quotaError.name = 'QuotaExceededError';
+      Object.defineProperty(putRequest, 'error', { value: quotaError });
+      // eslint-disable-next-line
+      putRequest.onerror?.(new Event('error'));
+
+      const result = await capturePromise;
+
+      expect(result).toBeNull();
+      expect(errSpy).toHaveBeenCalled();
+      const errorCall = errSpy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[CaptureError]');
+      expect(errorCall).toContain('QUOTA_EXCEEDED');
+
+      errSpy.mockRestore();
+    });
+
+    it('does not throw errors even when everything fails', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      document.body.innerHTML = '';
+
+      await expect(captureSnapshot()).resolves.not.toThrow();
+    });
+
+    it('returns null on any error and continues gracefully', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(utilsModule, 'openDB').mockRejectedValue(new Error('Fatal error'));
+
+      const result = await captureSnapshot();
+
+      expect(result).toBeNull();
+    });
   });
 });

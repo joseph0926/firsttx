@@ -171,13 +171,105 @@ describe('boot', () => {
     delete window.__FIRSTTX_OVERLAY__;
   });
 
-  it('handles errors gracefully', async () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
-      throw new Error('DB Error');
+  describe('Error Handling', () => {
+    it('handles IndexedDB open errors gracefully', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+        throw new Error('DB Error');
+      });
+
+      await boot();
+
+      expect(spy).toHaveBeenCalled();
+      const errorCall = spy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[BootError]');
+      expect(errorCall).toContain('db-open');
+      expect(errorCall).toContain('Failed to open IndexedDB');
+
+      spy.mockRestore();
     });
-    await boot();
-    expect(spy).toHaveBeenCalledWith('[FirstTx] Boot failed:', expect.any(Error));
-    spy.mockRestore();
+
+    it('recovers from corrupted snapshot data', async () => {
+      mountRoot('');
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const db = await openDB();
+      const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readwrite');
+      const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+
+      await new Promise<void>((resolve, reject) => {
+        const request = store.put({ route: '/', invalid: 'data' });
+        request.onsuccess = () => resolve();
+        // eslint-disable-next-line
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+
+      await boot();
+
+      expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
+
+      spy.mockRestore();
+    });
+
+    it('handles DOM restoration errors silently', async () => {
+      mountRoot('');
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const snapshot: Snapshot = {
+        route: '/',
+        timestamp: Date.now(),
+        body: '',
+        styles: [],
+      };
+      await saveSnapshot(snapshot);
+
+      await boot();
+
+      expect(spy).toHaveBeenCalled();
+      const errorCall = spy.mock.calls[0][0] as string;
+      expect(errorCall).toContain('[BootError]');
+      expect(errorCall).toContain('dom-restore');
+      expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
+
+      spy.mockRestore();
+    });
+
+    it('handles style injection errors gracefully', async () => {
+      mountRoot('<div>Content</div>');
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const snapshot: Snapshot = {
+        route: '/',
+        timestamp: Date.now(),
+        body: '<div>Content</div>',
+        styles: [{ type: 'inline', content: '.test { color: red; }' }],
+      };
+      await saveSnapshot(snapshot);
+
+      vi.spyOn(document.head, 'appendChild').mockImplementationOnce(() => {
+        throw new Error('appendChild failed');
+      });
+
+      await boot();
+
+      expect(spy).toHaveBeenCalled();
+      const errorCalls = spy.mock.calls.filter(
+        (call) => typeof call[0] === 'string' && call[0].includes('style-injection'),
+      );
+      expect(errorCalls.length).toBeGreaterThan(0);
+
+      spy.mockRestore();
+    });
+
+    it('does not throw errors even when everything fails', async () => {
+      mountRoot('');
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+        throw new Error('Complete failure');
+      });
+
+      await expect(boot()).resolves.not.toThrow();
+    });
   });
 });

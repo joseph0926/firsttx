@@ -4,12 +4,13 @@ import { handoff, type HandoffStrategy } from './handoff';
 import { setupCapture } from './capture';
 import type { Snapshot } from './types';
 import { removeOverlay } from './overlay';
+import { HydrationError } from './errors';
 
 export interface CreateFirstTxRootOptions {
   transition?: boolean;
   onCapture?: (snapshot: Snapshot) => void;
   onHandoff?: (strategy: HandoffStrategy) => void;
-  onHydrationError?: (error: Error) => void;
+  onHydrationError?: (error: HydrationError) => void;
 }
 
 function canHydrate(container: Element): boolean {
@@ -52,6 +53,13 @@ function installRootGuard(container: Element, getRoot: () => Root | null, reset:
   };
 }
 
+function inferMismatchType(error: Error): HydrationError['mismatchType'] {
+  const msg = error.message.toLowerCase();
+  if (msg.includes('attribute')) return 'attribute';
+  if (msg.includes('structure') || msg.includes('children')) return 'structure';
+  return 'content';
+}
+
 export function createFirstTxRoot(
   container: Element | DocumentFragment,
   element: ReactElement,
@@ -92,8 +100,17 @@ export function createFirstTxRoot(
     };
     const runHydrate = () => {
       root = hydrateRoot(container, element, {
-        onRecoverableError: (error) => {
-          onHydrationError?.(error as Error);
+        onRecoverableError: (reactError) => {
+          const hydrationError = new HydrationError(
+            'Hydration mismatch detected',
+            inferMismatchType(reactError as Error),
+            reactError as Error,
+          );
+
+          onHydrationError?.(hydrationError);
+
+          console.warn(hydrationError.getDebugInfo());
+
           if (bailed) return;
           bailed = true;
           if (

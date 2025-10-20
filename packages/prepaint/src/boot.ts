@@ -4,6 +4,7 @@ import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB } from './utils';
 import { mountOverlay } from './overlay';
 import { normalizeSnapshotStyleEntry } from './style-utils';
+import { BootError, PrepaintStorageError, convertDOMException } from './errors';
 
 function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   return new Promise((resolve, reject) => {
@@ -12,8 +13,8 @@ function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
     const request = store.get(route) as IDBRequest<Snapshot>;
     request.onerror = () => {
       const err = request.error;
-      if (err) reject(new Error(`Failed to get snapshot: ${err.message}`, { cause: err }));
-      else reject(new Error('Unknown error getting snapshot'));
+      if (err) reject(convertDOMException(err, 'read'));
+      else reject(new PrepaintStorageError('Unknown error getting snapshot', 'UNKNOWN', 'read'));
     };
     request.onsuccess = () => resolve(request.result ?? null);
   });
@@ -45,17 +46,40 @@ function shouldUseOverlay(route: string): boolean {
 }
 
 export async function boot(): Promise<void> {
-  try {
-    const route = window.location.pathname;
-    const db = await openDB();
-    const snapshot = await getSnapshot(db, route);
-    db.close();
-    if (!snapshot) return;
-    const age = Date.now() - snapshot.timestamp;
-    if (age > STORAGE_CONFIG.MAX_SNAPSHOT_AGE) return;
+  const route = window.location.pathname;
+  let db: IDBDatabase | null = null;
 
-    const overlay = shouldUseOverlay(route);
-    if (overlay) {
+  try {
+    db = await openDB();
+  } catch (error) {
+    const bootError = new BootError('Failed to open IndexedDB', 'db-open', error as Error);
+    console.error(bootError.getDebugInfo());
+    return;
+  }
+
+  let snapshot: Snapshot | null = null;
+  try {
+    snapshot = await getSnapshot(db, route);
+    db.close();
+  } catch (error) {
+    if (db) db.close();
+    const bootError =
+      error instanceof PrepaintStorageError
+        ? new BootError(error.message, 'snapshot-read', error)
+        : new BootError('Failed to read snapshot', 'snapshot-read', error as Error);
+    console.error(bootError.getDebugInfo());
+    return;
+  }
+
+  if (!snapshot) return;
+
+  const age = Date.now() - snapshot.timestamp;
+  if (age > STORAGE_CONFIG.MAX_SNAPSHOT_AGE) return;
+
+  const overlay = shouldUseOverlay(route);
+
+  if (overlay) {
+    try {
       mountOverlay(snapshot.body, snapshot.styles);
       document.documentElement.setAttribute('data-prepaint', 'true');
       document.documentElement.setAttribute('data-prepaint-overlay', 'true');
@@ -64,12 +88,22 @@ export async function boot(): Promise<void> {
         console.log(`[FirstTx] Snapshot restored as overlay (age: ${age}ms)`);
       }
       return;
+    } catch (error) {
+      const bootError = new BootError('Failed to mount overlay', 'dom-restore', error as Error);
+      console.error(bootError.getDebugInfo());
+      return;
     }
+  }
 
+  try {
     const root = document.getElementById('root');
-    if (!root) return;
+    if (!root) {
+      throw new BootError('Root element not found', 'dom-restore');
+    }
     const clean = extractSingleRoot(snapshot.body);
-    if (!clean) return;
+    if (!clean) {
+      throw new BootError('No valid child in snapshot body', 'dom-restore');
+    }
     root.innerHTML = clean;
 
     if (snapshot.styles) {
@@ -86,21 +120,30 @@ export async function boot(): Promise<void> {
       console.log(`[FirstTx] Snapshot restored (age: ${age}ms)`);
     }
   } catch (error) {
-    console.error('[FirstTx] Boot failed:', error);
+    const bootError =
+      error instanceof BootError
+        ? error
+        : new BootError('Failed to restore DOM', 'dom-restore', error as Error);
+    console.error(bootError.getDebugInfo());
   }
 }
 
 function appendStyleResource(style: SnapshotStyle): void {
-  if (style.type === 'inline' || style.content) {
-    const element = document.createElement('style');
-    element.setAttribute('data-firsttx-prepaint', '');
-    element.textContent = style.type === 'inline' ? style.content : (style.content ?? '');
-    document.head.appendChild(element);
-    return;
+  try {
+    if (style.type === 'inline' || style.content) {
+      const element = document.createElement('style');
+      element.setAttribute('data-firsttx-prepaint', '');
+      element.textContent = style.type === 'inline' ? style.content : (style.content ?? '');
+      document.head.appendChild(element);
+      return;
+    }
+    const link = document.createElement('link');
+    link.setAttribute('data-firsttx-prepaint', '');
+    link.rel = 'stylesheet';
+    link.href = style.href;
+    document.head.appendChild(link);
+  } catch (error) {
+    const bootError = new BootError('Failed to inject style', 'style-injection', error as Error);
+    console.error(bootError.getDebugInfo());
   }
-  const link = document.createElement('link');
-  link.setAttribute('data-firsttx-prepaint', '');
-  link.rel = 'stylesheet';
-  link.href = style.href;
-  document.head.appendChild(link);
 }
