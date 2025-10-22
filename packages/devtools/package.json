@@ -1,0 +1,54 @@
+{
+  "name": "@firsttx/devtools",
+  "version": "0.0.0",
+  "description": "Browser DevTools extension for debugging FirstTx (Prepaint, Local-First, Tx)",
+  "license": "MIT",
+  "author": "joseph0926",
+  "type": "module",
+  "keywords": [
+    "firsttx",
+    "devtools",
+    "chrome-extension",
+    "debugging",
+    "prepaint",
+    "local-first",
+    "transaction"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm:dev:panel\" \"pnpm:dev:extension\"",
+    "dev:panel": "vite",
+    "dev:extension": "tsup --watch",
+    "build": "pnpm run clean && pnpm run build:panel && pnpm run build:extension && pnpm run build:package",
+    "build:panel": "vite build",
+    "build:extension": "tsup",
+    "build:package": "node scripts/package-extension.js",
+    "clean": "rimraf dist",
+    "lint": "eslint .",
+    "typecheck": "tsc -b",
+    "typecheck:extension": "tsc -p tsconfig.extension.json --noEmit",
+    "typecheck:panel": "tsc -p tsconfig.panel.json --noEmit",
+    "typecheck:bridge": "tsc -p tsconfig.bridge.json --noEmit"
+  },
+  "dependencies": {
+    "@firsttx/local-first": "workspace:*",
+    "@firsttx/prepaint": "workspace:*",
+    "@firsttx/tx": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.24",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^9.2.1",
+    "tsup": "^8.5.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

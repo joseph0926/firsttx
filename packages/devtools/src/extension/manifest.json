@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "FirstTx DevTools",
+  "version": "0.1.0",
+  "description": "Browser DevTools for debugging FirstTx apps",
+  "devtools_page": "devtools.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

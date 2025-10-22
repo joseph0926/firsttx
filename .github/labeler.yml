@@ -1,10 +1,10 @@
-area-demo:
-  - changed-files:
-      - any-glob-to-any-file: 'apps/demo/**'
-
 area-playground:
   - changed-files:
       - any-glob-to-any-file: 'apps/playground/**'
+
+area-devtools:
+  - changed-files:
+      - any-glob-to-any-file: 'packages/devtools/**'
 
 area-tx:
   - changed-files:
