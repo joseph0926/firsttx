@@ -15,4 +15,7 @@ export default defineConfig({
   target: 'es2022',
   platform: 'browser',
   splitting: false,
+  esbuildOptions(options) {
+    options.outExtension = { '.js': '.js' };
+  },
 });
