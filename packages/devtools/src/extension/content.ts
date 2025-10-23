@@ -1,5 +1,9 @@
-import { createDevToolsBridge } from '../bridge';
-
 console.log('[FirstTx] Content script loaded');
 
-createDevToolsBridge();
+const script = document.createElement('script');
+script.src = chrome.runtime.getURL('bridge.js');
+script.onload = () => {
+  console.log('[FirstTx] Bridge injected');
+  script.remove();
+};
+(document.head || document.documentElement).appendChild(script);

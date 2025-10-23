@@ -10,4 +10,6 @@ export function createDevToolsBridge(): void {
   window.__FIRSTTX_DEVTOOLS__ = api;
 }
 
+createDevToolsBridge();
+
 export type { DevToolsAPI, DevToolsEvent };

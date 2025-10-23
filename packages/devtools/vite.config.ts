@@ -5,6 +5,7 @@ import { resolve } from 'path';
 export default defineConfig({
   plugins: [react()],
   root: 'src/panel',
+  base: './',
   build: {
     outDir: '../../dist/panel',
     emptyOutDir: true,
