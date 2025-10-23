@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "lib": ["ES2022", "DOM"],
+    "types": [],
+    "jsx": "preserve",
+    "noEmit": true
+  },
+  "include": ["src/bridge/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

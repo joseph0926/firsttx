@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "types": ["chrome", "node"]
+  },
+  "references": [
+    { "path": "./tsconfig.background.json" },
+    { "path": "./tsconfig.content.json" },
+    { "path": "./tsconfig.panel.json" },
+    { "path": "./tsconfig.bridge.json" }
+  ],
+  "files": [],
+  "include": [],
+  "exclude": ["dist", "node_modules"]
+}
