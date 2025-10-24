@@ -8,6 +8,6 @@
     "jsx": "preserve",
     "noEmit": true
   },
-  "include": ["src/extension/background.ts", "src/extension/devtools.ts"],
+  "include": ["src/extension/background.ts", "src/extension/devtools.ts", "src/extension/types.ts"],
   "exclude": ["dist", "node_modules"]
 }

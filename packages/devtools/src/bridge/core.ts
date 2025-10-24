@@ -20,6 +20,34 @@ const STORAGE_DB_NAME = 'firsttx-devtools-events';
 const STORAGE_STORE_NAME = 'high-priority-events';
 const STORAGE_VERSION = 1;
 
+const EXTENSION_MESSAGE_SOURCE = '__FIRSTTX_EXTENSION__';
+const BRIDGE_MESSAGE_SOURCE = '__FIRSTTX_BRIDGE__';
+
+interface ExtensionMessage {
+  source: typeof EXTENSION_MESSAGE_SOURCE;
+  type: 'command' | 'buffer-request' | 'ping';
+  data?: unknown;
+}
+
+interface BridgeMessage {
+  source: typeof BRIDGE_MESSAGE_SOURCE;
+  type: 'event' | 'batch' | 'buffer-dump' | 'pong' | 'command-response';
+  event?: DevToolsEvent;
+  events?: DevToolsEvent[];
+  response?: CommandResponse;
+  timestamp?: number;
+}
+
+function isExtensionMessage(data: unknown): data is ExtensionMessage {
+  if (!data || typeof data !== 'object') return false;
+  const msg = data as Record<string, unknown>;
+  return (
+    msg.source === EXTENSION_MESSAGE_SOURCE &&
+    typeof msg.type === 'string' &&
+    ['command', 'buffer-request', 'ping'].includes(msg.type)
+  );
+}
+
 class CircularBuffer<T> {
   private buffer: T[];
   private head = 0;
@@ -81,9 +109,67 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
 
     this.dbReady = this.initDB();
     this.initChannel();
+    this.initWindowMessaging();
 
     if (this.config.debug) {
       console.log('[FirstTx Bridge] Initialized with config:', this.config);
+    }
+  }
+
+  private initWindowMessaging(): void {
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('message', (event: MessageEvent) => {
+      if (event.source !== window) return;
+
+      if (!isExtensionMessage(event.data)) return;
+
+      this.handleExtensionMessage(event.data);
+    });
+
+    if (this.config.debug) {
+      console.log('[FirstTx Bridge] Window messaging initialized');
+    }
+  }
+
+  private handleExtensionMessage(message: ExtensionMessage): void {
+    switch (message.type) {
+      case 'command':
+        if (message.data) {
+          void this.handleCommand(message.data as DevToolsCommand);
+        }
+        break;
+      case 'buffer-request':
+        this.sendBufferedEvents();
+        break;
+      case 'ping':
+        this.sendToExtension({ type: 'pong', timestamp: Date.now() });
+        break;
+      default:
+        if (this.config.debug) {
+          console.warn('[FirstTx Bridge] Unknown extension message type:', message.type);
+        }
+    }
+  }
+
+  private sendToExtension(message: Omit<BridgeMessage, 'source'>): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const fullMessage: BridgeMessage = {
+        source: BRIDGE_MESSAGE_SOURCE,
+        ...message,
+      };
+
+      window.postMessage(fullMessage, '*');
+
+      if (this.config.debug) {
+        console.log('[FirstTx Bridge] Sent to extension:', fullMessage);
+      }
+    } catch (error) {
+      if (this.config.debug) {
+        console.error('[FirstTx Bridge] Failed to send to extension:', error);
+      }
     }
   }
 
@@ -171,6 +257,8 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
   private emitHigh(event: DevToolsEvent): void {
     this.sendToChannel({ type: 'event', event });
 
+    this.sendToExtension({ type: 'event', event });
+
     if (this.config.persistHighPriority) {
       void this.persistEvent(event);
     }
@@ -207,6 +295,10 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
       type: 'batch',
       events: this.normalQueue,
     });
+    this.sendToExtension({
+      type: 'batch',
+      events: this.normalQueue,
+    });
 
     if (this.config.debug) {
       console.log(`[FirstTx Bridge] Flushed ${this.normalQueue.length} NORMAL events`);
@@ -220,6 +312,10 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     if (this.lowQueue.length === 0) return;
 
     this.sendToChannel({
+      type: 'batch',
+      events: this.lowQueue,
+    });
+    this.sendToExtension({
       type: 'batch',
       events: this.lowQueue,
     });
@@ -239,7 +335,7 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
       this.channel.postMessage(message);
     } catch (error) {
       if (this.config.debug) {
-        console.error('[FirstTx Bridge] Failed to send message:', error);
+        console.error('[FirstTx Bridge] Failed to send to channel:', error);
       }
     }
   }
@@ -267,6 +363,10 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     const events = this.buffer.getAll();
 
     this.sendToChannel({
+      type: 'buffer-dump',
+      events,
+    });
+    this.sendToExtension({
       type: 'buffer-dump',
       events,
     });
@@ -302,30 +402,42 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     );
 
     const responses = await Promise.all(promises);
-    const successResponse = responses.find((r) => r.success) || responses[0];
 
-    this.sendToChannel({
-      type: 'command-response',
-      response: successResponse,
-    });
+    const response = responses.find((r) => r.success) || responses[0];
 
-    if (this.config.debug) {
-      console.log('[FirstTx Bridge] Command handled:', command.type, successResponse);
+    if (response) {
+      this.sendToExtension({
+        type: 'command-response',
+        response,
+      });
+
+      this.sendToChannel({
+        type: 'command-response',
+        response,
+      });
     }
   }
 
   private async persistEvent(event: DevToolsEvent): Promise<void> {
-    try {
+    if (!this.db) {
       await this.dbReady;
-
       if (!this.db) return;
+    }
 
+    try {
       return new Promise((resolve, reject) => {
         try {
           const tx = this.db!.transaction(STORAGE_STORE_NAME, 'readwrite');
           const store = tx.objectStore(STORAGE_STORE_NAME);
 
           const addRequest = store.add(event);
+
+          addRequest.onsuccess = () => {
+            if (this.config.debug) {
+              console.log('[FirstTx Bridge] Persisted HIGH priority event:', event.id);
+            }
+            resolve();
+          };
 
           addRequest.onerror = () => {
             const error = addRequest.error;
@@ -335,24 +447,8 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
             reject(new Error(message));
           };
 
-          addRequest.onsuccess = () => {
-            const countRequest = store.count();
-
-            countRequest.onsuccess = () => {
-              if (countRequest.result > 1000) {
-                void this.cleanupOldEvents().catch((error) => {
-                  if (this.config.debug) {
-                    console.warn('[FirstTx Bridge] Cleanup failed:', error);
-                  }
-                });
-              }
-            };
-
-            countRequest.onerror = () => {};
-          };
-
           tx.oncomplete = () => {
-            resolve();
+            void this.cleanupOldEvents();
           };
 
           tx.onerror = () => {
