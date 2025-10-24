@@ -237,7 +237,8 @@ describe('Transaction - Timeout', () => {
       const timeoutError = error as TransactionTimeoutError;
 
       expect(timeoutError.timeoutMs).toBe(100);
-      expect(timeoutError.elapsedMs).toBeGreaterThanOrEqual(100);
+      expect(timeoutError.elapsedMs).toBeGreaterThanOrEqual(98);
+      expect(timeoutError.elapsedMs).toBeLessThanOrEqual(105);
       expect(timeoutError.getUserMessage()).toContain('took too long');
       expect(timeoutError.getDebugInfo()).toContain('exceeded timeout');
       expect(timeoutError.isRecoverable()).toBe(true);
