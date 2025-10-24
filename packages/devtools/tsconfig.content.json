@@ -8,6 +8,6 @@
     "jsx": "preserve",
     "noEmit": true
   },
-  "include": ["src/extension/content.ts"],
+  "include": ["src/extension/content.ts", "src/extension/types.ts"],
   "exclude": ["dist", "node_modules"]
 }
