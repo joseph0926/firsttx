@@ -1,11 +1,14 @@
 import type { RetryConfig } from './types';
 import { DEFAULT_RETRY_CONFIG } from './types';
 import { RetryExhaustedError } from './errors';
+import { emitTxEvent } from './devtools';
 
 export async function executeWithRetry<T>(
   fn: () => Promise<T>,
   stepId: string,
   config?: RetryConfig,
+  txId?: string,
+  stepIndex?: number,
 ): Promise<T> {
   const { maxAttempts, delayMs, backoff } = {
     ...DEFAULT_RETRY_CONFIG,
@@ -26,6 +29,18 @@ export async function executeWithRetry<T>(
       }
 
       const delay = calculateDelay(attempt, delayMs, backoff);
+
+      if (txId !== undefined && stepIndex !== undefined) {
+        emitTxEvent('step.retry', {
+          txId,
+          stepIndex,
+          attempt,
+          maxAttempts,
+          error: error instanceof Error ? error.message : String(error),
+          delay,
+        });
+      }
+
       await sleep(delay);
     }
   }
