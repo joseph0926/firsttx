@@ -1,5 +1,11 @@
 # @firsttx/devtools
 
+## 0.1.1
+
+### Patch Changes
+
+- fix runtime check
+
 ## 0.1.0
 
 ### Minor Changes
