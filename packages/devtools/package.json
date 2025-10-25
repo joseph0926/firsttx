@@ -1,7 +1,7 @@
 {
   "name": "@firsttx/devtools",
   "version": "0.0.0",
-  "description": "Browser DevTools extension for debugging FirstTx (Prepaint, Local-First, Tx)",
+  "description": "Chromium DevTools companion that streams FirstTx bridge events via BroadcastChannel queues, IndexedDB persistence, and buffered delivery to a custom panel.",
   "license": "MIT",
   "author": "joseph0926",
   "type": "module",

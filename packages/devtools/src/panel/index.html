@@ -3,10 +3,181 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FirstTx DevTools Panel</title>
+    <title>FirstTx DevTools</title>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+          sans-serif;
+        background: #ffffff;
+        color: #333;
+        overflow: hidden;
+      }
+
+      #root {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Skeleton Loader */
+      .skeleton {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .skeleton-toolbar {
+        height: 48px;
+        background: #f5f5f5;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+      }
+
+      .skeleton-box {
+        height: 28px;
+        background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      .skeleton-toolbar .skeleton-box:nth-child(1) {
+        width: 80px;
+      }
+      .skeleton-toolbar .skeleton-box:nth-child(2) {
+        width: 80px;
+      }
+      .skeleton-toolbar .skeleton-box:nth-child(3) {
+        flex: 1;
+        max-width: 300px;
+      }
+      .skeleton-toolbar .skeleton-box:nth-child(4) {
+        width: 100px;
+      }
+
+      .skeleton-content {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .skeleton-list {
+        flex: 1;
+        border-right: 1px solid #e0e0e0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .skeleton-list-item {
+        height: 40px;
+        background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+      }
+
+      .skeleton-list-item:nth-child(n + 6) {
+        animation-delay: 0.1s;
+      }
+
+      .skeleton-detail {
+        width: 400px;
+        padding: 16px;
+        background: #fafafa;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .skeleton-detail-line {
+        height: 20px;
+        background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 3px;
+      }
+
+      .skeleton-detail-line:nth-child(1) {
+        width: 60%;
+      }
+      .skeleton-detail-line:nth-child(2) {
+        width: 80%;
+      }
+      .skeleton-detail-line:nth-child(3) {
+        width: 70%;
+      }
+      .skeleton-detail-line:nth-child(4) {
+        width: 90%;
+      }
+      .skeleton-detail-line:nth-child(5) {
+        width: 75%;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="./main.tsx"></script>
+    <div id="root">
+      <div class="skeleton">
+        <div class="skeleton-toolbar">
+          <div class="skeleton-box"></div>
+          <div class="skeleton-box"></div>
+          <div class="skeleton-box"></div>
+          <div class="skeleton-box"></div>
+        </div>
+        <div class="skeleton-content">
+          <div class="skeleton-list">
+            <div class="skeleton-list-item"></div>
+            <div class="skeleton-list-item"></div>
+            <div class="skeleton-list-item"></div>
+            <div class="skeleton-list-item"></div>
+            <div class="skeleton-list-item"></div>
+            <div class="skeleton-list-item"></div>
+            <div class="skeleton-list-item"></div>
+          </div>
+          <div class="skeleton-detail">
+            <div class="skeleton-detail-line"></div>
+            <div class="skeleton-detail-line"></div>
+            <div class="skeleton-detail-line"></div>
+            <div class="skeleton-detail-line"></div>
+            <div class="skeleton-detail-line"></div>
+            <div class="skeleton-detail-line"></div>
+            <div class="skeleton-detail-line"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/main.tsx"></script>
   </body>
 </html>
