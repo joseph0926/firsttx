@@ -99,3 +99,16 @@ export function validateMessage<T>(
     return null;
   }
 }
+
+export function isDevToolsToBackgroundMessage(data: unknown): data is DevToolsToBackgroundMessage {
+  if (!data || typeof data !== 'object') return false;
+
+  const msg = data as Record<string, unknown>;
+
+  if (typeof msg.type !== 'string') return false;
+  if (!['init', 'command', 'disconnect'].includes(msg.type)) return false;
+  if (msg.tabId !== undefined && typeof msg.tabId !== 'number') return false;
+  if (msg.command !== undefined && typeof msg.command !== 'object') return false;
+
+  return true;
+}
