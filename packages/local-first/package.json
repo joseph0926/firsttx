@@ -1,7 +1,7 @@
 {
   "name": "@firsttx/local-first",
-  "version": "0.4.1",
-  "description": "Local-First bridges IndexedDB (async) and React state (sync) using useSyncExternalStore plus an in-memory cache, so components read state synchronously from the very first render. It tracks freshness (isStale, age) and pairs with Tx for fast optimistic updates that remain durable offline.",
+  "version": "0.4.2",
+  "description": "React + IndexedDB data layer that exposes synchronous snapshots, staleness metadata, and server sync hooks while pairing with Tx for optimistic durability.",
   "license": "MIT",
   "author": "joseph0926",
   "type": "module",
