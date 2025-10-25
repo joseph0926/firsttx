@@ -222,6 +222,8 @@ Test each feature with 9 different scenarios
 
 ## Debugging with DevTools
 
+<img src="https://res.cloudinary.com/dx25hswix/image/upload/v1761388489/firsttx-devtools-01_ru58a6.png" alt="Event List" width="600" />
+
 Debug FirstTx apps with full visibility into event lifecycle.
 
 **[Install DevTools Extension](https://github.com/joseph0926/firsttx/tree/main/packages/devtools#installation)**

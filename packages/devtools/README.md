@@ -102,7 +102,7 @@ Interact with your app to generate events:
 
 ### 1. Event List (Left Panel)
 
-<img src="https://via.placeholder.com/600x300/f5f5f5/666?text=Event+List+Screenshot" alt="Event List" width="600" />
+<img src="https://res.cloudinary.com/dx25hswix/image/upload/v1761388489/firsttx-devtools-01_ru58a6.png" alt="Event List" width="600" />
 
 **Shows all events in chronological order**
 
@@ -119,7 +119,7 @@ Interact with your app to generate events:
 
 ### 2. Timeline View (Top Panel)
 
-<img src="https://via.placeholder.com/800x250/fafafa/333?text=Timeline+Visualization" alt="Timeline" width="800" />
+<img src="https://res.cloudinary.com/dx25hswix/image/upload/v1761388489/firsttx-devtools-01_ru58a6.png" alt="Timeline" width="800" />
 
 **Visual timeline with 4 lanes**
 
@@ -143,8 +143,6 @@ Interact with your app to generate events:
 - Switches between 2-column and 3-row layout
 
 ### 3. Event Detail (Right Panel)
-
-<img src="https://via.placeholder.com/400x400/ffffff/333?text=Event+Detail+Panel" alt="Detail Panel" width="400" />
 
 **Selected event details**
 
