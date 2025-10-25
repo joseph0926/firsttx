@@ -12,6 +12,7 @@ interface PrepaintEvent<T = unknown> {
   type: PrepaintEventType;
   timestamp: number;
   data: T;
+  priority: number;
 }
 
 export interface PrepaintCaptureEvent
@@ -63,9 +64,25 @@ export interface PrepaintStorageErrorEvent
   type: 'storage.error';
 }
 
-function generateId(): string {
-  return crypto.randomUUID();
-}
+const EVENT_PRIORITY: Record<PrepaintEventType, number> = {
+  capture: 0,
+  restore: 1,
+  handoff: 1,
+  'hydration.error': 2,
+  'storage.error': 2,
+};
+
+export function emitDevToolsEvent(type: 'capture', data: PrepaintCaptureEvent['data']): void;
+export function emitDevToolsEvent(type: 'restore', data: PrepaintRestoreEvent['data']): void;
+export function emitDevToolsEvent(type: 'handoff', data: PrepaintHandoffEvent['data']): void;
+export function emitDevToolsEvent(
+  type: 'hydration.error',
+  data: PrepaintHydrationErrorEvent['data'],
+): void;
+export function emitDevToolsEvent(
+  type: 'storage.error',
+  data: PrepaintStorageErrorEvent['data'],
+): void;
 
 export function emitDevToolsEvent(type: PrepaintEventType, data: unknown): void {
   if (typeof window === 'undefined') return;
@@ -75,11 +92,12 @@ export function emitDevToolsEvent(type: PrepaintEventType, data: unknown): void 
     if (!api || typeof api.emit !== 'function') return;
 
     const event = {
-      id: generateId(),
+      id: crypto.randomUUID(),
       category: 'prepaint' as const,
       type,
       timestamp: Date.now(),
       data,
+      priority: EVENT_PRIORITY[type],
     };
 
     api.emit(event);

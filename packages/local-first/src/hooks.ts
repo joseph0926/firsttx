@@ -1,6 +1,7 @@
 import { useSyncExternalStore, useState, useEffect, useCallback, useRef } from 'react';
 import type { SyncOptions, SyncedModelResult, Fetcher } from './types';
 import type { Model } from './model';
+import { emitModelEvent } from './devtools';
 
 /**
  * React hook for subscribing to model changes
@@ -38,6 +39,7 @@ export function useSyncedModel<T>(
   const syncInProgressRef = useRef(false);
   const fetcherRef = useRef(fetcher);
   const optionsRef = useRef(options);
+  const syncTriggerRef = useRef<'mount' | 'manual' | 'stale'>('manual');
 
   useEffect(() => {
     fetcherRef.current = fetcher;
@@ -56,6 +58,15 @@ export function useSyncedModel<T>(
     setIsSyncing(true);
     setSyncError(null);
 
+    const startTime = performance.now();
+    const currentHistory = await model.getHistory();
+
+    emitModelEvent('sync.start', {
+      modelName: model.name,
+      trigger: syncTriggerRef.current,
+      currentAge: currentHistory.age,
+    });
+
     try {
       const currentData = model.getCachedSnapshot();
       const data = await fetcherRef.current(currentData);
@@ -66,10 +77,31 @@ export function useSyncedModel<T>(
         await model.replace(data);
       }
 
+      const duration = performance.now() - startTime;
+      const dataSize = JSON.stringify(data).length;
+      const hadChanges = JSON.stringify(currentData) !== JSON.stringify(data);
+
+      emitModelEvent('sync.success', {
+        modelName: model.name,
+        dataSize,
+        duration,
+        hadChanges,
+      });
+
       optionsRef.current?.onSuccess?.(data);
     } catch (e) {
       const error = e as Error;
       setSyncError(error);
+
+      const duration = performance.now() - startTime;
+
+      emitModelEvent('sync.error', {
+        modelName: model.name,
+        error: error.message,
+        duration,
+        willRetry: false,
+      });
+
       optionsRef.current?.onError?.(error);
 
       if (process.env.NODE_ENV !== 'production') {
@@ -79,6 +111,7 @@ export function useSyncedModel<T>(
       throw error;
     } finally {
       syncInProgressRef.current = false;
+      syncTriggerRef.current = 'manual';
       setIsSyncing(false);
     }
   }, [model]);
@@ -100,6 +133,11 @@ export function useSyncedModel<T>(
         const shouldSync = mode === 'always' || (mode === 'stale' && h.isStale);
         if (!cancelled && shouldSync) {
           didAutoSyncRef.current = true;
+          if (mode === 'always') {
+            syncTriggerRef.current = 'mount';
+          } else if (h.isStale) {
+            syncTriggerRef.current = 'stale';
+          }
           await sync();
         } else {
           didAutoSyncRef.current = true;

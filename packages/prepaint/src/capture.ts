@@ -3,6 +3,7 @@ declare const __FIRSTTX_DEV__: boolean;
 import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB } from './utils';
 import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
+import { emitDevToolsEvent } from './devtools';
 
 function getDocumentBaseUrl(): string | null {
   try {
@@ -120,6 +121,7 @@ function serializeRoot(rootEl: HTMLElement): string {
 }
 
 export async function captureSnapshot(): Promise<Snapshot | null> {
+  const captureStartTime = performance.now();
   const route = window.location.pathname;
 
   let root: HTMLElement | null = null;
@@ -157,6 +159,8 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
     return null;
   }
 
+  const hasVolatile = root ? root.querySelectorAll('[data-firsttx-volatile]').length > 0 : false;
+
   const snapshot: Snapshot = {
     route,
     body,
@@ -169,8 +173,25 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
     db = await openDB();
     await saveSnapshot(db, snapshot);
     db.close();
+
+    const captureDuration = performance.now() - captureStartTime;
+    emitDevToolsEvent('capture', {
+      route,
+      bodySize: body.length,
+      styleCount: styles.length,
+      hasVolatile,
+      duration: captureDuration,
+    });
   } catch (error) {
     if (db) db.close();
+
+    emitDevToolsEvent('storage.error', {
+      operation: 'write',
+      code: error instanceof Error ? error.name : 'UNKNOWN',
+      recoverable: error instanceof PrepaintStorageError ? error.isRecoverable() : true,
+      route,
+    });
+
     const captureError =
       error instanceof PrepaintStorageError
         ? new CaptureError(error.message, 'db-write', route, error)

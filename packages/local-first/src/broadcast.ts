@@ -1,3 +1,5 @@
+import { emitModelEvent } from './devtools';
+
 /**
  * Base fields for all broadcast messages
  */
@@ -85,6 +87,13 @@ class ModelBroadcaster {
       if (message.senderId === this.senderId) {
         return;
       }
+
+      emitModelEvent('broadcast', {
+        modelName: message.key,
+        operation: message.type === 'model-patched' ? 'patch' : 'replace',
+        senderId: message.senderId,
+        receivedAt: Date.now(),
+      });
 
       const callbacks = this.listeners.get(message.key);
       if (callbacks) {
