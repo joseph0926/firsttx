@@ -220,6 +220,8 @@ async function addToCart(item) {
 
 ## DevTools로 디버깅하기
 
+<img src="https://res.cloudinary.com/dx25hswix/image/upload/v1761388489/firsttx-devtools-01_ru58a6.png" alt="Event List" width="600" />
+
 FirstTx 앱의 이벤트 라이프사이클을 완전히 가시화하여 디버깅할 수 있습니다.
 
 **[DevTools 확장 프로그램 설치](https://github.com/joseph0926/firsttx/tree/main/packages/devtools#installation)**
