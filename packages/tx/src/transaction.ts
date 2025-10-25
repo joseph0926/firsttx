@@ -1,6 +1,7 @@
 import type { TxOptions, TxStatus, TxStep, StepOptions } from './types';
 import { CompensationFailedError, TransactionTimeoutError, TransactionStateError } from './errors';
 import { executeWithRetry } from './retry';
+import { emitTxEvent } from './devtools';
 
 export class Transaction {
   private steps: TxStep<unknown>[] = [];
@@ -18,6 +19,13 @@ export class Transaction {
       transition: options.transition ?? false,
       timeout: options.timeout ?? 30000,
     };
+
+    emitTxEvent('start', {
+      txId: this.id,
+      hasTimeout: this.options.timeout !== undefined,
+      timeout: this.options.timeout,
+      hasTransition: this.options.transition,
+    });
   }
 
   async run<T = void>(fn: () => Promise<T>, options?: StepOptions): Promise<T> {
@@ -31,8 +39,9 @@ export class Transaction {
       this.startTime = Date.now();
     }
 
+    const stepIndex = this.steps.length;
     const step: TxStep<T> = {
-      id: `step-${this.steps.length}`,
+      id: `step-${stepIndex}`,
       run: fn,
       compensate: options?.compensate,
       retry: options?.retry,
@@ -40,25 +49,50 @@ export class Transaction {
 
     this.steps.push(step);
 
+    emitTxEvent('step.start', {
+      txId: this.id,
+      stepIndex,
+      hasCompensate: step.compensate !== undefined,
+      hasRetry: step.retry !== undefined,
+      maxAttempts: step.retry?.maxAttempts,
+    });
+
     const timeoutPromise = this.createTimeoutPromise<T>();
+    const stepStartTime = Date.now();
 
     try {
       const result = await Promise.race([
-        executeWithRetry(fn, step.id, options?.retry),
+        executeWithRetry(fn, step.id, options?.retry, this.id, stepIndex),
         timeoutPromise,
       ]);
+
+      const duration = Date.now() - stepStartTime;
       this.completedSteps++;
+
+      emitTxEvent('step.success', {
+        txId: this.id,
+        stepIndex,
+        duration,
+        attempt: options?.retry?.maxAttempts || 1,
+      });
+
       return result;
     } catch (error) {
-      await this.rollback();
+      emitTxEvent('step.fail', {
+        txId: this.id,
+        stepIndex,
+        error: error instanceof Error ? error.message : String(error),
+        finalAttempt: options?.retry?.maxAttempts || 1,
+      });
+
+      await this.rollback(stepIndex, error as Error);
       throw error;
     } finally {
       this.clearTimeout();
     }
   }
 
-  // TODO: Currently only updates state; Phase 1 will add an async task for journal cleanup.
-  // eslint-disable-next-line @typescript-eslint/require-await
+  // eslint-disable-next-line
   async commit(): Promise<void> {
     if (this.status === 'committed') {
       return;
@@ -70,6 +104,14 @@ export class Transaction {
 
     this.clearTimeout();
     this.status = 'committed';
+
+    const duration = this.startTime ? Date.now() - this.startTime : 0;
+
+    emitTxEvent('commit', {
+      txId: this.id,
+      totalSteps: this.steps.length,
+      duration,
+    });
   }
 
   private createTimeoutPromise<T>(): Promise<T> {
@@ -80,12 +122,26 @@ export class Transaction {
       const remaining = this.options.timeout - elapsed;
 
       if (remaining <= 0) {
+        emitTxEvent('timeout', {
+          txId: this.id,
+          timeoutMs: this.options.timeout,
+          elapsedMs: elapsed,
+          completedSteps: this.completedSteps,
+        });
         reject(new TransactionTimeoutError(this.options.timeout, elapsed));
         return;
       }
 
       this.timeoutTimer = setTimeout(() => {
         const finalElapsed = this.startTime ? Date.now() - this.startTime : 0;
+
+        emitTxEvent('timeout', {
+          txId: this.id,
+          timeoutMs: this.options.timeout,
+          elapsedMs: finalElapsed,
+          completedSteps: this.completedSteps,
+        });
+
         reject(new TransactionTimeoutError(this.options.timeout, finalElapsed));
       }, remaining);
     });
@@ -98,8 +154,16 @@ export class Transaction {
     }
   }
 
-  private async rollback(): Promise<void> {
+  private async rollback(failedStepIndex: number, error: Error): Promise<void> {
+    emitTxEvent('rollback.start', {
+      txId: this.id,
+      failedStepIndex,
+      error: error.message,
+      stepsToCompensate: this.completedSteps,
+    });
+
     this.status = 'rolled-back';
+    const rollbackStartTime = Date.now();
 
     const rollbackFn = async () => {
       const errors: Error[] = [];
@@ -116,8 +180,21 @@ export class Transaction {
       }
 
       if (errors.length > 0) {
+        emitTxEvent('rollback.fail', {
+          txId: this.id,
+          failedCompensations: errors.length,
+          errors: errors.map((e) => e.message),
+        });
+
         throw new CompensationFailedError(errors, this.completedSteps);
       }
+
+      const duration = Date.now() - rollbackStartTime;
+      emitTxEvent('rollback.success', {
+        txId: this.id,
+        compensatedSteps: this.completedSteps,
+        duration,
+      });
     };
 
     try {
@@ -126,9 +203,9 @@ export class Transaction {
       } else {
         await rollbackFn();
       }
-    } catch (error) {
+    } catch (rollbackError) {
       this.status = 'failed';
-      throw error;
+      throw rollbackError;
     }
   }
 }
