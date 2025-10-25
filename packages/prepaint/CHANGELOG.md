@@ -1,5 +1,29 @@
 # @firsttx/prepaint
 
+## 0.4.1
+
+### Patch Changes
+
+**Added**
+
+- DevTools integration: added event emission for debugging and monitoring
+  - `capture` events: emitted when snapshot is captured with route, body size, and style count
+  - `restore` events: emitted during boot when snapshot is restored with strategy and duration
+  - `handoff` events: emitted during React hydration handoff with strategy selection
+  - `hydration.error` events: emitted on hydration mismatches with error details and recovery status
+  - `storage.error` events: emitted on IndexedDB failures with operation type and recoverability
+
+**Changed**
+
+- Internal: added `emitDevToolsEvent()` calls throughout prepaint lifecycle
+- No breaking changes to public API
+
+**Technical**
+
+- Events use priority system (NORMAL for lifecycle, HIGH for errors)
+- All events include route context for debugging
+- Events are no-op when DevTools extension is not present
+
 ## 0.4.0
 
 ### Minor Changes

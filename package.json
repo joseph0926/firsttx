@@ -2,7 +2,7 @@
   "name": "firsttx",
   "version": "0.0.0",
   "private": true,
-  "description": "Prepaint CSR x Local-First x Transaction Graph is a single flow that removes blank screens, preserves continuity offline, and commits user actions atomically. The result is a faster first impression and a safer, more predictable app—without leaning on SSR.",
+  "description": "CSR-first toolkit that combines Prepaint, Local-First, and Tx to replay the last UI instantly, keep React state synced with IndexedDB, and execute optimistic transactions atomically—no SSR required.",
   "license": "MIT",
   "author": "joseph0926",
   "packageManager": "pnpm@10.17.1",

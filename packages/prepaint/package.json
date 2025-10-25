@@ -1,7 +1,7 @@
 {
   "name": "@firsttx/prepaint",
-  "version": "0.4.0",
-  "description": "Prepaint’s tiny boot script (<2KB gzip target) replays the last snapshot before the main bundle arrives, yielding a 0ms blank screen on return visits. It attempts hydration to reuse the DOM or cleanly replaces it, and shows a clear stale→fresh handoff once server data syncs.",
+  "version": "0.4.1",
+  "description": "Instant boot script for CSR apps that replays IndexedDB snapshots before React loads, delivering ~0 ms revisit blanks with automatic hydration or clean rerender fallback.",
   "license": "MIT",
   "author": "joseph0926",
   "type": "module",

@@ -1,5 +1,34 @@
 # @firsttx/local-first
 
+## 0.4.2
+
+### Patch Changes
+
+**Added**
+
+- DevTools integration: added comprehensive event emission for model lifecycle debugging
+  - `init` events: emitted when model is initialized with TTL and version info
+  - `load` events: emitted when data is loaded from IndexedDB with age and staleness status
+  - `patch` events: emitted on Immer-based updates with operation details and duration
+  - `replace` events: emitted on full data replacement with source tracking (sync/broadcast/manual)
+  - `sync.start` events: emitted when sync begins with trigger reason (mount/manual/stale)
+  - `sync.success` events: emitted on successful sync with data size and change detection
+  - `sync.error` events: emitted on sync failures with error details and retry status
+  - `broadcast` events: emitted on cross-tab synchronization via BroadcastChannel
+  - `validation.error` events: emitted on Zod schema validation failures with path info
+
+**Changed**
+
+- Internal: added `emitModelEvent()` calls throughout model operations
+- No breaking changes to public API or hooks behavior
+
+**Technical**
+
+- Events use priority system (LOW for routine ops, NORMAL for syncs, HIGH for errors)
+- All events include modelName for filtering and debugging
+- Broadcast events include senderId to track cross-tab communication origin
+- Events are gracefully no-op when DevTools extension is not present
+
 ## 0.4.1
 
 ### Patch Changes

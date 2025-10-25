@@ -1,5 +1,36 @@
 # @firsttx/tx
 
+## 0.3.1
+
+### Patch Changes
+
+**Added**
+
+- DevTools integration: added detailed event emission for transaction lifecycle debugging
+  - `start` events: emitted when transaction begins with timeout and transition settings
+  - `step.start` events: emitted when each step starts with compensation and retry configuration
+  - `step.success` events: emitted on step completion with duration and attempt number
+  - `step.retry` events: emitted on retry attempts with backoff strategy and delay details
+  - `step.fail` events: emitted on step failures after exhausting retries
+  - `commit` events: emitted on successful transaction commit with total duration
+  - `rollback.start` events: emitted when rollback begins with failure reason and completed step count
+  - `rollback.success` events: emitted on successful compensation with compensated step count
+  - `rollback.fail` events: emitted when compensation fails with error details
+  - `timeout` events: emitted when transaction exceeds configured timeout
+
+**Changed**
+
+- Internal: added `emitTxEvent()` calls throughout transaction execution flow
+- No breaking changes to public API or `useTx` hook behavior
+
+**Technical**
+
+- Events use priority system (LOW for step details, NORMAL for lifecycle, HIGH for failures)
+- All events include txId for correlation and debugging
+- Step events include stepIndex for sequence tracking
+- Retry events include backoff strategy information (exponential/linear)
+- Events are gracefully no-op when DevTools extension is not present
+
 ## 0.3.0
 
 ### Minor Changes

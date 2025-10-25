@@ -220,6 +220,54 @@ Test each feature with 9 different scenarios
 
 💡 **Curious about API options?** → Jump to [API Reference](#api-reference)
 
+## Debugging with DevTools
+
+Debug FirstTx apps with full visibility into event lifecycle.
+
+**[Install DevTools Extension](https://github.com/joseph0926/firsttx/tree/main/packages/devtools#installation)**
+
+### What You Can See
+
+**Timeline View**
+
+- Visual timeline showing Prepaint → Model → Tx execution
+- Event grouping by transaction ID and model name
+- Status indicators (success/error/pending)
+
+**Event Filtering**
+
+- Filter by category, priority, or search text
+- Error-only mode for quick debugging
+- Real-time event count display
+
+**Common Use Cases**
+
+```tsx
+// Debug: "Why didn't prepaint restore?"
+// → Check 'restore' event in DevTools
+// → Look for 'hydration.error' events
+
+// Debug: "Which model keeps re-syncing?"
+// → Filter by Model category
+// → Check 'sync.start' event trigger field
+
+// Debug: "Transaction rolled back but UI broken"
+// → Find your txId in Timeline
+// → Check if 'rollback.fail' event exists
+```
+
+### Requirements
+
+- Chrome 111+ (Edge 111+)
+- FirstTx packages with DevTools support:
+  - `@firsttx/prepaint@^0.3.3`
+  - `@firsttx/local-first@^0.4.1`
+  - `@firsttx/tx@^0.2.2`
+
+**Learn more:** [DevTools Documentation](https://github.com/joseph0926/firsttx/tree/main/packages/devtools)
+
+---
+
 ## API Reference
 
 ### Prepaint
