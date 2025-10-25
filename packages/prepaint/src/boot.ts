@@ -5,6 +5,7 @@ import { openDB } from './utils';
 import { mountOverlay } from './overlay';
 import { normalizeSnapshotStyleEntry } from './style-utils';
 import { BootError, PrepaintStorageError, convertDOMException } from './errors';
+import { emitDevToolsEvent } from './devtools';
 
 function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   return new Promise((resolve, reject) => {
@@ -46,12 +47,20 @@ function shouldUseOverlay(route: string): boolean {
 }
 
 export async function boot(): Promise<void> {
+  const restoreStartTime = performance.now();
   const route = window.location.pathname;
   let db: IDBDatabase | null = null;
 
   try {
     db = await openDB();
   } catch (error) {
+    emitDevToolsEvent('storage.error', {
+      operation: 'read',
+      code: error instanceof Error ? error.name : 'UNKNOWN',
+      recoverable: true,
+      route,
+    });
+
     const bootError = new BootError('Failed to open IndexedDB', 'db-open', error as Error);
     console.error(bootError.getDebugInfo());
     return;
@@ -63,6 +72,14 @@ export async function boot(): Promise<void> {
     db.close();
   } catch (error) {
     if (db) db.close();
+
+    emitDevToolsEvent('storage.error', {
+      operation: 'read',
+      code: error instanceof Error ? error.name : 'UNKNOWN',
+      recoverable: true,
+      route,
+    });
+
     const bootError =
       error instanceof PrepaintStorageError
         ? new BootError(error.message, 'snapshot-read', error)
@@ -84,6 +101,15 @@ export async function boot(): Promise<void> {
       document.documentElement.setAttribute('data-prepaint', 'true');
       document.documentElement.setAttribute('data-prepaint-overlay', 'true');
       document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));
+
+      const restoreDuration = performance.now() - restoreStartTime;
+      emitDevToolsEvent('restore', {
+        route,
+        strategy: 'has-prepaint',
+        snapshotAge: age,
+        restoreDuration,
+      });
+
       if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
         console.log(`[FirstTx] Snapshot restored as overlay (age: ${age}ms)`);
       }
@@ -115,6 +141,14 @@ export async function boot(): Promise<void> {
 
     document.documentElement.setAttribute('data-prepaint', 'true');
     document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));
+
+    const restoreDuration = performance.now() - restoreStartTime;
+    emitDevToolsEvent('restore', {
+      route,
+      strategy: 'has-prepaint',
+      snapshotAge: age,
+      restoreDuration,
+    });
 
     if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
       console.log(`[FirstTx] Snapshot restored (age: ${age}ms)`);

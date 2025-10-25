@@ -5,6 +5,7 @@ import { setupCapture } from './capture';
 import type { Snapshot } from './types';
 import { removeOverlay } from './overlay';
 import { HydrationError } from './errors';
+import { emitDevToolsEvent } from './devtools';
 
 export interface CreateFirstTxRootOptions {
   transition?: boolean;
@@ -73,6 +74,12 @@ export function createFirstTxRoot(
   }
   setupCapture({ onCapture });
   const strategy = handoff();
+
+  emitDevToolsEvent('handoff', {
+    strategy,
+    canHydrate: strategy === 'has-prepaint' && canHydrate(container),
+  });
+
   onHandoff?.(strategy);
   const attemptHydration = strategy === 'has-prepaint' && canHydrate(container);
   if (attemptHydration) {
@@ -106,6 +113,13 @@ export function createFirstTxRoot(
             inferMismatchType(reactError as Error),
             reactError as Error,
           );
+
+          emitDevToolsEvent('hydration.error', {
+            error: hydrationError.message,
+            mismatchType: hydrationError.mismatchType,
+            recovered: true,
+            route: window.location.pathname,
+          });
 
           onHydrationError?.(hydrationError);
 

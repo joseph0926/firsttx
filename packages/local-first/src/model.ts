@@ -3,6 +3,7 @@ import type { ModelHistory, ModelOptions } from './types';
 import { Storage } from './storage';
 import { FirstTxError, StorageError, ValidationError } from './errors';
 import { ModelBroadcaster } from './broadcast';
+import { emitModelEvent } from './devtools';
 
 /**
  * Internal cache state
@@ -164,6 +165,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
      * Async snapshot retrieval from IndexedDB
      */
     getSnapshot: async () => {
+      const loadStartTime = performance.now();
       const storage = Storage.getInstance();
       const stored = await storage.get<T>(name);
 
@@ -185,6 +187,12 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       if (!parseResult.success) {
         await storage.delete(name);
 
+        emitModelEvent('validation.error', {
+          modelName: name,
+          error: parseResult.error.message,
+          path: parseResult.error.issues[0]?.path.join('.'),
+        });
+
         if (process.env.NODE_ENV !== 'production') {
           throw new ValidationError(
             `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
@@ -195,6 +203,17 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
         return null;
       }
+
+      const loadDuration = performance.now() - loadStartTime;
+      const age = Date.now() - stored.updatedAt;
+
+      emitModelEvent('load', {
+        modelName: name,
+        dataSize: JSON.stringify(parseResult.data).length,
+        age,
+        isStale: age >= effectiveTTL,
+        duration: loadDuration,
+      });
 
       return parseResult.data ?? null;
     },
@@ -230,8 +249,15 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
      */
     replace: async (data: T): Promise<void> =>
       enqueue(async () => {
+        const replaceStartTime = performance.now();
         const parseResult = options.schema.safeParse(data);
         if (!parseResult.success) {
+          emitModelEvent('validation.error', {
+            modelName: name,
+            error: parseResult.error.message,
+            path: parseResult.error.issues[0]?.path.join('.'),
+          });
+
           throw new ValidationError(
             `[FirstTx] Invalid data for model "${name}"`,
             name,
@@ -245,6 +271,15 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         await persist(storage, parseResult.data, now);
 
         broadcaster.broadcast({ type: 'model-replaced', key: name });
+
+        const replaceDuration = performance.now() - replaceStartTime;
+
+        emitModelEvent('replace', {
+          modelName: name,
+          dataSize: JSON.stringify(parseResult.data).length,
+          source: 'manual',
+          duration: replaceDuration,
+        });
       }),
 
     /**
@@ -252,6 +287,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
      */
     patch: async (mutator: (draft: T) => void): Promise<void> =>
       enqueue(async () => {
+        const patchStartTime = performance.now();
         const storage = Storage.getInstance();
         const stored = await storage.get<T>(name);
 
@@ -281,6 +317,12 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
           if (!parseStored.success) {
             await storage.delete(name);
 
+            emitModelEvent('validation.error', {
+              modelName: name,
+              error: parseStored.error.message,
+              path: parseStored.error.issues[0]?.path.join('.'),
+            });
+
             if (process.env.NODE_ENV !== 'production') {
               throw new ValidationError(
                 `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
@@ -305,6 +347,12 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
         const parseResult = options.schema.safeParse(draft);
         if (!parseResult.success) {
+          emitModelEvent('validation.error', {
+            modelName: name,
+            error: parseResult.error.message,
+            path: parseResult.error.issues[0]?.path.join('.'),
+          });
+
           throw new ValidationError(
             `[FirstTx] Patch validation failed for model "${name}"`,
             name,
@@ -317,6 +365,13 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         await persist(storage, parseResult.data, now);
 
         broadcaster.broadcast({ type: 'model-patched', key: name });
+
+        const patchDuration = performance.now() - patchStartTime;
+        emitModelEvent('patch', {
+          modelName: name,
+          operation: 'mutate',
+          duration: patchDuration,
+        });
       }),
 
     getCachedSnapshot: () => {
@@ -384,6 +439,13 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       };
     },
   };
+
+  emitModelEvent('init', {
+    modelName: model.name,
+    ttl: model.ttl,
+    hasInitialData: !!options.initialData,
+    version: options.version,
+  });
 
   return model;
 }
