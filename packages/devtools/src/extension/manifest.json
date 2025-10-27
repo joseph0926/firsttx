@@ -9,12 +9,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://*.local/*",
+        "http://*.localhost/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_start"
     }
   ],
   "permissions": ["storage"],
+  "optional_host_permissions": ["<all_urls>"],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -23,7 +29,12 @@
   "web_accessible_resources": [
     {
       "resources": ["bridge.js"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://*.local/*",
+        "http://*.localhost/*"
+      ]
     }
   ],
   "homepage_url": "https://github.com/joseph0926/firsttx"
