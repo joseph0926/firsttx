@@ -25,5 +25,6 @@
       "resources": ["bridge.js"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "homepage_url": "https://github.com/joseph0926/firsttx"
 }
