@@ -22,6 +22,10 @@
 
 ## Installation
 
+### 0. Chrome Web Store
+
+[Chrome Web Store - Firsttx Devtools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)
+
 ### 1. Install Latest FirstTx Packages
 
 DevTools requires packages with event emission:

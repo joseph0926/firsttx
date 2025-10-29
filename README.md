@@ -226,7 +226,7 @@ Test each feature with 9 different scenarios
 
 Debug FirstTx apps with full visibility into event lifecycle.
 
-**[Install DevTools Extension](https://github.com/joseph0926/firsttx/tree/main/packages/devtools#installation)**
+**[Chrome Web Store - Firsttx Devtools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)**
 
 ### What You Can See
 
