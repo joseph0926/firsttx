@@ -2,6 +2,7 @@ import type { TxOptions, TxStatus, TxStep, StepOptions } from './types';
 import { CompensationFailedError, TransactionTimeoutError, TransactionStateError } from './errors';
 import { executeWithRetry } from './retry';
 import { emitTxEvent } from './devtools';
+import { supportsViewTransition } from './utils';
 
 export class Transaction {
   private steps: TxStep<unknown>[] = [];
@@ -198,7 +199,7 @@ export class Transaction {
     };
 
     try {
-      if (this.options.transition && 'startViewTransition' in document) {
+      if (this.options.transition && supportsViewTransition()) {
         await document.startViewTransition(rollbackFn).finished;
       } else {
         await rollbackFn();
