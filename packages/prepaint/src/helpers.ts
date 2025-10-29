@@ -6,6 +6,7 @@ import type { Snapshot } from './types';
 import { removeOverlay } from './overlay';
 import { HydrationError } from './errors';
 import { emitDevToolsEvent } from './devtools';
+import { supportsViewTransition } from './utils';
 
 export interface CreateFirstTxRootOptions {
   transition?: boolean;
@@ -127,11 +128,7 @@ export function createFirstTxRoot(
 
           if (bailed) return;
           bailed = true;
-          if (
-            'startViewTransition' in document &&
-            typeof document.startViewTransition === 'function' &&
-            transition
-          ) {
+          if (supportsViewTransition() && transition) {
             document.startViewTransition(() => {
               runClientReset();
             });
@@ -154,11 +151,7 @@ export function createFirstTxRoot(
         );
       });
     };
-    if (
-      'startViewTransition' in document &&
-      typeof document.startViewTransition === 'function' &&
-      transition
-    ) {
+    if (supportsViewTransition() && transition) {
       document.startViewTransition(runHydrate);
     } else {
       runHydrate();

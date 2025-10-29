@@ -2,6 +2,7 @@ import { useSyncExternalStore, useState, useEffect, useCallback, useRef } from '
 import type { SyncOptions, SyncedModelResult, Fetcher } from './types';
 import type { Model } from './model';
 import { emitModelEvent } from './devtools';
+import { supportsViewTransition } from './utils';
 
 /**
  * React hook for subscribing to model changes
@@ -71,7 +72,7 @@ export function useSyncedModel<T>(
       const currentData = model.getCachedSnapshot();
       const data = await fetcherRef.current(currentData);
 
-      if ('startViewTransition' in document) {
+      if (supportsViewTransition()) {
         await document.startViewTransition(() => model.replace(data)).finished;
       } else {
         await model.replace(data);
