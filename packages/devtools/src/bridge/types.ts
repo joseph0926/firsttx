@@ -177,6 +177,27 @@ export interface ModelValidationErrorEvent extends BaseEvent {
   };
 }
 
+export interface ModelBroadcastFallbackEvent extends BaseEvent {
+  category: 'model';
+  type: 'broadcast.fallback';
+  priority: EventPriority.NORMAL;
+  data: {
+    reason: string;
+    environment: 'browser' | 'ssr' | 'unknown';
+  };
+}
+
+export interface ModelBroadcastSkippedEvent extends BaseEvent {
+  category: 'model';
+  type: 'broadcast.skipped';
+  priority: EventPriority.LOW;
+  data: {
+    modelName: string;
+    operation: 'model-patched' | 'model-replaced' | 'model-deleted';
+    reason: string;
+  };
+}
+
 export type ModelEvent =
   | ModelInitEvent
   | ModelLoadEvent
@@ -186,6 +207,8 @@ export type ModelEvent =
   | ModelSyncSuccessEvent
   | ModelSyncErrorEvent
   | ModelBroadcastEvent
+  | ModelBroadcastFallbackEvent
+  | ModelBroadcastSkippedEvent
   | ModelValidationErrorEvent;
 
 export interface TxStartEvent extends BaseEvent {

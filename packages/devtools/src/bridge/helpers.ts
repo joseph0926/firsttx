@@ -27,6 +27,8 @@ import type {
   TxTimeoutEvent,
   SystemReadyEvent,
   SystemErrorEvent,
+  ModelBroadcastFallbackEvent,
+  ModelBroadcastSkippedEvent,
 } from './types';
 
 function generateId(): string {
@@ -182,6 +184,32 @@ export function createModelBroadcastEvent(data: ModelBroadcastEvent['data']): Mo
     id: generateId(),
     category: 'model',
     type: 'broadcast',
+    timestamp: Date.now(),
+    priority: EventPriority.LOW,
+    data,
+  };
+}
+
+export function createModelBroadcastFallbackEvent(
+  data: ModelBroadcastFallbackEvent['data'],
+): ModelBroadcastFallbackEvent {
+  return {
+    id: generateId(),
+    category: 'model',
+    type: 'broadcast.fallback',
+    timestamp: Date.now(),
+    priority: EventPriority.NORMAL,
+    data,
+  };
+}
+
+export function createModelBroadcastSkippedEvent(
+  data: ModelBroadcastSkippedEvent['data'],
+): ModelBroadcastSkippedEvent {
+  return {
+    id: generateId(),
+    category: 'model',
+    type: 'broadcast.skipped',
     timestamp: Date.now(),
     priority: EventPriority.LOW,
     data,

@@ -226,4 +226,57 @@ describe('Model with BroadcastChannel', () => {
       expect(TestModel.getCachedSnapshot()).toBeNull();
     });
   });
+
+  describe('Fallback Mode', () => {
+    let originalBroadcastChannel: typeof BroadcastChannel;
+
+    beforeEach(() => {
+      originalBroadcastChannel = global.BroadcastChannel;
+    });
+
+    afterEach(() => {
+      global.BroadcastChannel = originalBroadcastChannel;
+    });
+
+    it('should crash when BroadcastChannel is undefined', () => {
+      // @ts-expect-error assigning undefined for testing purposes
+      global.BroadcastChannel = undefined;
+
+      expect(() => {
+        ModelBroadcaster.getInstance();
+      }).not.toThrow(TypeError);
+      expect(() => {
+        ModelBroadcaster.getInstance();
+      }).not.toThrow(/is not a constructor/);
+    });
+
+    it('should NOT crash when BroadcastChannel is undefined', () => {
+      // @ts-expect-error assigning undefined for testing purposes
+      global.BroadcastChannel = undefined;
+
+      const broadcaster = ModelBroadcaster.getInstance();
+
+      expect(broadcaster).toBeDefined();
+      expect(broadcaster).toHaveProperty('broadcast');
+      expect(broadcaster).toHaveProperty('subscribe');
+      expect(broadcaster).toHaveProperty('close');
+    });
+
+    it('should allow model operations in fallback mode', async () => {
+      // @ts-expect-error assigning undefined for testing purposes
+      global.BroadcastChannel = undefined;
+
+      const TestModel = defineModel('fallback-test', {
+        schema: z.object({ count: z.number() }),
+        ttl: 5000,
+      });
+
+      await TestModel.replace({ count: 0 });
+      await TestModel.patch((draft) => {
+        draft.count = 1;
+      });
+
+      expect(TestModel.getCachedSnapshot()).toEqual({ count: 1 });
+    });
+  });
 });

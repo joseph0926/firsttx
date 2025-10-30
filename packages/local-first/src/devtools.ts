@@ -65,11 +65,24 @@ interface ModelValidationErrorData {
   path?: string;
 }
 
+interface ModelBroadcastFallbackData {
+  reason: string;
+  environment: 'browser' | 'ssr' | 'unknown';
+}
+
+interface ModelBroadcastSkippedData {
+  modelName: string;
+  operation: 'model-patched' | 'model-replaced' | 'model-deleted';
+  reason: string;
+}
+
 const EVENT_PRIORITY: Record<string, number> = {
   init: 0,
   load: 0,
   patch: 0,
   broadcast: 0,
+  'broadcast.fallback': 1,
+  'broadcast.skipped': 0,
   replace: 1,
   'sync.start': 1,
   'sync.success': 1,
@@ -85,6 +98,8 @@ export function emitModelEvent(type: 'sync.start', data: ModelSyncStartData): vo
 export function emitModelEvent(type: 'sync.success', data: ModelSyncSuccessData): void;
 export function emitModelEvent(type: 'sync.error', data: ModelSyncErrorData): void;
 export function emitModelEvent(type: 'broadcast', data: ModelBroadcastData): void;
+export function emitModelEvent(type: 'broadcast.fallback', data: ModelBroadcastFallbackData): void;
+export function emitModelEvent(type: 'broadcast.skipped', data: ModelBroadcastSkippedData): void;
 export function emitModelEvent(type: 'validation.error', data: ModelValidationErrorData): void;
 
 export function emitModelEvent(type: string, data: unknown): void {
