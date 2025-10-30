@@ -68,6 +68,5 @@ await tx.commit()
 
 ## Requirements
 
-- Node.js >= 22.20.0
 - Modern browser with IndexedDB support
 - ViewTransition API (Chrome 111+) recommended for smooth animations
