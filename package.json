@@ -7,7 +7,7 @@
   "author": "joseph0926",
   "packageManager": "pnpm@10.20.0",
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "keywords": [
     "prepaint",
