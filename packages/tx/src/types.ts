@@ -23,8 +23,8 @@ export type StepOptions = {
 export type TxStep<T = void> = {
   /** Unique step identifier */
   id: string;
-  /** Function to execute */
-  run: () => Promise<T>;
+  /** Function to execute - optionally receives AbortSignal for cancellation */
+  run: (signal?: AbortSignal) => Promise<T>;
   /** Compensation function to run on rollback */
   compensate?: () => Promise<void>;
   /** Retry configuration */

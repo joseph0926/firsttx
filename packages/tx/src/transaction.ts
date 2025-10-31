@@ -12,6 +12,7 @@ export class Transaction {
   private readonly options: Required<TxOptions>;
   private startTime?: number;
   private timeoutTimer?: NodeJS.Timeout;
+  private abortController?: AbortController;
 
   constructor(options: TxOptions = {}) {
     this.id = options.id ?? crypto.randomUUID();
@@ -29,7 +30,7 @@ export class Transaction {
     });
   }
 
-  async run<T = void>(fn: () => Promise<T>, options?: StepOptions): Promise<T> {
+  async run<T = void>(fn: (signal?: AbortSignal) => Promise<T>, options?: StepOptions): Promise<T> {
     if (this.status !== 'pending' && this.status !== 'running') {
       throw new TransactionStateError(this.status, 'add step', this.id);
     }
@@ -39,6 +40,8 @@ export class Transaction {
     if (!this.startTime) {
       this.startTime = Date.now();
     }
+
+    this.abortController = new AbortController();
 
     const stepIndex = this.steps.length;
     const step: TxStep<T> = {
@@ -63,7 +66,14 @@ export class Transaction {
 
     try {
       const result = await Promise.race([
-        executeWithRetry(fn, step.id, options?.retry, this.id, stepIndex),
+        executeWithRetry(
+          fn,
+          step.id,
+          options?.retry,
+          this.id,
+          stepIndex,
+          this.abortController.signal,
+        ),
         timeoutPromise,
       ]);
 
@@ -90,6 +100,7 @@ export class Transaction {
       throw error;
     } finally {
       this.clearTimeout();
+      this.abortController = undefined;
     }
   }
 
@@ -123,6 +134,10 @@ export class Transaction {
       const remaining = this.options.timeout - elapsed;
 
       if (remaining <= 0) {
+        if (this.abortController) {
+          this.abortController.abort();
+        }
+
         emitTxEvent('timeout', {
           txId: this.id,
           timeoutMs: this.options.timeout,
@@ -135,6 +150,10 @@ export class Transaction {
 
       this.timeoutTimer = setTimeout(() => {
         const finalElapsed = this.startTime ? Date.now() - this.startTime : 0;
+
+        if (this.abortController) {
+          this.abortController.abort();
+        }
 
         emitTxEvent('timeout', {
           txId: this.id,

@@ -4,11 +4,12 @@ import { RetryExhaustedError } from './errors';
 import { emitTxEvent } from './devtools';
 
 export async function executeWithRetry<T>(
-  fn: () => Promise<T>,
+  fn: (signal?: AbortSignal) => Promise<T>,
   stepId: string,
   config?: RetryConfig,
   txId?: string,
   stepIndex?: number,
+  signal?: AbortSignal,
 ): Promise<T> {
   const { maxAttempts, delayMs, backoff } = {
     ...DEFAULT_RETRY_CONFIG,
@@ -19,7 +20,7 @@ export async function executeWithRetry<T>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const result = await fn();
+      const result = await fn(signal);
       return result;
     } catch (error) {
       errors.push(error as Error);

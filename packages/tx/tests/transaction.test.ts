@@ -778,6 +778,50 @@ describe('Transaction - Timeout', () => {
       .catch(() => {});
     await expect(tx.run(async () => {})).rejects.toThrow('transaction is rolled-back');
   });
+
+  it('should NOT cancel ongoing function after timeout (current bug)', async () => {
+    const tx = startTransaction({ timeout: 100 });
+    const executionLog: string[] = [];
+
+    const longRunningFn = vi.fn().mockImplementation(async () => {
+      executionLog.push('started');
+      await sleep(50);
+      executionLog.push('checkpoint-1');
+      await sleep(100);
+      executionLog.push('checkpoint-2');
+      await sleep(50);
+      executionLog.push('completed');
+    });
+
+    await expect(tx.run(longRunningFn)).rejects.toThrow(TransactionTimeoutError);
+
+    await sleep(250);
+
+    expect(executionLog).toEqual(['started', 'checkpoint-1', 'checkpoint-2', 'completed']);
+  });
+
+  it('should NOT cancel API requests after timeout (current bug)', async () => {
+    const tx = startTransaction({ timeout: 100 });
+    const apiCallMade = vi.fn();
+    const apiCallCompleted = vi.fn();
+
+    const apiRequestFn = vi.fn().mockImplementation(async () => {
+      await sleep(50);
+      apiCallMade();
+
+      await sleep(150);
+
+      apiCallCompleted();
+      return 'api-response';
+    });
+
+    await expect(tx.run(apiRequestFn)).rejects.toThrow(TransactionTimeoutError);
+
+    await sleep(250);
+
+    expect(apiCallMade).toHaveBeenCalledTimes(1);
+    expect(apiCallCompleted).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Transaction - Failed Status', () => {
@@ -881,5 +925,139 @@ describe('Transaction - Failed Status', () => {
     } catch {}
 
     await expect(tx.commit()).rejects.toThrow('[FirstTx] Cannot commit failed transaction');
+  });
+});
+
+describe('Transaction - AbortSignal', () => {
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it('should provide AbortSignal to the step function', async () => {
+    const tx = startTransaction();
+    let receivedSignal: AbortSignal | undefined;
+
+    await tx.run(async (signal) => {
+      receivedSignal = signal;
+    });
+
+    await tx.commit();
+
+    expect(receivedSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('should abort signal on timeout', async () => {
+    const tx = startTransaction({ timeout: 100 });
+    let signal: AbortSignal | undefined;
+
+    const fn = vi.fn().mockImplementation(async (s?: AbortSignal) => {
+      signal = s;
+      await sleep(200);
+    });
+
+    await expect(tx.run(fn)).rejects.toThrow(TransactionTimeoutError);
+
+    expect(signal).toBeDefined();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it('should cancel ongoing function when AbortSignal is respected', async () => {
+    const tx = startTransaction({ timeout: 100 });
+    const executionLog: string[] = [];
+
+    const abortAwareFn = vi.fn().mockImplementation(async (signal?: AbortSignal) => {
+      executionLog.push('started');
+      await sleep(50);
+      executionLog.push('checkpoint-1');
+
+      if (signal?.aborted) {
+        executionLog.push('aborted-early');
+        throw new DOMException('Aborted', 'AbortError');
+      }
+
+      await sleep(100);
+
+      if (signal?.aborted) {
+        executionLog.push('aborted-after-timeout');
+        throw new DOMException('Aborted', 'AbortError');
+      }
+
+      executionLog.push('checkpoint-2');
+      await sleep(50);
+      executionLog.push('completed');
+    });
+
+    await expect(tx.run(abortAwareFn)).rejects.toThrow(TransactionTimeoutError);
+
+    await sleep(250);
+
+    expect(executionLog).toContain('started');
+    expect(executionLog).toContain('checkpoint-1');
+    expect(executionLog).not.toContain('checkpoint-2');
+    expect(executionLog).not.toContain('completed');
+  });
+
+  it('should abort fetch requests using AbortSignal', async () => {
+    const tx = startTransaction({ timeout: 100 });
+    let fetchAborted = false;
+
+    const mockFetch = vi.fn().mockImplementation(async (signal?: AbortSignal) => {
+      await sleep(50);
+
+      const promise = sleep(200);
+
+      signal?.addEventListener('abort', () => {
+        fetchAborted = true;
+      });
+
+      await promise;
+
+      if (signal?.aborted) {
+        throw new DOMException('The operation was aborted', 'AbortError');
+      }
+
+      return { data: 'response' };
+    });
+
+    await expect(tx.run(mockFetch)).rejects.toThrow(TransactionTimeoutError);
+
+    await sleep(250);
+
+    expect(fetchAborted).toBe(true);
+  });
+
+  it('should work without AbortSignal (backward compatibility)', async () => {
+    const tx = startTransaction({ timeout: 1000 });
+
+    const oldStyleFn = vi.fn().mockImplementation(async () => {
+      await sleep(50);
+      return 'success';
+    });
+
+    const result = await tx.run(oldStyleFn);
+    await tx.commit();
+
+    expect(result).toBe('success');
+    expect(oldStyleFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should abort signal even with retry', async () => {
+    const tx = startTransaction({ timeout: 150 });
+    let lastSignal: AbortSignal | undefined;
+
+    const fn = vi.fn().mockImplementation(async (signal?: AbortSignal) => {
+      lastSignal = signal;
+      await sleep(100);
+      throw new Error('Fail');
+    });
+
+    await expect(
+      tx.run(fn, {
+        retry: { maxAttempts: 3, delayMs: 50 },
+      }),
+    ).rejects.toThrow(TransactionTimeoutError);
+
+    expect(lastSignal).toBeDefined();
+    expect(lastSignal?.aborted).toBe(true);
+
+    expect(fn.mock.calls.length).toBeLessThan(3);
   });
 });
