@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/devtools",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Chromium DevTools companion that streams FirstTx bridge events via BroadcastChannel queues, IndexedDB persistence, and buffered delivery to a custom panel.",
   "license": "MIT",
   "author": "joseph0926",

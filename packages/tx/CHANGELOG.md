@@ -1,5 +1,48 @@
 # @firsttx/tx
 
+## 0.4.0
+
+### Minor Changes
+
+### ✨ Features
+
+- **AbortSignal Support**: Step functions now optionally receive an `AbortSignal` parameter, enabling explicit cancellation of in-flight operations when timeout occurs ([#ce6230e](commit-hash))
+  - Prevents resource waste from abandoned operations
+  - Native integration with `fetch()` API
+  - 100% backward compatible (signal parameter is optional)
+
+### 🐛 Bug Fixes
+
+- **Timeout Cancellation**: Fixed bug where operations continued running in background after timeout ([#ce6230e](commit-hash))
+  - Previously, `Promise.race()` would reject but the losing promise continued executing
+  - Now properly aborts ongoing operations via `AbortController`
+
+### 🔄 Refactoring
+
+- **SSR Compatibility**: Prevent crashes when using FirstTx in SSR framework client components ([#7c498ff](commit-hash))
+
+### 📚 Documentation
+
+- Added 6 new tests covering AbortSignal functionality
+- Added 2 tests documenting the previous timeout bug behavior
+
+### ⚠️ Breaking Changes
+
+None. This release is fully backward compatible.
+
+### 📦 Migration Guide
+
+**Before (still works):**
+
+```typescript
+await tx.run(async () => {
+  await fetch('/api/endpoint');
+});
+After (recommended):
+await tx.run(async (signal) => {
+  await fetch('/api/endpoint', { signal });
+});
+
 ## 0.3.1
 
 ### Patch Changes
@@ -129,3 +172,4 @@ This ensures transactions don't hang indefinitely and accurately reflect their f
 ### Minor Changes
 
 - First public release with core features: IndexedDB models with React integration / Atomic transactions with automatic rollback
+```

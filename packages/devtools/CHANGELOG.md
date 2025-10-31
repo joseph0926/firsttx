@@ -1,5 +1,23 @@
 # @firsttx/devtools
 
+## 0.1.2
+
+### Patch Changes
+
+### 🐛 Bug Fixes
+
+- **Permissions**: Fixed permission issues in Chrome extension ([#375f9c6](commit-hash))
+
+### 🔄 Refactoring
+
+- **BroadcastChannel Fallback**: Added fallback for unsupported environments ([#2612103](commit-hash))
+
+### 🎨 Chore
+
+- Fixed icon size in extension manifest ([#71759df](commit-hash))
+- Added metadata for Chrome Web Store listing ([#c834716](commit-hash))
+- Added devtools documentation link ([#9d15a79](commit-hash))
+
 ## 0.1.1
 
 ### Patch Changes

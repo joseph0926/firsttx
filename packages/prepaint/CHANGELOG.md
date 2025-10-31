@@ -1,5 +1,17 @@
 # @firsttx/prepaint
 
+## 0.4.2
+
+### Patch Changes
+
+### 🔄 Refactoring
+
+- **SSR Compatibility**: Prevent crashes when using in SSR framework client components ([#7c498ff](commit-hash))
+
+### 🐛 Bug Fixes
+
+- **Node Version**: Fixed compatibility with Node.js version constraints ([#5a28b43](commit-hash))
+
 ## 0.4.1
 
 ### Patch Changes
