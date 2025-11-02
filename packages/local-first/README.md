@@ -148,12 +148,35 @@ const Model = defineModel('cart', {
 
 - `getSnapshot(): Promise<T | null>` - Load data from IndexedDB
 - `getHistory(): Promise<ModelHistory>` - Get metadata (age, staleness)
-- `replace(data: T): Promise<void>` - Replace entire data (used by sync)
-- `patch(mutator: (draft: T) => void): Promise<void>` - Update via Immer
+- `replace(data: T): Promise<void>` - Replace entire data (including `null`)
+- `patch(mutator: (draft: T) => void): Promise<void>` - Update existing data via Immer-style draft mutation
 - `subscribe(callback: () => void): () => void` - Listen to changes
 - `getCachedSnapshot(): T | null` - Synchronous cached read
 - `getCachedHistory(): ModelHistory` - Synchronous cached metadata
 - `getCachedError(): FirstTxError | null` - Get last error
+
+**When to use `patch()` vs `replace()`**
+
+Use `patch()` when you have existing data and want to modify specific fields:
+
+```ts
+await Model.patch((draft) => {
+  draft.items.push(newItem); // Mutate draft in place
+  draft.total += 100; // No return statement
+});
+```
+
+Use `replace()` when you want to completely replace data (including setting/clearing `null`):
+
+```ts
+// Set initial data
+await Model.replace({ items: [], total: 0 });
+
+// Clear data
+await Model.replace(null);
+```
+
+⚠️ **Important:** `patch()` requires existing data. If data is `null` and you haven't provided `initialData`, `patch()` will throw an error. Use `replace()` instead.
 
 ---
 
@@ -231,7 +254,8 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 **Returns** `SyncedModelResult<T>`
 
 - `data: T | null` - Current data
-- `patch: (mutator: (draft: T) => void) => Promise<void>` - Local update
+- `patch: (mutator: (draft: T) => void) => Promise<void>` - Update existing data via draft mutation
+- `replace: (data: T) => Promise<void>` - Replace entire data
 - `sync: () => Promise<void>` - Manual sync trigger
   - Safe to call multiple times (automatically deduplicated)
   - Uses ViewTransition for smooth updates (if available)

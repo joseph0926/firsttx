@@ -345,7 +345,8 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 **Returns**
 
 - `data: T | null` - 현재 데이터
-- `patch: (fn: (draft: T) => void) => Promise<void>` - 로컬 업데이트
+- `patch: (fn: (draft: T) => void) => Promise<void>` - 기존 데이터를 draft 뮤테이션으로 업데이트
+- `replace: (data: T) => Promise<void>` - 전체 데이터 교체
 - `sync: () => Promise<void>` - 수동 동기화
 - `isSyncing: boolean` - 동기화 중 여부
 - `error: Error | null` - 동기화 에러
@@ -353,6 +354,56 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
   - `age: number` - 마지막 업데이트로부터 경과 시간 (ms)
   - `isStale: boolean` - TTL 초과 여부
   - `updatedAt: number` - 마지막 업데이트 타임스탬프
+
+#### `patch()` vs `replace()` 언제 사용할까요?
+
+**`patch()` 사용 시기:**
+
+- 이미 데이터가 존재할 때 (`data !== null`)
+- Immer 스타일의 draft 뮤테이션으로 특정 필드를 수정하고 싶을 때
+- 예시: 장바구니에 아이템 추가, 카운터 업데이트
+
+```tsx
+// 기존 데이터 수정
+await patch((draft) => {
+  draft.items.push(newItem);
+  draft.total += newItem.price;
+  // return 문 없음 - draft를 직접 수정
+});
+```
+
+**`replace()` 사용 시기:**
+
+- 데이터를 완전히 교체하고 싶을 때 (`null` 포함)
+- 초기 상태가 `null`이고 처음으로 값을 설정할 때
+- 예시: 로그인 (null → 사용자 데이터), 로그아웃 (사용자 → null)
+
+```tsx
+// 로그인 - 초기 데이터 설정
+await replace({ accessToken: 'xxx', user: {...} });
+
+// 로그아웃 - 데이터 초기화
+await replace(null);
+```
+
+**⚠️ 중요: `patch()`는 기존 데이터가 필요합니다**
+
+데이터가 `null`일 때 `patch()`를 사용하면, `initialData`를 제공하지 않은 경우 에러가 발생합니다:
+
+```tsx
+// ❌ 에러: 데이터가 null일 때 patch 불가
+const AuthModel = defineModel('auth', {
+  schema: AuthSchema.nullable(),
+  initialData: null,  // 데이터가 null로 시작
+});
+
+await AuthModel.patch((draft) => {
+  draft.token = 'xxx'; // 에러: null의 속성을 읽을 수 없음
+});
+
+// ✅ replace를 대신 사용하세요
+await AuthModel.replace({ token: 'xxx', user: {...} });
+```
 
 #### 탭 간 동기화 (Cross-Tab Synchronization)
 

@@ -347,7 +347,8 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 **Returns**
 
 - `data: T | null` - Current data
-- `patch: (fn: (draft: T) => void) => Promise<void>` - Local update
+- `patch: (fn: (draft: T) => void) => Promise<void>` - Update existing data via draft mutation
+- `replace: (data: T) => Promise<void>` - Replace entire data
 - `sync: () => Promise<void>` - Manual sync
 - `isSyncing: boolean` - Whether syncing
 - `error: Error | null` - Sync error
@@ -355,6 +356,56 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
   - `age: number` - Time elapsed since last update (ms)
   - `isStale: boolean` - Whether TTL exceeded
   - `updatedAt: number` - Last update timestamp
+
+#### When to use `patch()` vs `replace()`
+
+**Use `patch()` when:**
+
+- You have existing data (`data !== null`)
+- You want to modify specific fields via Immer-style draft mutation
+- Example: Adding items to a cart, updating counters
+
+```tsx
+// Modify existing data
+await patch((draft) => {
+  draft.items.push(newItem);
+  draft.total += newItem.price;
+  // No return statement - mutate draft in place
+});
+```
+
+**Use `replace()` when:**
+
+- You want to completely replace data (including `null`)
+- Initial state is `null` and you're setting first value
+- Example: Login (null → user data), Logout (user → null)
+
+```tsx
+// Login - set initial data
+await replace({ accessToken: 'xxx', user: {...} });
+
+// Logout - clear data
+await replace(null);
+```
+
+**⚠️ Important: `patch()` requires existing data**
+
+If you try to use `patch()` when `data` is `null`, you'll get an error unless you've provided `initialData`:
+
+```tsx
+// ❌ Error: Cannot patch when data is null
+const AuthModel = defineModel('auth', {
+  schema: AuthSchema.nullable(),
+  initialData: null,  // data starts as null
+});
+
+await AuthModel.patch((draft) => {
+  draft.token = 'xxx'; // Error: Cannot read property of null
+});
+
+// ✅ Use replace instead
+await AuthModel.replace({ token: 'xxx', user: {...} });
+```
 
 #### Cross-Tab Synchronization
 
