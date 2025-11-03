@@ -1,5 +1,44 @@
 # @firsttx/local-first
 
+## 0.5.0
+
+### Minor Changes
+
+- Add `useSuspenseSyncedModel` hook for React 19+ Suspense integration
+
+  This new hook provides a declarative approach to data fetching with automatic Suspense and Error Boundary integration, reducing boilerplate code and improving type safety.
+
+**New API**
+
+```tsx
+import { useSuspenseSyncedModel } from '@firsttx/local-first';
+
+function ContactsList() {
+  const contacts = useSuspenseSyncedModel(ContactsModel, fetchContacts);
+  return (
+    <div>
+      {contacts.map((c) => (
+        <ContactCard key={c.id} {...c} />
+      ))}
+    </div>
+  );
+}
+```
+
+**Key Features**
+
+- Non-nullable return type (T instead of T | null) for better type safety
+- Automatic Suspense boundary integration - no manual loading state management
+- Automatic Error Boundary integration - errors thrown declaratively
+- Promise caching at Model level to prevent infinite loops
+- Concurrent request deduplication
+
+**Requirements**
+
+- React 19+ (uses the use() hook)
+- Must be wrapped in <Suspense> boundary
+- Recommended to wrap in <ErrorBoundary>
+
 ## 0.4.3
 
 ### Patch Changes
@@ -19,15 +58,15 @@
 **Added**
 
 - DevTools integration: added comprehensive event emission for model lifecycle debugging
-  - `init` events: emitted when model is initialized with TTL and version info
-  - `load` events: emitted when data is loaded from IndexedDB with age and staleness status
-  - `patch` events: emitted on Immer-based updates with operation details and duration
-  - `replace` events: emitted on full data replacement with source tracking (sync/broadcast/manual)
-  - `sync.start` events: emitted when sync begins with trigger reason (mount/manual/stale)
-  - `sync.success` events: emitted on successful sync with data size and change detection
-  - `sync.error` events: emitted on sync failures with error details and retry status
-  - `broadcast` events: emitted on cross-tab synchronization via BroadcastChannel
-  - `validation.error` events: emitted on Zod schema validation failures with path info
+- `init` events: emitted when model is initialized with TTL and version info
+- `load` events: emitted when data is loaded from IndexedDB with age and staleness status
+- `patch` events: emitted on Immer-based updates with operation details and duration
+- `replace` events: emitted on full data replacement with source tracking (sync/broadcast/manual)
+- `sync.start` events: emitted when sync begins with trigger reason (mount/manual/stale)
+- `sync.success` events: emitted on successful sync with data size and change detection
+- `sync.error` events: emitted on sync failures with error details and retry status
+- `broadcast` events: emitted on cross-tab synchronization via BroadcastChannel
+- `validation.error` events: emitted on Zod schema validation failures with path info
 
 **Changed**
 
@@ -195,3 +234,7 @@ fix(local-first): prevent infinite loop in useModel by stabilizing references
 ### Patch Changes
 
 - @firsttx/local-first: initial release
+
+```
+
+```
