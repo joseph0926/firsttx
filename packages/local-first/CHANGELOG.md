@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.5.1
+
+### Patch Changes
+
+- pevents infinite render loops through Promise instance stability
+
 ## 0.5.0
 
 ### Minor Changes
