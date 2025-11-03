@@ -79,6 +79,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   };
 
   let syncPromise: Promise<T> | null = null;
+  let cachedDataPromise: Promise<T> | null = null;
 
   const notifySubscribers = () => {
     subscribers.forEach((fn) => fn());
@@ -133,6 +134,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     cacheState = { status: 'success', data };
     updateHistory(updatedAt);
     updateSnapshot();
+    cachedDataPromise = null;
     notifySubscribers();
   };
 
@@ -449,13 +451,17 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
       const cached = model.getCachedSnapshot();
       if (cached) {
-        return Promise.resolve(cached);
+        if (!cachedDataPromise) {
+          cachedDataPromise = Promise.resolve(cached);
+        }
+        return cachedDataPromise;
       }
 
       syncPromise = (async () => {
         try {
           const data = await fetcher(cached);
           await model.replace(data);
+          cachedDataPromise = Promise.resolve(data);
           return data;
         } finally {
           syncPromise = null;

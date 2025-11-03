@@ -135,4 +135,51 @@ describe('Model.getSyncPromise', () => {
     expect(data).toEqual({ count: 42 });
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  it('should return same Promise instance for cached data across multiple calls', async () => {
+    const TestModel = defineModel('test-stable-promise', {
+      schema: z.object({ value: z.string() }),
+      ttl: 5000,
+    });
+
+    await TestModel.replace({ value: 'stable' });
+
+    // eslint-disable-next-line
+    const fetcher = vi.fn(async () => ({ value: 'new' }));
+
+    const promise1 = TestModel.getSyncPromise(fetcher);
+    const promise2 = TestModel.getSyncPromise(fetcher);
+    const promise3 = TestModel.getSyncPromise(fetcher);
+
+    expect(promise1).toBe(promise2);
+    expect(promise2).toBe(promise3);
+
+    const data = await promise1;
+    expect(data).toEqual({ value: 'stable' });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('should invalidate cached Promise when data changes', async () => {
+    const TestModel = defineModel('test-invalidate', {
+      schema: z.object({ count: z.number() }),
+      ttl: 5000,
+    });
+
+    await TestModel.replace({ count: 1 });
+
+    // eslint-disable-next-line
+    const fetcher = vi.fn(async () => ({ count: 999 }));
+
+    const promise1 = TestModel.getSyncPromise(fetcher);
+    const data1 = await promise1;
+    expect(data1).toEqual({ count: 1 });
+
+    await TestModel.replace({ count: 2 });
+
+    const promise2 = TestModel.getSyncPromise(fetcher);
+    expect(promise1).not.toBe(promise2);
+
+    const data2 = await promise2;
+    expect(data2).toEqual({ count: 2 });
+  });
 });
