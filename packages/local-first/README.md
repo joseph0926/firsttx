@@ -237,6 +237,119 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 });
 ```
 
+---
+
+### `useSuspenseSyncedModel(model, fetcher)`
+
+**React 19+ only.** Suspense-enabled hook for declarative data fetching.
+
+```tsx
+import { useSuspenseSyncedModel } from '@firsttx/local-first';
+
+function ContactsList() {
+  const contacts = useSuspenseSyncedModel(ContactsModel, fetchContacts);
+
+  return (
+    <div>
+      {contacts.map((c) => (
+        <ContactCard key={c.id} {...c} />
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<ErrorAlert />}>
+      <Suspense fallback={<Skeleton />}>
+        <ContactsList />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+```
+
+**Parameters**
+
+- `model: Model<T>` - Model created with `defineModel`
+- `fetcher: (current: T | null) => Promise<T>` - Async data fetcher
+
+**Returns** `T`
+
+- Direct data (never `null`)
+- Throws Promise for Suspense on initial load
+- Throws Error for Error Boundary on fetch failure
+
+**Key Differences from `useSyncedModel`**
+
+| Feature        | `useSyncedModel`           | `useSuspenseSyncedModel`  |
+| -------------- | -------------------------- | ------------------------- |
+| Return type    | `{ data: T \| null, ... }` | `T` (never null)          |
+| Loading state  | Manual `if (isSyncing)`    | Automatic Suspense        |
+| Error handling | Manual `if (error)`        | Automatic Error Boundary  |
+| Type safety    | Nullable data              | Non-nullable data         |
+| React version  | 18+                        | 19+                       |
+| Use case       | Full control, mutations    | Simple read-only fetching |
+
+**Requirements**
+
+- React 19+ (requires `use()` hook)
+- Must be wrapped in `<Suspense>` boundary
+- Recommended: wrap in `<ErrorBoundary>`
+
+**Limitations**
+
+- Read-only (use `useSyncedModel` for `patch()` or mutations)
+- Not suitable for SSR (client-side only)
+- Initial load only (no revalidation UI feedback)
+
+**Example: Dashboard with Multiple Models**
+
+```tsx
+function Dashboard() {
+  return (
+    <ErrorBoundary fallback={<ErrorAlert />}>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <StatsCards />
+        <RecentActivity />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function StatsCards() {
+  const stats = useSuspenseSyncedModel(StatsModel, fetchStats);
+  const contacts = useSuspenseSyncedModel(ContactsModel, fetchContacts);
+
+  return (
+    <div>
+      <Card>Total: {stats.total}</Card>
+      <Card>Contacts: {contacts.length}</Card>
+    </div>
+  );
+}
+```
+
+**When to use Suspense?**
+
+✅ Use `useSuspenseSyncedModel` when:
+
+- Simple read-only data display
+- Want declarative loading/error states
+- Building with React 19+
+- Prefer less boilerplate
+
+❌ Use `useSyncedModel` when:
+
+- Need mutations (`patch()`, manual `sync()`)
+- Want granular control over loading UI
+- Supporting React 18
+- Building SSR apps
+
+---
+
+### `useSyncedModel(model, fetcher, options?)` (continued)
+
 **Parameters**
 
 - `model: Model<T>` - Model created with `defineModel`

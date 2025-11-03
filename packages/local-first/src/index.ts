@@ -10,9 +10,11 @@ export type {
   SyncOptions,
   SyncedModelResult,
   Fetcher,
+  SuspenseFetcher,
 } from './types';
 
 export { useModel, useSyncedModel } from './hooks';
+export { useSuspenseSyncedModel } from './suspense';
 
 export { FirstTxError, StorageError, ValidationError } from './errors';
 export type { StorageErrorCode } from './errors';

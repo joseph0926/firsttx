@@ -355,6 +355,51 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
   - `isStale: boolean` - TTL 초과 여부
   - `updatedAt: number` - 마지막 업데이트 타임스탬프
 
+#### `useSuspenseSyncedModel(model, fetcher)`
+
+**React 19+ 전용.** 선언적 데이터 페칭을 위한 Suspense 통합 훅입니다.
+
+```tsx
+import { useSuspenseSyncedModel } from '@firsttx/local-first';
+
+function ContactsList() {
+  const contacts = useSuspenseSyncedModel(ContactsModel, fetchContacts);
+  return (
+    <div>
+      {contacts.map((c) => (
+        <ContactCard key={c.id} {...c} />
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<ErrorAlert />}>
+      <Suspense fallback={<Skeleton />}>
+        <ContactsList />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+```
+
+**Parameters**
+
+- `model: Model<T>` - defineModel로 생성한 모델
+- `fetcher: (current: T | null) => Promise<T>` - 비동기 데이터 fetcher
+
+**Returns** `T` (`null`이 아님)
+
+**주요 차이점:**
+
+- ✅ 수동 로딩 체크 불필요 - Suspense 자동 통합
+- ✅ Non-nullable 반환 타입으로 타입 안정성 향상
+- ✅ Error Boundary 자동 통합
+- ❌ React 19+ 필수 (`use()` 훅 사용)
+- ❌ `<Suspense>` 경계로 감싸야 함
+- ❌ 읽기 전용 (mutations는 `useSyncedModel` 사용)
+
 #### `patch()` vs `replace()` 언제 사용할까요?
 
 **`patch()` 사용 시기:**

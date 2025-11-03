@@ -83,3 +83,5 @@ export type SyncedModelResult<T> = {
 };
 
 export type Fetcher<T> = (current: T | null) => Promise<T>;
+
+export type SuspenseFetcher<T> = (current: T | null) => Promise<T>;

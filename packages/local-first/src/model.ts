@@ -36,6 +36,7 @@ export type Model<T> = {
   getCachedHistory: () => ModelHistory;
   getCombinedSnapshot: () => CombinedSnapshot<T>;
   subscribe: (callback: () => void) => () => void;
+  getSyncPromise: (fetcher: (current: T | null) => Promise<T>) => Promise<T>;
 };
 
 export function defineModel<T>(
@@ -76,6 +77,8 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     error: null,
     history: cachedHistory,
   };
+
+  let syncPromise: Promise<T> | null = null;
 
   const notifySubscribers = () => {
     subscribers.forEach((fn) => fn());
@@ -437,6 +440,29 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       return () => {
         subscribers.delete(callback);
       };
+    },
+
+    getSyncPromise: (fetcher) => {
+      if (syncPromise) {
+        return syncPromise;
+      }
+
+      const cached = model.getCachedSnapshot();
+      if (cached) {
+        return Promise.resolve(cached);
+      }
+
+      syncPromise = (async () => {
+        try {
+          const data = await fetcher(cached);
+          await model.replace(data);
+          return data;
+        } finally {
+          syncPromise = null;
+        }
+      })();
+
+      return syncPromise;
     },
   };
 

@@ -357,6 +357,51 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
   - `isStale: boolean` - Whether TTL exceeded
   - `updatedAt: number` - Last update timestamp
 
+#### `useSuspenseSyncedModel(model, fetcher)`
+
+**React 19+ only.** Suspense-enabled hook for declarative data fetching.
+
+```tsx
+import { useSuspenseSyncedModel } from '@firsttx/local-first';
+
+function ContactsList() {
+  const contacts = useSuspenseSyncedModel(ContactsModel, fetchContacts);
+  return (
+    <div>
+      {contacts.map((c) => (
+        <ContactCard key={c.id} {...c} />
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<ErrorAlert />}>
+      <Suspense fallback={<Skeleton />}>
+        <ContactsList />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+```
+
+**Parameters**
+
+- `model: Model<T>` - Model created with defineModel
+- `fetcher: (current: T | null) => Promise<T>` - Async data fetcher
+
+**Returns** `T` (never `null`)
+
+**Key differences:**
+
+- ✅ No manual loading checks - automatic Suspense integration
+- ✅ Non-nullable return type for better type safety
+- ✅ Automatic Error Boundary integration
+- ❌ React 19+ required (uses `use()` hook)
+- ❌ Must wrap in `<Suspense>` boundary
+- ❌ Read-only (use `useSyncedModel` for mutations)
+
 #### When to use `patch()` vs `replace()`
 
 **Use `patch()` when:**
