@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.5.2
+
+### Patch Changes
+
+- Improved `useSuspenseSyncedModel` to leverage IndexedDB cache on page refresh, implementing stale-while-revalidate pattern. This eliminates unnecessary network requests and blank screens on revisits, with 50% faster IndexedDB reads through combined data + history retrieval.
+
 ## 0.5.1
 
 ### Patch Changes

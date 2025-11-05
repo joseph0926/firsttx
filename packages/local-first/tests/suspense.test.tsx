@@ -182,4 +182,87 @@ describe('Model.getSyncPromise', () => {
     const data2 = await promise2;
     expect(data2).toEqual({ count: 2 });
   });
+
+  it('should use IndexedDB cache when memory cache is empty', async () => {
+    const TestModel = defineModel('test-indexeddb-cache', {
+      schema: z.object({ value: z.string() }),
+      ttl: 5000,
+    });
+
+    await TestModel.replace({ value: 'from-indexeddb' });
+
+    // eslint-disable-next-line
+    const fetcherSpy = vi.fn(async () => ({ value: 'from-network' }));
+
+    const NewModel = defineModel('test-indexeddb-cache', {
+      schema: z.object({ value: z.string() }),
+      ttl: 5000,
+    });
+
+    const promise = NewModel.getSyncPromise(fetcherSpy);
+    const data = await promise;
+
+    expect(data).toEqual({ value: 'from-indexeddb' });
+    expect(fetcherSpy).not.toHaveBeenCalled();
+  });
+
+  it('should trigger background revalidation for stale IndexedDB cache', async () => {
+    const TestModel = defineModel('test-stale-revalidation', {
+      schema: z.object({ count: z.number() }),
+      ttl: 100,
+    });
+
+    await TestModel.replace({ count: 1 });
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    // eslint-disable-next-line
+    const fetcherSpy = vi.fn(async () => ({ count: 42 }));
+
+    const NewModel = defineModel('test-stale-revalidation', {
+      schema: z.object({ count: z.number() }),
+      ttl: 100,
+    });
+
+    const promise = NewModel.getSyncPromise(fetcherSpy);
+    const data = await promise;
+
+    expect(data).toEqual({ count: 1 });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(fetcherSpy).toHaveBeenCalledTimes(1);
+    expect(fetcherSpy).toHaveBeenCalledWith({ count: 1 });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const freshData = await NewModel.getSnapshot();
+    expect(freshData).toEqual({ count: 42 });
+  });
+
+  it('should not revalidate fresh IndexedDB cache', async () => {
+    const TestModel = defineModel('test-fresh-cache', {
+      schema: z.object({ value: z.string() }),
+      ttl: 5000,
+    });
+
+    await TestModel.replace({ value: 'fresh-data' });
+
+    // eslint-disable-next-line
+    const fetcherSpy = vi.fn(async () => ({ value: 'new-data' }));
+
+    const NewModel = defineModel('test-fresh-cache', {
+      schema: z.object({ value: z.string() }),
+      ttl: 5000,
+    });
+
+    const promise = NewModel.getSyncPromise(fetcherSpy);
+    const data = await promise;
+
+    expect(data).toEqual({ value: 'fresh-data' });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(fetcherSpy).not.toHaveBeenCalled();
+  });
 });

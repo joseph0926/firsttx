@@ -65,6 +65,11 @@ interface ModelValidationErrorData {
   path?: string;
 }
 
+interface ModelRevalidateData {
+  modelName: string;
+  source: 'background';
+}
+
 interface ModelBroadcastFallbackData {
   reason: string;
   environment: 'browser' | 'ssr' | 'unknown';
@@ -84,6 +89,7 @@ const EVENT_PRIORITY: Record<string, number> = {
   'broadcast.fallback': 1,
   'broadcast.skipped': 0,
   replace: 1,
+  revalidate: 1,
   'sync.start': 1,
   'sync.success': 1,
   'sync.error': 2,
@@ -94,6 +100,7 @@ export function emitModelEvent(type: 'init', data: ModelInitData): void;
 export function emitModelEvent(type: 'load', data: ModelLoadData): void;
 export function emitModelEvent(type: 'patch', data: ModelPatchData): void;
 export function emitModelEvent(type: 'replace', data: ModelReplaceData): void;
+export function emitModelEvent(type: 'revalidate', data: ModelRevalidateData): void;
 export function emitModelEvent(type: 'sync.start', data: ModelSyncStartData): void;
 export function emitModelEvent(type: 'sync.success', data: ModelSyncSuccessData): void;
 export function emitModelEvent(type: 'sync.error', data: ModelSyncErrorData): void;

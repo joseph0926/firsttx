@@ -80,6 +80,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
   let syncPromise: Promise<T> | null = null;
   let cachedDataPromise: Promise<T> | null = null;
+  let revalidationPromise: Promise<void> | null = null;
 
   const notifySubscribers = () => {
     subscribers.forEach((fn) => fn());
@@ -159,6 +160,103 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   broadcaster.subscribe(name, () => {
     void reloadCache();
   });
+
+  const getSnapshotWithMeta = async (): Promise<{
+    data: T;
+    history: ModelHistory;
+  } | null> => {
+    const loadStartTime = performance.now();
+    const storage = Storage.getInstance();
+    const stored = await storage.get<T>(name);
+
+    if (!stored) {
+      return null;
+    }
+
+    if (options.version && stored._v !== options.version) {
+      await storage.delete(name);
+
+      if (!options.initialData) {
+        throw new Error('[FirstTx] Unreachable: version set but no initialData');
+      }
+      await model.replace(options.initialData);
+
+      return {
+        data: options.initialData,
+        history: {
+          updatedAt: Date.now(),
+          age: 0,
+          isStale: false,
+          isConflicted: false,
+        },
+      };
+    }
+
+    const parseResult = options.schema.safeParse(stored.data);
+    if (!parseResult.success) {
+      await storage.delete(name);
+
+      emitModelEvent('validation.error', {
+        modelName: name,
+        error: parseResult.error.message,
+        path: parseResult.error.issues[0]?.path.join('.'),
+      });
+
+      if (process.env.NODE_ENV !== 'production') {
+        throw new ValidationError(
+          `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
+          name,
+          parseResult.error,
+        );
+      }
+
+      return null;
+    }
+
+    const loadDuration = performance.now() - loadStartTime;
+    const age = Date.now() - stored.updatedAt;
+
+    emitModelEvent('load', {
+      modelName: name,
+      dataSize: JSON.stringify(parseResult.data).length,
+      age,
+      isStale: age >= effectiveTTL,
+      duration: loadDuration,
+    });
+
+    return {
+      data: parseResult.data,
+      history: {
+        updatedAt: stored.updatedAt,
+        age,
+        isStale: age >= effectiveTTL,
+        isConflicted: false,
+      },
+    };
+  };
+
+  // eslint-disable-next-line
+  const revalidateInBackground = async (current: T, fetcher: (current: T) => Promise<T>) => {
+    if (revalidationPromise) return;
+
+    revalidationPromise = (async () => {
+      try {
+        const fresh = await fetcher(current);
+        await model.replace(fresh);
+
+        emitModelEvent('revalidate', {
+          modelName: name,
+          source: 'background',
+        });
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(`[FirstTx] Background revalidation failed for "${name}":`, err);
+        }
+      } finally {
+        revalidationPromise = null;
+      }
+    })();
+  };
 
   const model: Model<T> = {
     name,
@@ -459,7 +557,22 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
       syncPromise = (async () => {
         try {
-          const data = await fetcher(cached);
+          const result = await getSnapshotWithMeta();
+
+          if (result) {
+            cacheState = { status: 'success', data: result.data };
+            cachedHistory = result.history;
+            updateSnapshot();
+
+            if (result.history.isStale) {
+              void revalidateInBackground(result.data, fetcher);
+            }
+
+            cachedDataPromise = Promise.resolve(result.data);
+            return result.data;
+          }
+
+          const data = await fetcher(null);
           await model.replace(data);
           cachedDataPromise = Promise.resolve(data);
           return data;
