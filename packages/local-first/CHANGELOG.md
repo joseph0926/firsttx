@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.5.3
+
+### Patch Changes
+
+- Refactored `useSuspenseSyncedModel` to eliminate React 19's "uncached promise" warnings by replacing the `use()` hook with a more stable pattern combining `useSyncExternalStore` and direct promise throwing. This change aligns with proven patterns used by major data-fetching libraries like TanStack Query and SWR.
+
 ## 0.5.2
 
 ### Patch Changes
