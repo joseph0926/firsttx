@@ -543,15 +543,17 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     },
 
     getSyncPromise: (fetcher) => {
+      const cached = model.getCachedSnapshot();
+      if (cached && cachedDataPromise) {
+        return cachedDataPromise;
+      }
+
       if (syncPromise) {
         return syncPromise;
       }
 
-      const cached = model.getCachedSnapshot();
       if (cached) {
-        if (!cachedDataPromise) {
-          cachedDataPromise = Promise.resolve(cached);
-        }
+        cachedDataPromise = Promise.resolve(cached);
         return cachedDataPromise;
       }
 
