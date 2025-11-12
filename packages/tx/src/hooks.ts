@@ -13,11 +13,13 @@ export type UseTxConfig<TVariables, TResult = unknown, TSnapshot = void> = {
   };
   onSuccess?: (result: TResult, variables: TVariables, snapshot?: TSnapshot) => void;
   onError?: (error: Error, variables: TVariables) => void;
+  cancelOnUnmount?: boolean;
 };
 
 export type UseTxResult<TVariables, TResult = unknown> = {
   mutate: (variables: TVariables) => void;
   mutateAsync: (variables: TVariables) => Promise<TResult>;
+  cancel: () => void;
   isPending: boolean;
   isError: boolean;
   isSuccess: boolean;
@@ -35,12 +37,19 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
   const configRef = useRef<UseTxConfig<TVariables, TResult, TSnapshot>>(config);
   configRef.current = config;
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const isCancelledRef = useRef(false);
+
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
       isMountedRef.current = false;
+      if (configRef.current.cancelOnUnmount) {
+        isCancelledRef.current = true;
+        abortControllerRef.current?.abort();
+      }
     };
   }, []);
 
@@ -48,6 +57,9 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
     if (!isMountedRef.current) {
       throw new Error('Component unmounted');
     }
+
+    isCancelledRef.current = false;
+    abortControllerRef.current = new AbortController();
 
     setIsPending(true);
     setIsError(false);
@@ -63,6 +75,9 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
 
       await tx.run(
         async () => {
+          if (isCancelledRef.current) {
+            throw new Error('Transaction cancelled');
+          }
           snapshot = await configRef.current.optimistic(variables);
         },
         {
@@ -70,9 +85,17 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
         },
       );
 
-      const result = await tx.run(() => configRef.current.request(variables), {
-        retry: configRef.current.retry,
-      });
+      const result = await tx.run(
+        () => {
+          if (isCancelledRef.current) {
+            throw new Error('Transaction cancelled');
+          }
+          return configRef.current.request(variables);
+        },
+        {
+          retry: configRef.current.retry,
+        },
+      );
 
       await tx.commit();
 
@@ -80,21 +103,34 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
         throw new Error('Component unmounted');
       }
 
+      if (isCancelledRef.current) {
+        throw new Error('Transaction cancelled');
+      }
+
       setIsSuccess(true);
       configRef.current.onSuccess?.(result as TResult, variables, snapshot);
 
       return result as TResult;
     } catch (err) {
+      const error = err as Error;
+      if (error.message === 'Transaction cancelled') {
+        if (isMountedRef.current) {
+          setIsPending(false);
+        }
+        throw error;
+      }
+
       if (isMountedRef.current) {
         setIsError(true);
-        setError(err as Error);
-        configRef.current.onError?.(err as Error, variables);
+        setError(error);
+        configRef.current.onError?.(error, variables);
       }
       throw err;
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && !isCancelledRef.current) {
         setIsPending(false);
       }
+      abortControllerRef.current = null;
     }
   };
 
@@ -106,5 +142,10 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
     return executeTransaction(variables);
   };
 
-  return { mutate, mutateAsync, isPending, isError, isSuccess, error };
+  const cancel = () => {
+    isCancelledRef.current = true;
+    abortControllerRef.current?.abort();
+  };
+
+  return { mutate, mutateAsync, cancel, isPending, isError, isSuccess, error };
 }

@@ -626,4 +626,131 @@ describe('useTx', () => {
     expect(optimistic).toHaveBeenCalled();
     expect(rollback).not.toHaveBeenCalled();
   });
+
+  it('should cancel pending transaction', async () => {
+    const optimistic = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const rollback = vi.fn(async () => {});
+    const request = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(() => resolve('success'), 2000));
+      return 'success';
+    });
+
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic,
+        rollback,
+        request,
+      }),
+    );
+
+    act(() => {
+      result.current.mutate({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.isPending).toBe(true);
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    await waitFor(
+      () => {
+        expect(result.current.isPending).toBe(false);
+      },
+      { timeout: 3000 },
+    );
+
+    expect(optimistic).toHaveBeenCalled();
+  });
+
+  it('should cancel on unmount when cancelOnUnmount is true', async () => {
+    let cancelled = false;
+    const optimistic = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    const rollback = vi.fn(async () => {});
+    const request = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(() => resolve('success'), 1000));
+      if (cancelled) {
+        throw new Error('Should not reach here after cancel');
+      }
+      return 'success';
+    });
+
+    const { result, unmount } = renderHook(() =>
+      useTx({
+        optimistic,
+        rollback,
+        request,
+        cancelOnUnmount: true,
+      }),
+    );
+
+    act(() => {
+      result.current.mutate({});
+    });
+
+    await waitFor(() => {
+      expect(result.current.isPending).toBe(true);
+    });
+
+    cancelled = true;
+    unmount();
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(optimistic).toHaveBeenCalled();
+  });
+
+  it('should not cancel on unmount when cancelOnUnmount is false', async () => {
+    const optimistic = vi.fn(async () => {});
+    const rollback = vi.fn(async () => {});
+    // eslint-disable-next-line
+    const request = vi.fn(async () => 'success');
+    const onSuccess = vi.fn();
+
+    const { result, unmount } = renderHook(() =>
+      useTx({
+        optimistic,
+        rollback,
+        request,
+        onSuccess,
+        cancelOnUnmount: false,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({});
+    });
+
+    unmount();
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(onSuccess).toHaveBeenCalled();
+  });
+
+  // eslint-disable-next-line
+  it('should handle cancel before transaction starts', async () => {
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic: async () => {},
+        rollback: async () => {},
+        // eslint-disable-next-line
+        request: async () => 'success',
+      }),
+    );
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    expect(result.current.isPending).toBe(false);
+  });
 });
