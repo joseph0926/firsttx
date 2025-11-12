@@ -150,13 +150,42 @@ await tx.run(() => fetch('/api/data'), {
   retry: {
     maxAttempts: 3,
     delayMs: 100,
-    backoff: 'exponential', // 100ms → 200ms → 400ms
+    backoff: 'exponential',
   },
 });
-
-// Linear backoff: 100ms → 200ms → 300ms
-// backoff: 'linear'
 ```
+
+**Retry Presets**
+
+Use pre-configured retry strategies:
+
+```tsx
+import { RETRY_PRESETS } from '@firsttx/tx';
+
+const { mutate } = useTx({
+  optimistic: async () => {
+    /* ... */
+  },
+  rollback: async () => {
+    /* ... */
+  },
+  request: async () => {
+    /* ... */
+  },
+  retry: RETRY_PRESETS.default,
+});
+
+const tx = startTransaction();
+await tx.run(() => fetch('/api/data'), {
+  retry: RETRY_PRESETS.aggressive,
+});
+```
+
+**Available Presets:**
+
+- `RETRY_PRESETS.default` - 2 attempts, 500ms delay, exponential backoff
+- `RETRY_PRESETS.aggressive` - 5 attempts, 1000ms delay, exponential backoff
+- `RETRY_PRESETS.quick` - 1 attempt, no delay, linear backoff
 
 ---
 

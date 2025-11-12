@@ -3,7 +3,7 @@ import type { TxOptions } from './types';
 
 export type { TxOptions, TxStatus, StepOptions, RetryConfig } from './types';
 
-export { DEFAULT_RETRY_CONFIG } from './types';
+export { DEFAULT_RETRY_CONFIG, RETRY_PRESETS } from './types';
 
 export {
   TxError,

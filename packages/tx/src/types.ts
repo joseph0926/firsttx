@@ -13,6 +13,24 @@ export const DEFAULT_RETRY_CONFIG: Required<RetryConfig> = {
   backoff: 'exponential',
 } as const;
 
+export const RETRY_PRESETS = {
+  default: {
+    maxAttempts: 2,
+    delayMs: 500,
+    backoff: 'exponential' as const,
+  },
+  aggressive: {
+    maxAttempts: 5,
+    delayMs: 1000,
+    backoff: 'exponential' as const,
+  },
+  quick: {
+    maxAttempts: 1,
+    delayMs: 0,
+    backoff: 'linear' as const,
+  },
+} as const;
+
 export type StepOptions = {
   /** Compensation function to run on rollback */
   compensate?: () => Promise<void>;
