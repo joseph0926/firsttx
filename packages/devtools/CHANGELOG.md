@@ -1,5 +1,12 @@
 # @firsttx/devtools
 
+## 0.1.9
+
+### Patch Changes
+
+- Updated dependencies
+  - @firsttx/tx@0.5.1
+
 ## 0.1.8
 
 ### Patch Changes

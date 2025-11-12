@@ -1,5 +1,66 @@
 # @firsttx/tx
 
+## 0.5.1
+
+### Patch Changes
+
+### Added
+
+- **Cancellable Transactions**: Transactions can now be cancelled manually or automatically on unmount
+  - `cancel()` method in `UseTxResult` to manually cancel pending transactions
+  - `cancelOnUnmount` option in `UseTxConfig` to auto-cancel when component unmounts
+  - Prevents memory leaks from stale requests continuing after component unmounts
+  - Prevents unnecessary network usage when user navigates away
+  - Example:
+
+    ```typescript
+    const { mutate, cancel, isPending } = useTx({
+      optimistic: async () => {
+        /* ... */
+      },
+      rollback: async () => {
+        /* ... */
+      },
+      request: async () => {
+        /* ... */
+      },
+      cancelOnUnmount: true,
+    });
+
+    const handleClose = () => {
+      cancel(); // Manual cancellation
+      onOpenChange(false);
+    };
+    ```
+
+### Changed
+
+- Transaction execution now checks for cancellation at each step
+- Cancelled transactions throw `Error('Transaction cancelled')` without triggering `onError`
+
+### Migration
+
+No breaking changes. Existing code continues to work:
+
+```typescript
+// Before (still works)
+const { mutate, isPending } = useTx({
+  optimistic: async () => {},
+  rollback: async () => {},
+  request: async () => {},
+});
+
+// After (new capability)
+const { mutate, cancel, isPending } = useTx({
+  optimistic: async () => {},
+  rollback: async () => {},
+  request: async () => {},
+  cancelOnUnmount: true, // Auto-cancel on unmount
+});
+
+cancel(); // Manual cancel
+```
+
 ## 0.5.0
 
 ### Minor Changes
