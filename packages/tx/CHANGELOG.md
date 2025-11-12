@@ -1,5 +1,32 @@
 # @firsttx/tx
 
+## 0.4.1
+
+### Patch Changes
+
+- **RETRY_PRESETS**: Pre-configured retry strategies for common scenarios
+  - `RETRY_PRESETS.default`: 2 attempts with 500ms exponential backoff
+  - `RETRY_PRESETS.aggressive`: 5 attempts with 1000ms exponential backoff
+  - `RETRY_PRESETS.quick`: Single attempt with no delay
+  - Example usage:
+
+    ```typescript
+    import { useTx, RETRY_PRESETS } from '@firsttx/tx';
+
+    const { mutate } = useTx({
+      retry: RETRY_PRESETS.default,
+      // ...
+    });
+    ```
+
+### Changed
+
+- Updated README.md with retry preset documentation and examples
+
+### Migration
+
+No breaking changes. Existing code continues to work without modifications.
+
 ## 0.4.0
 
 ### Minor Changes
