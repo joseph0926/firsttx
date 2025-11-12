@@ -103,7 +103,7 @@ describe('useTx', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(onSuccess).toHaveBeenCalledWith(serverResponse, { name: 'test' });
+    expect(onSuccess).toHaveBeenCalledWith(serverResponse, { name: 'test' }, undefined);
   });
 
   it('should rollback and call onError when request fails', async () => {
@@ -485,7 +485,7 @@ describe('useTx', () => {
       await result.current.mutateAsync({ input: 'test' });
     });
 
-    expect(onSuccess).toHaveBeenCalledWith(serverResponse, { input: 'test' });
+    expect(onSuccess).toHaveBeenCalledWith(serverResponse, { input: 'test' }, undefined);
   });
 
   it('should process different data in concurrent calls', async () => {
@@ -514,5 +514,116 @@ describe('useTx', () => {
       { id: 2, processed: true },
       { id: 3, processed: true },
     ]);
+  });
+
+  it('should pass snapshot from optimistic to rollback', async () => {
+    const tempId = 'temp-123';
+    let rollbackReceivedSnapshot: string | undefined;
+
+    const { result } = renderHook(() =>
+      useTx({
+        // eslint-disable-next-line
+        optimistic: async () => tempId,
+        // eslint-disable-next-line
+        rollback: async (_, snapshot) => {
+          rollbackReceivedSnapshot = snapshot;
+        },
+        // eslint-disable-next-line
+        request: async () => {
+          throw new Error('Request failed');
+        },
+      }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({}).catch(() => {});
+    });
+
+    expect(rollbackReceivedSnapshot).toBe(tempId);
+  });
+
+  it('should pass snapshot from optimistic to onSuccess', async () => {
+    const tempId = 'temp-456';
+    let successReceivedSnapshot: string | undefined;
+
+    const { result } = renderHook(() =>
+      useTx({
+        // eslint-disable-next-line
+        optimistic: async () => tempId,
+        rollback: async () => {},
+        // eslint-disable-next-line
+        request: async () => ({ id: 'real-123' }),
+        onSuccess: (_, __, snapshot) => {
+          successReceivedSnapshot = snapshot;
+        },
+      }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({});
+    });
+
+    expect(successReceivedSnapshot).toBe(tempId);
+  });
+
+  it('should handle complex snapshot data', async () => {
+    interface SnapshotData {
+      tempId: string;
+      previousData: { name: string };
+      timestamp: number;
+    }
+
+    let rollbackSnapshot: SnapshotData | undefined;
+    let successSnapshot: SnapshotData | undefined;
+
+    const snapshotData: SnapshotData = {
+      tempId: 'temp-789',
+      previousData: { name: 'Alice' },
+      timestamp: Date.now(),
+    };
+
+    const { result } = renderHook(() =>
+      useTx({
+        // eslint-disable-next-line
+        optimistic: async () => snapshotData,
+        // eslint-disable-next-line
+        rollback: async (_, snapshot) => {
+          rollbackSnapshot = snapshot;
+        },
+        // eslint-disable-next-line
+        request: async () => ({ id: 'real-456', name: 'Bob' }),
+        onSuccess: (_, __, snapshot) => {
+          successSnapshot = snapshot;
+        },
+      }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ action: 'update' });
+    });
+
+    expect(successSnapshot).toEqual(snapshotData);
+    expect(rollbackSnapshot).toBeUndefined();
+  });
+
+  it('should work with void snapshot (backward compatibility)', async () => {
+    const optimistic = vi.fn(async () => {});
+    const rollback = vi.fn(async () => {});
+
+    const { result } = renderHook(() =>
+      useTx({
+        optimistic,
+        rollback,
+        // eslint-disable-next-line
+        request: async () => 'success',
+      }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({});
+    });
+
+    expect(optimistic).toHaveBeenCalled();
+    expect(rollback).not.toHaveBeenCalled();
   });
 });

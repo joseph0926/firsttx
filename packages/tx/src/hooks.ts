@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { startTransaction } from '.';
 
-export type UseTxConfig<TVariables, TResult = unknown> = {
-  optimistic: (variables: TVariables) => Promise<void>;
-  rollback: (variables: TVariables) => Promise<void>;
+export type UseTxConfig<TVariables, TResult = unknown, TSnapshot = void> = {
+  optimistic: (variables: TVariables) => Promise<TSnapshot>;
+  rollback: (variables: TVariables, snapshot?: TSnapshot) => Promise<void>;
   request: (variables: TVariables) => Promise<TResult>;
   transition?: boolean;
   retry?: {
@@ -11,7 +11,7 @@ export type UseTxConfig<TVariables, TResult = unknown> = {
     delayMs?: number;
     backoff?: 'linear' | 'exponential';
   };
-  onSuccess?: (result: TResult, variables: TVariables) => void;
+  onSuccess?: (result: TResult, variables: TVariables, snapshot?: TSnapshot) => void;
   onError?: (error: Error, variables: TVariables) => void;
 };
 
@@ -24,15 +24,15 @@ export type UseTxResult<TVariables, TResult = unknown> = {
   error: Error | null;
 };
 
-export function useTx<TVariables, TResult = unknown>(
-  config: UseTxConfig<TVariables, TResult>,
+export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
+  config: UseTxConfig<TVariables, TResult, TSnapshot>,
 ): UseTxResult<TVariables, TResult> {
   const [isPending, setIsPending] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const configRef = useRef<UseTxConfig<TVariables, TResult>>(config);
+  const configRef = useRef<UseTxConfig<TVariables, TResult, TSnapshot>>(config);
   configRef.current = config;
 
   const isMountedRef = useRef(true);
@@ -54,14 +54,21 @@ export function useTx<TVariables, TResult = unknown>(
     setIsSuccess(false);
     setError(null);
 
+    let snapshot: TSnapshot | undefined;
+
     try {
       const tx = startTransaction({
         transition: configRef.current.transition,
       });
 
-      await tx.run(() => configRef.current.optimistic(variables), {
-        compensate: () => configRef.current.rollback(variables),
-      });
+      await tx.run(
+        async () => {
+          snapshot = await configRef.current.optimistic(variables);
+        },
+        {
+          compensate: () => configRef.current.rollback(variables, snapshot),
+        },
+      );
 
       const result = await tx.run(() => configRef.current.request(variables), {
         retry: configRef.current.retry,
@@ -74,7 +81,7 @@ export function useTx<TVariables, TResult = unknown>(
       }
 
       setIsSuccess(true);
-      configRef.current.onSuccess?.(result as TResult, variables);
+      configRef.current.onSuccess?.(result as TResult, variables, snapshot);
 
       return result as TResult;
     } catch (err) {
