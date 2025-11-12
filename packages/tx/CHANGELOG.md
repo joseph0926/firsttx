@@ -1,5 +1,67 @@
 # @firsttx/tx
 
+## 0.5.0
+
+### Minor Changes
+
+### Added
+
+- **Snapshot Passing**: `optimistic` can now return a value that gets passed to `rollback` and `onSuccess`
+  - `optimistic: (variables) => Promise<TSnapshot>` - Returns snapshot data
+  - `rollback: (variables, snapshot?) => Promise<void>` - Receives snapshot for cleanup
+  - `onSuccess: (result, variables, snapshot?) => void` - Receives snapshot for finalization
+  - Eliminates need for `useState` to track temporary IDs or previous data
+  - Prevents memory leaks and closure issues in concurrent transactions
+  - Example:
+    ```typescript
+    useTx({
+      optimistic: async (input) => {
+        const tempId = `temp-${Date.now()}`;
+        await Model.patch((draft) => draft.push({ id: tempId, ...input }));
+        return tempId; // Snapshot
+      },
+      rollback: async (input, tempId) => {
+        await Model.patch((draft) => {
+          const index = draft.findIndex((item) => item.id === tempId);
+          if (index !== -1) draft.splice(index, 1);
+        });
+      },
+      onSuccess: async (data, input, tempId) => {
+        await Model.patch((draft) => {
+          const index = draft.findIndex((item) => item.id === tempId);
+          if (index !== -1) draft[index] = data.result;
+        });
+      },
+    });
+    ```
+
+### Changed
+
+- `UseTxConfig` now accepts optional third generic parameter `TSnapshot` (defaults to `void`)
+- All existing code remains compatible with `TSnapshot = void` default
+
+### Migration
+
+No breaking changes. Existing code continues to work:
+
+```typescript
+// Before (still works)
+useTx({
+  optimistic: async () => {},
+  rollback: async () => {},
+  // ...
+});
+
+// After (new capability)
+useTx({
+  optimistic: async () => 'snapshot-data',
+  rollback: async (vars, snapshot) => {
+    /* use snapshot */
+  },
+  // ...
+});
+```
+
 ## 0.4.1
 
 ### Patch Changes
