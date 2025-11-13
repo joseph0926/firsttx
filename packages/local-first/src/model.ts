@@ -22,6 +22,12 @@ export type CombinedSnapshot<T> = {
   history: ModelHistory;
 };
 
+export type SyncPromiseOptions<T> = {
+  revalidateOnMount?: 'always' | 'stale' | 'never';
+  onSuccess?: (data: T) => void;
+  onError?: (error: Error) => void;
+};
+
 export type Model<T> = {
   name: string;
   schema: z.ZodType<T>;
@@ -36,7 +42,10 @@ export type Model<T> = {
   getCachedHistory: () => ModelHistory;
   getCombinedSnapshot: () => CombinedSnapshot<T>;
   subscribe: (callback: () => void) => () => void;
-  getSyncPromise: (fetcher: (current: T | null) => Promise<T>) => Promise<T>;
+  getSyncPromise: (
+    fetcher: (current: T | null) => Promise<T>,
+    options?: SyncPromiseOptions<T>,
+  ) => Promise<T>;
 };
 
 export function defineModel<T>(
@@ -235,8 +244,12 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     };
   };
 
-  // eslint-disable-next-line
-  const revalidateInBackground = async (current: T, fetcher: (current: T) => Promise<T>) => {
+  const revalidateInBackground = async (
+    current: T,
+    fetcher: (current: T) => Promise<T>,
+    options?: SyncPromiseOptions<T>,
+    // eslint-disable-next-line
+  ) => {
     if (revalidationPromise) return;
 
     revalidationPromise = (async () => {
@@ -248,7 +261,13 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
           modelName: name,
           source: 'background',
         });
+
+        options?.onSuccess?.(fresh);
       } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+
+        options?.onError?.(error);
+
         if (process.env.NODE_ENV !== 'production') {
           console.warn(`[FirstTx] Background revalidation failed for "${name}":`, err);
         }
@@ -542,7 +561,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       };
     },
 
-    getSyncPromise: (fetcher) => {
+    getSyncPromise: (fetcher, syncOptions) => {
       const cached = model.getCachedSnapshot();
       if (cached && cachedDataPromise) {
         return cachedDataPromise;
@@ -566,8 +585,12 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
             cachedHistory = result.history;
             updateSnapshot();
 
-            if (result.history.isStale) {
-              void revalidateInBackground(result.data, fetcher);
+            const revalidateMode = syncOptions?.revalidateOnMount ?? 'always';
+            const shouldRevalidate =
+              revalidateMode === 'always' || (revalidateMode === 'stale' && result.history.isStale);
+
+            if (shouldRevalidate) {
+              void revalidateInBackground(result.data, fetcher, syncOptions);
             }
 
             cachedDataPromise = Promise.resolve(result.data);
@@ -576,8 +599,13 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
           const data = await fetcher(null);
           await model.replace(data);
+          syncOptions?.onSuccess?.(data);
           cachedDataPromise = Promise.resolve(data);
           return data;
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          syncOptions?.onError?.(error);
+          throw error;
         } finally {
           syncPromise = null;
         }

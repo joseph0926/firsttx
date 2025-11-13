@@ -199,7 +199,7 @@ describe('Model.getSyncPromise', () => {
       ttl: 5000,
     });
 
-    const promise = NewModel.getSyncPromise(fetcherSpy);
+    const promise = NewModel.getSyncPromise(fetcherSpy, { revalidateOnMount: 'never' });
     const data = await promise;
 
     expect(data).toEqual({ value: 'from-indexeddb' });
@@ -240,7 +240,7 @@ describe('Model.getSyncPromise', () => {
     expect(freshData).toEqual({ count: 42 });
   });
 
-  it('should not revalidate fresh IndexedDB cache', async () => {
+  it('should not revalidate fresh IndexedDB cache when revalidateOnMount is stale', async () => {
     const TestModel = defineModel('test-fresh-cache', {
       schema: z.object({ value: z.string() }),
       ttl: 5000,
@@ -256,7 +256,7 @@ describe('Model.getSyncPromise', () => {
       ttl: 5000,
     });
 
-    const promise = NewModel.getSyncPromise(fetcherSpy);
+    const promise = NewModel.getSyncPromise(fetcherSpy, { revalidateOnMount: 'stale' });
     const data = await promise;
 
     expect(data).toEqual({ value: 'fresh-data' });

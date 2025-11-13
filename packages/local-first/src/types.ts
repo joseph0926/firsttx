@@ -62,7 +62,7 @@ export interface ModelHistory {
 export type SyncOptions<T> = {
   /**
    * When to sync on component mount
-   * @default 'stale'
+   * @default 'always'
    *
    * - 'always': Always sync on mount, regardless of data freshness
    * - 'stale': Sync only if data is stale (exceeds TTL)
@@ -85,3 +85,17 @@ export type SyncedModelResult<T> = {
 export type Fetcher<T> = (current: T | null) => Promise<T>;
 
 export type SuspenseFetcher<T> = (current: T | null) => Promise<T>;
+
+export type SuspenseSyncOptions<T> = {
+  /**
+   * When to revalidate cached data
+   * @default 'always'
+   *
+   * - 'always': Always revalidate in background, regardless of data freshness
+   * - 'stale': Revalidate only if data is stale (exceeds TTL)
+   * - 'never': Never revalidate, only use cached data
+   */
+  revalidateOnMount?: 'always' | 'stale' | 'never';
+  onSuccess?: (data: T) => void;
+  onError?: (error: Error) => void;
+};

@@ -11,6 +11,7 @@ export type {
   SyncedModelResult,
   Fetcher,
   SuspenseFetcher,
+  SuspenseSyncOptions,
 } from './types';
 
 export { useModel, useSyncedModel } from './hooks';

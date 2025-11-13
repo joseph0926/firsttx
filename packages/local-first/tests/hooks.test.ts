@@ -240,7 +240,10 @@ describe('useSyncedModel', () => {
         return Promise.resolve({ count: (current?.count || 0) + 1 });
       });
 
-      const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
+      // syncOnMount: 'never' to prevent auto-sync on mount
+      const { result } = renderHook(() =>
+        useSyncedModel(TestModel, fetcher, { syncOnMount: 'never' }),
+      );
 
       await waitFor(() => {
         expect(result.current.data).toEqual({ count: 5 });
@@ -304,7 +307,7 @@ describe('useSyncedModel', () => {
       );
     });
 
-    it('should NOT sync on mount when data is fresh (default behavior)', async () => {
+    it('should sync on mount even when data is fresh (default behavior: always)', async () => {
       const TestModel = defineModel('sync-on-mount-fresh', {
         schema: z.object({ value: z.string() }),
         ttl: 5000,
@@ -317,12 +320,10 @@ describe('useSyncedModel', () => {
       const { result } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
       await waitFor(() => {
-        expect(result.current.data).toEqual({ value: 'fresh' });
+        expect(result.current.data).toEqual({ value: 'new' });
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      expect(fetcher).not.toHaveBeenCalled();
+      expect(fetcher).toHaveBeenCalled();
     });
 
     it('should always sync on mount when syncOnMount: "always"', async () => {
@@ -777,7 +778,8 @@ describe('useSyncedModel', () => {
 
       const fetcher = vi.fn().mockResolvedValue({ value: 'new' });
 
-      renderHook(() => useSyncedModel(TestModel, fetcher));
+      // syncOnMount: 'never' to prevent auto-sync on mount
+      renderHook(() => useSyncedModel(TestModel, fetcher, { syncOnMount: 'never' }));
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 

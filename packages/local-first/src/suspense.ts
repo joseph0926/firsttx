@@ -1,10 +1,17 @@
 import { useSyncExternalStore, useRef, useCallback } from 'react';
 import type { Model } from './model';
-import type { SuspenseFetcher } from './types';
+import type { SuspenseFetcher, SuspenseSyncOptions } from './types';
 
-export function useSuspenseSyncedModel<T>(model: Model<T>, fetcher: SuspenseFetcher<T>): T {
+export function useSuspenseSyncedModel<T>(
+  model: Model<T>,
+  fetcher: SuspenseFetcher<T>,
+  options?: SuspenseSyncOptions<T>,
+): T {
   const fetcherRef = useRef(fetcher);
+  const optionsRef = useRef<SuspenseSyncOptions<T> | undefined>(options);
+
   fetcherRef.current = fetcher;
+  optionsRef.current = options;
 
   const stableFetcher = useCallback((current: T | null) => fetcherRef.current(current), []);
 
@@ -15,8 +22,13 @@ export function useSuspenseSyncedModel<T>(model: Model<T>, fetcher: SuspenseFetc
   );
 
   if (!snapshot.data && !snapshot.error) {
+    const currentOptions = optionsRef.current;
     // eslint-disable-next-line
-    throw model.getSyncPromise(stableFetcher);
+    throw model.getSyncPromise(stableFetcher, {
+      revalidateOnMount: currentOptions?.revalidateOnMount,
+      onSuccess: currentOptions?.onSuccess,
+      onError: currentOptions?.onError,
+    });
   }
 
   if (snapshot.error) {

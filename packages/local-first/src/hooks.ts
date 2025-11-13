@@ -121,7 +121,7 @@ export function useSyncedModel<T>(
 
   useEffect(() => {
     if (didAutoSyncRef.current) return;
-    const mode = optionsRef.current?.syncOnMount ?? 'stale';
+    const mode = optionsRef.current?.syncOnMount ?? 'always';
     if (mode === 'never') {
       didAutoSyncRef.current = true;
       return;

@@ -216,6 +216,7 @@ describe('First Visit Scenarios (Empty IndexedDB)', () => {
         return Promise.resolve({ version: fetchVersion });
       });
 
+      // First mount: empty DB → fetch version 1
       const { result: result1, unmount: unmount1 } = renderHook(() =>
         useSyncedModel(TestModel, fetcher),
       );
@@ -230,8 +231,9 @@ describe('First Visit Scenarios (Empty IndexedDB)', () => {
       fetchVersion = 2;
       fetcher.mockClear();
 
+      // Second mount: fresh cache with syncOnMount: 'stale' → no fetch (version 1 still fresh)
       const { result: result2, unmount: unmount2 } = renderHook(() =>
-        useSyncedModel(TestModel, fetcher),
+        useSyncedModel(TestModel, fetcher, { syncOnMount: 'stale' }),
       );
 
       await waitFor(() => {
@@ -242,10 +244,12 @@ describe('First Visit Scenarios (Empty IndexedDB)', () => {
       expect(fetcher).not.toHaveBeenCalled();
       unmount2();
 
+      // Wait for TTL to expire
       await new Promise((resolve) => setTimeout(resolve, 150));
       fetchVersion = 3;
       fetcher.mockClear();
 
+      // Third mount: stale cache → fetch version 3
       const { result: result3 } = renderHook(() => useSyncedModel(TestModel, fetcher));
 
       await waitFor(() => {
