@@ -1,5 +1,39 @@
 # @firsttx/local-first
 
+## 0.6.0
+
+### Minor Changes
+
+- **BREAKING**: Changed `syncOnMount` default value from `'stale'` to `'always'` in `useSyncedModel`
+
+  Previously, `useSyncedModel` would only sync on mount if cached data exceeded TTL. Now it always syncs to ensure data freshness, similar to React Query's `staleTime: 0` default.
+
+- **Migration:** To preserve the old behavior, explicitly set `syncOnMount: 'stale'`:
+
+  ```typescript
+  // Before (implicit 'stale')
+  useSyncedModel(model, fetcher);
+
+  // After (explicit 'stale' to preserve old behavior)
+  useSyncedModel(model, fetcher, { syncOnMount: 'stale' });
+  ```
+
+- **Feature**: Added options parameter to useSuspenseSyncedModel You can now control background revalidation and handle sync lifecycle events
+
+```ts
+const data = useSuspenseSyncedModel(model, fetcher, {
+  revalidateOnMount: 'always' | 'stale' | 'never', // default: 'always'
+  onSuccess: (data) => console.log('Synced:', data),
+  onError: (error) => console.error('Sync failed:', error),
+});
+```
+
+- **Patch Changes**
+- Enhanced Model.getSyncPromise to accept SyncPromiseOptions for granular control over revalidation behavior
+- Added onSuccess and onError callback support in background revalidation
+- Exported new SuspenseSyncOptions type for public API
+- Updated all affected tests to accommodate new default behavior
+
 ## 0.5.3
 
 ### Patch Changes
