@@ -352,12 +352,80 @@ describe('captureSnapshot', () => {
     });
 
     it('returns null on any error and continues gracefully', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      vi.spyOn(utilsModule, 'openDB').mockRejectedValue(new Error('Fatal error'));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const openSpy = vi.spyOn(utilsModule, 'openDB').mockRejectedValue(new Error('Fatal error'));
 
       const result = await captureSnapshot();
 
       expect(result).toBeNull();
+
+      openSpy.mockRestore();
+      errSpy.mockRestore();
+    });
+  });
+
+  describe('XSS Protection', () => {
+    it('removes dangerous event handler attributes from snapshot', async () => {
+      document.body.innerHTML = `
+      <div id="root">
+        <div id="app">
+          <button onclick="alert('xss')">Click</button>
+          <img src="x" onerror="fetch('evil.com')">
+          <div onload="malicious()">Content</div>
+        </div>
+      </div>
+    `;
+
+      await captureSnapshot();
+      const snapshot = await getSnapshot('/');
+
+      expect(snapshot).not.toBeNull();
+      expect(snapshot!.body).not.toContain('onclick');
+      expect(snapshot!.body).not.toContain('onerror');
+      expect(snapshot!.body).not.toContain('onload');
+      expect(snapshot!.body).toContain('<button>Click</button>');
+      expect(snapshot!.body).toContain('<img src="x">');
+    });
+
+    it('removes event handlers from volatile elements', async () => {
+      document.body.innerHTML = `
+      <div id="root">
+        <div id="app">
+          <span data-firsttx-volatile onmouseover="steal()">
+            Dynamic Content
+          </span>
+        </div>
+      </div>
+    `;
+
+      await captureSnapshot();
+      const snapshot = await getSnapshot('/');
+
+      expect(snapshot).not.toBeNull();
+      expect(snapshot!.body).not.toContain('onmouseover');
+      expect(snapshot!.body).not.toContain('steal()');
+      expect(snapshot!.body).toContain('data-firsttx-volatile');
+    });
+
+    it('preserves safe attributes while removing dangerous ones', async () => {
+      document.body.innerHTML = `
+      <div id="root">
+        <div id="app">
+          <a href="/safe" class="link" data-id="123" onclick="evil()">
+            Link
+          </a>
+        </div>
+      </div>
+    `;
+
+      await captureSnapshot();
+      const snapshot = await getSnapshot('/');
+
+      expect(snapshot).not.toBeNull();
+      expect(snapshot!.body).toContain('href="/safe"');
+      expect(snapshot!.body).toContain('class="link"');
+      expect(snapshot!.body).toContain('data-id="123"');
+      expect(snapshot!.body).not.toContain('onclick');
     });
   });
 });
