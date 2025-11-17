@@ -1,5 +1,38 @@
 declare const __FIRSTTX_DEV__: boolean;
 
+const DANGEROUS_ATTRS = [
+  'onload',
+  'onerror',
+  'onclick',
+  'onmouseover',
+  'onmouseout',
+  'onmouseenter',
+  'onmouseleave',
+  'onfocus',
+  'onblur',
+  'onchange',
+  'onsubmit',
+  'onkeydown',
+  'onkeyup',
+  'onkeypress',
+  'ontouchstart',
+  'ontouchend',
+  'ontouchmove',
+  'onpointerdown',
+  'onpointerup',
+  'onpointermove',
+  'ondrag',
+  'ondrop',
+  'ondragstart',
+  'ondragend',
+  'onanimationstart',
+  'onanimationend',
+  'onanimationiteration',
+  'ontransitionend',
+  'onwheel',
+  'onscroll',
+] as const;
+
 import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB } from './utils';
 import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
@@ -114,9 +147,20 @@ function serializeRoot(rootEl: HTMLElement): string {
   const first = rootEl.firstElementChild as HTMLElement | null;
   if (!first) return '';
   const clone = first.cloneNode(true) as HTMLElement;
+
   clone.querySelectorAll('[data-firsttx-volatile]').forEach((el) => {
     el.textContent = '';
   });
+
+  const allElements = [clone, ...Array.from(clone.querySelectorAll('*'))];
+  allElements.forEach((el) => {
+    DANGEROUS_ATTRS.forEach((attr) => {
+      if (el.hasAttribute(attr)) {
+        el.removeAttribute(attr);
+      }
+    });
+  });
+
   return clone.outerHTML;
 }
 
