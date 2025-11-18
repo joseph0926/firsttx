@@ -137,7 +137,20 @@ export async function boot(): Promise<void> {
   }
 
   const age = Date.now() - snapshot.timestamp;
-  if (age > STORAGE_CONFIG.MAX_SNAPSHOT_AGE) return;
+  if (age > STORAGE_CONFIG.MAX_SNAPSHOT_AGE) {
+    emitDevToolsEvent('restore', {
+      route,
+      strategy: 'cold-start',
+      snapshotAge: age,
+      restoreDuration: 0,
+    });
+    if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+      console.log(
+        `[FirstTx] Snapshot too old (age: ${age}ms, max: ${STORAGE_CONFIG.MAX_SNAPSHOT_AGE}ms), skipping restore`,
+      );
+    }
+    return;
+  }
 
   const overlay = shouldUseOverlay(route);
 
