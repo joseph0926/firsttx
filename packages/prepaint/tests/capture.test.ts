@@ -428,4 +428,145 @@ describe('captureSnapshot', () => {
       expect(snapshot!.body).not.toContain('onclick');
     });
   });
+
+  describe('Parallel Style Fetching', () => {
+    it('fetches multiple same-origin stylesheets in parallel', async () => {
+      const originalFetch = global.fetch;
+      const fetchTimes: number[] = [];
+      const cssText1 = '.style1 { color: red; }';
+      const cssText2 = '.style2 { color: blue; }';
+      const cssText3 = '.style3 { color: green; }';
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        const startTime = Date.now();
+        fetchTimes.push(startTime);
+
+        return Promise.resolve({
+          ok: true,
+          text: vi
+            .fn()
+            .mockResolvedValue(
+              url.includes('style1.css')
+                ? cssText1
+                : url.includes('style2.css')
+                  ? cssText2
+                  : cssText3,
+            ),
+        } as unknown as Response);
+      });
+      global.fetch = fetchMock as typeof fetch;
+
+      const link1 = document.createElement('link');
+      link1.rel = 'stylesheet';
+      link1.href = '/styles/style1.css';
+      document.head.appendChild(link1);
+
+      const link2 = document.createElement('link');
+      link2.rel = 'stylesheet';
+      link2.href = '/styles/style2.css';
+      document.head.appendChild(link2);
+
+      const link3 = document.createElement('link');
+      link3.rel = 'stylesheet';
+      link3.href = '/styles/style3.css';
+      document.head.appendChild(link3);
+
+      document.body.innerHTML = '<div id="root"><div>Test</div></div>';
+
+      try {
+        await captureSnapshot();
+        const snapshot = await getSnapshot('/');
+
+        expect(snapshot).not.toBeNull();
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+
+        expect(snapshot!.styles).toBeDefined();
+        const externalStyles = snapshot!.styles!.filter(
+          (s): s is { type: 'external'; href: string; content?: string } =>
+            typeof s === 'object' && s.type === 'external',
+        );
+        expect(externalStyles.length).toBe(3);
+
+        const contentsWithText = externalStyles.filter((s) => s.content);
+        expect(contentsWithText.length).toBe(3);
+        expect(contentsWithText.some((s) => s.content === cssText1)).toBe(true);
+        expect(contentsWithText.some((s) => s.content === cssText2)).toBe(true);
+        expect(contentsWithText.some((s) => s.content === cssText3)).toBe(true);
+
+        if (fetchTimes.length >= 3) {
+          const maxDiff = Math.max(...fetchTimes) - Math.min(...fetchTimes);
+          expect(maxDiff).toBeLessThan(50);
+        }
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('handles mixed success and failure in parallel fetches', async () => {
+      const originalFetch = global.fetch;
+      const cssText = '.success { color: green; }';
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('fail.css')) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve({
+          ok: true,
+          text: vi.fn().mockResolvedValue(cssText),
+        } as unknown as Response);
+      });
+      global.fetch = fetchMock as typeof fetch;
+
+      const link1 = document.createElement('link');
+      link1.rel = 'stylesheet';
+      link1.href = '/styles/success.css';
+      document.head.appendChild(link1);
+
+      const link2 = document.createElement('link');
+      link2.rel = 'stylesheet';
+      link2.href = '/styles/fail.css';
+      document.head.appendChild(link2);
+
+      document.body.innerHTML = '<div id="root"><div>Test</div></div>';
+
+      try {
+        await captureSnapshot();
+        const snapshot = await getSnapshot('/');
+
+        expect(snapshot).not.toBeNull();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+
+        const externalStyles = snapshot!.styles!.filter(
+          (s): s is { type: 'external'; href: string; content?: string } =>
+            typeof s === 'object' && s.type === 'external',
+        );
+        expect(externalStyles.length).toBe(2);
+
+        const successStyle = externalStyles.find((s) => s.href.includes('success.css'));
+        const failStyle = externalStyles.find((s) => s.href.includes('fail.css'));
+
+        expect(successStyle?.content).toBe(cssText);
+        expect(failStyle?.content).toBeUndefined();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('handles empty fetch promises array gracefully', async () => {
+      const style = document.createElement('style');
+      style.textContent = '.inline { display: block; }';
+      document.head.appendChild(style);
+
+      document.body.innerHTML = '<div id="root"><div>Test</div></div>';
+
+      await captureSnapshot();
+      const snapshot = await getSnapshot('/');
+
+      expect(snapshot).not.toBeNull();
+      expect(snapshot!.styles).toBeDefined();
+      expect(snapshot!.styles!.length).toBe(1);
+      const firstStyle = snapshot!.styles![0];
+      expect(typeof firstStyle === 'object' && firstStyle.type === 'inline').toBe(true);
+    });
+  });
 });

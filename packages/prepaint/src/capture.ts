@@ -108,9 +108,13 @@ function saveSnapshot(db: IDBDatabase, snapshot: Snapshot): Promise<void> {
 
 async function collectStyles(): Promise<SnapshotStyle[]> {
   const styles: SnapshotStyle[] = [];
+  const fetchPromises: Promise<SnapshotStyle>[] = [];
+
   const elements = document.querySelectorAll('style, link[rel~="stylesheet"]');
   const currentOrigin = getCurrentOrigin();
+
   const fetchFn = typeof globalThis.fetch === 'function' ? globalThis.fetch : null;
+
   for (const element of elements) {
     if (!(element instanceof HTMLElement)) continue;
     if (element.hasAttribute('data-firsttx-prepaint')) continue;
@@ -121,25 +125,38 @@ async function collectStyles(): Promise<SnapshotStyle[]> {
       continue;
     }
     if (!(element instanceof HTMLLinkElement)) continue;
+
     const relList = element.relList;
+
     const isStylesheet = relList ? relList.contains('stylesheet') : element.rel === 'stylesheet';
     if (!isStylesheet) continue;
+
     const href = element.getAttribute('href');
     if (!href) continue;
+
     const url = resolveHref(href);
     if (!url) continue;
-    const record: SnapshotStyle = { type: 'external', href: url.href };
+
     if (fetchFn && currentOrigin && url.origin === currentOrigin) {
-      try {
-        const response = await fetchFn(url.href, { credentials: 'same-origin' });
-        if (response.ok) {
-          const text = await response.text();
-          if (text) record.content = text;
-        }
-      } catch {}
+      const promise = (async (): Promise<SnapshotStyle> => {
+        try {
+          const response = await fetchFn(url.href, { credentials: 'same-origin' });
+          if (response.ok) {
+            const text = await response.text();
+            if (text) return { type: 'external', href: url.href, content: text };
+          }
+        } catch {}
+        return { type: 'external', href: url.href };
+      })();
+      fetchPromises.push(promise);
+    } else {
+      styles.push({ type: 'external', href: url.href });
     }
-    styles.push(record);
   }
+
+  const fetchedStyles = await Promise.all(fetchPromises);
+  styles.push(...fetchedStyles);
+
   return styles;
 }
 
