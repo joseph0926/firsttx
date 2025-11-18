@@ -14,7 +14,7 @@ permissions:
 jobs:
   release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -33,12 +33,6 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Install latest npm CLI
-        run: npm install -g npm@latest
-
-      - name: Verify npm version
-        run: npm --version
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -46,8 +40,8 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm release:version
-          publish: pnpm release:publish
+          version: pnpm run release:version
+          publish: pnpm run release:publish
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
