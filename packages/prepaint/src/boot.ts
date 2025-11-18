@@ -21,6 +21,20 @@ function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   });
 }
 
+function deleteSnapshot(db: IDBDatabase, route: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readwrite');
+    const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+    const request = store.delete(route);
+    request.onerror = () => {
+      const err = request.error;
+      if (err) reject(convertDOMException(err, 'delete'));
+      else reject(new PrepaintStorageError('Unknown error deleting snapshot', 'UNKNOWN', 'delete'));
+    };
+    request.onsuccess = () => resolve();
+  });
+}
+
 function extractSingleRoot(html: string): string | null {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
@@ -71,7 +85,19 @@ export async function boot(): Promise<void> {
     snapshot = await getSnapshot(db, route);
     db.close();
   } catch (error) {
-    if (db) db.close();
+    if (db) {
+      try {
+        await deleteSnapshot(db, route);
+        if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+          console.log(`[FirstTx] Corrupted snapshot deleted for ${route}`);
+        }
+      } catch (deleteError) {
+        if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+          console.warn('[FirstTx] Failed to delete corrupted snapshot:', deleteError);
+        }
+      }
+      db.close();
+    }
 
     emitDevToolsEvent('storage.error', {
       operation: 'read',
@@ -89,6 +115,26 @@ export async function boot(): Promise<void> {
   }
 
   if (!snapshot) return;
+
+  if (
+    typeof snapshot.timestamp !== 'number' ||
+    typeof snapshot.body !== 'string' ||
+    typeof snapshot.route !== 'string'
+  ) {
+    try {
+      const db2 = await openDB();
+      await deleteSnapshot(db2, route);
+      db2.close();
+      if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+        console.log(`[FirstTx] Invalid snapshot structure deleted for ${route}`);
+      }
+    } catch (deleteError) {
+      if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+        console.warn('[FirstTx] Failed to delete invalid snapshot:', deleteError);
+      }
+    }
+    return;
+  }
 
   const age = Date.now() - snapshot.timestamp;
   if (age > STORAGE_CONFIG.MAX_SNAPSHOT_AGE) return;
