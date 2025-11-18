@@ -1,5 +1,15 @@
 # @firsttx/prepaint
 
+## 0.5.0
+
+### Minor Changes
+
+- **Security**: Added XSS protection by removing 30 dangerous event handler attributes (onclick, onerror, onload, etc.) during DOM serialization to prevent malicious code execution on snapshot restore
+- **Performance**: Optimized stylesheet collection with parallel fetching, reducing load time by ~80% for pages with multiple same-origin stylesheets
+- **Reliability**: Improved error recovery with automatic cleanup of corrupted or invalid snapshots from IndexedDB
+- **Stability**: Fixed potential race condition in `installRootGuard` where `reset()` failures could cause permanent lockup
+- **Developer Experience**: Added DevTools events and console logging when snapshots are skipped due to age limits, improving debugging visibility
+
 ## 0.4.2
 
 ### Patch Changes
