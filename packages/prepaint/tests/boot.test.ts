@@ -212,6 +212,41 @@ describe('boot', () => {
       spy.mockRestore();
     });
 
+    it('deletes corrupted snapshot from IndexedDB', async () => {
+      mountRoot('');
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const db = await openDB();
+      const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readwrite');
+      const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+
+      await new Promise<void>((resolve, reject) => {
+        const request = store.put({ route: '/', invalid: 'data' });
+        request.onsuccess = () => resolve();
+        // eslint-disable-next-line
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+
+      await boot();
+
+      const db2 = await openDB();
+      const tx2 = db2.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
+      const store2 = tx2.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+      const result = await new Promise<unknown>((resolve) => {
+        const request = store2.get('/');
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+      });
+      db2.close();
+
+      expect(result).toBeUndefined();
+
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+
     it('handles DOM restoration errors silently', async () => {
       mountRoot('');
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
