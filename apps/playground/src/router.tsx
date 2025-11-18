@@ -14,6 +14,13 @@ const routerObjects: RouteObject[] = [
         element: <HomePage />,
       },
       {
+        path: 'getting-started',
+        lazy: async () => {
+          const { default: Component } = await import('./pages/getting-started');
+          return { Component };
+        },
+      },
+      {
         path: 'prepaint',
         children: [
           {
@@ -91,6 +98,13 @@ const routerObjects: RouteObject[] = [
             path: 'staleness',
             lazy: async () => {
               const { default: Component } = await import('./pages/sync/staleness');
+              return { Component };
+            },
+          },
+          {
+            path: 'suspense',
+            lazy: async () => {
+              const { default: Component } = await import('./pages/sync/suspense-demo');
               return { Component };
             },
           },

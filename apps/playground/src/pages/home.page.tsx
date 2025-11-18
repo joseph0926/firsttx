@@ -1,6 +1,9 @@
+import { Link } from 'react-router';
+import { IntroSection } from '@/components/home/intro-section';
 import { LevelSection } from '@/components/home/level-section';
 import { StatCard } from '@/components/home/stat-card';
-import { GitBranch, RefreshCw, Terminal, Zap } from 'lucide-react';
+import { levels } from '@/data/scenarios';
+import { BookOpen, GitBranch, RefreshCw, Terminal, Zap } from 'lucide-react';
 
 export default function HomePage() {
   return (
@@ -14,10 +17,19 @@ export default function HomePage() {
           <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl">
             FirstTx Performance Arena
           </h1>
-          <p className="mb-8 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Experience how FirstTx solves CSR challenges through 9 real-world scenarios. Test
+          <p className="mb-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+            Experience how FirstTx solves CSR challenges through 10 real-world scenarios. Test
             instant replay, atomic rollback, and server sync in action.
           </p>
+          <div className="mb-8">
+            <Link
+              to="/getting-started"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <BookOpen className="h-4 w-4" />
+              Getting Started Guide
+            </Link>
+          </div>
           <div className="mb-12 grid gap-4 sm:grid-cols-3">
             <StatCard
               icon={<Zap className="h-5 w-5" />}
@@ -28,7 +40,7 @@ export default function HomePage() {
             <StatCard
               icon={<RefreshCw className="h-5 w-5" />}
               label="Sync"
-              value="3 scenarios"
+              value="4 scenarios"
               description="Server reconciliation"
             />
             <StatCard
@@ -38,87 +50,20 @@ export default function HomePage() {
               description="Atomic updates"
             />
           </div>
+          <IntroSection />
         </div>
       </section>
       <section className="px-6 py-16">
         <div className="mx-auto max-w-6xl">
-          <LevelSection
-            level={1}
-            title="Prepaint Mastery"
-            description="Eliminate blank screen time on revisits"
-            scenarios={[
-              {
-                id: 'heavy',
-                title: 'Heavy Page',
-                description: 'Experience 0ms blank screen with 100+ product grids',
-                path: '/prepaint/heavy',
-                metrics: { bst: '12ms', target: '<20ms' },
-              },
-              {
-                id: 'route-switching',
-                title: 'Route Switching',
-                description: 'See prepaint integration with React Router 7',
-                path: '/prepaint/route-switching',
-                metrics: { coverage: '5 routes', transitions: 'smooth' },
-              },
-            ]}
-          />
-          <LevelSection
-            level={2}
-            title="Sync Battles"
-            description="Handle local and server data conflicts"
-            scenarios={[
-              {
-                id: 'instant-cart',
-                title: 'Instant Cart',
-                description: 'Traditional CSR vs Local-First response time comparison',
-                path: '/sync/instant-cart',
-                metrics: { response: '0ms', savings: '1,300ms' },
-              },
-              {
-                id: 'timing',
-                title: 'Timing Attack',
-                description: 'Server sync during transaction execution',
-                path: '/sync/timing',
-                metrics: { race: 'protected', consistency: '100%' },
-              },
-              {
-                id: 'staleness',
-                title: 'Staleness Detection',
-                description: 'TTL expiry and stale data handling',
-                path: '/sync/staleness',
-                metrics: { ttl: '7 days', detection: 'automatic' },
-              },
-            ]}
-          />
-          <LevelSection
-            level={3}
-            title="Tx Mastery"
-            description="Guarantee atomic all-or-nothing updates"
-            scenarios={[
-              {
-                id: 'concurrent',
-                title: 'Concurrent Updates',
-                description: 'Multiple transactions execute simultaneously',
-                path: '/tx/concurrent',
-                metrics: { rate: '10 tx/s', consistency: 'guaranteed' },
-              },
-              {
-                id: 'rollback-chain',
-                title: 'Rollback Chain',
-                description: 'Multi-step transaction rollback in reverse',
-                path: '/tx/rollback-chain',
-                metrics: { steps: '5', time: '<100ms' },
-              },
-              {
-                id: 'network-chaos',
-                title: 'Network Chaos',
-                description: 'Test retry logic under unstable conditions',
-                path: '/tx/network-chaos',
-                metrics: { retry: '1x default', success: '90%+' },
-              },
-            ]}
-          />
+          {levels.map((level) => (
+            <LevelSection
+              key={level.level}
+              level={level.level}
+              title={level.title}
+              description={level.description}
+              scenarios={level.scenarios}
+            />
+          ))}
         </div>
       </section>
       <footer className="border-t border-border px-6 py-12">

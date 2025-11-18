@@ -16,11 +16,9 @@ export default function HeavyPage() {
     sync,
     isSyncing,
     error,
-    history,
   } = useSyncedModel(
     ProductsModel,
     async () => {
-      console.log('[HeavyPage] Fetching products...');
       const items = await fetchProducts();
       return {
         items,
@@ -28,6 +26,7 @@ export default function HeavyPage() {
       };
     },
     {
+      syncOnMount: 'stale',
       onSuccess: (data) => {
         console.log('[HeavyPage] Sync success:', data.items.length, 'products');
       },
@@ -53,24 +52,6 @@ export default function HeavyPage() {
     const endTime = performance.now();
     setLoadTime(endTime - startTime);
   }, []);
-
-  useEffect(() => {
-    console.log('[HeavyPage] State check:', {
-      hasProducts: !!products,
-      isStale: history.isStale,
-      isSyncing,
-      age: history.age,
-    });
-
-    if (!products || history.isStale) {
-      if (!isSyncing) {
-        console.log('[HeavyPage] Triggering sync...');
-        sync().catch((err) => {
-          console.error('[HeavyPage] Manual sync failed:', err);
-        });
-      }
-    }
-  }, [products, history.isStale, isSyncing]);
 
   if (!products) {
     return (

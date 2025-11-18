@@ -1,10 +1,11 @@
-import { ScenarioCard, type Scenario } from './scenario-card';
+import { ScenarioCard } from './scenario-card';
+import { type ScenarioMeta } from '@/data/scenarios';
 
 interface LevelSectionProps {
   level: number;
   title: string;
   description: string;
-  scenarios: Scenario[];
+  scenarios: ScenarioMeta[];
 }
 
 export function LevelSection({ level, title, description, scenarios }: LevelSectionProps) {
