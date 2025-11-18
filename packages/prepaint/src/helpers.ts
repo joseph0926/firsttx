@@ -40,8 +40,11 @@ function installRootGuard(container: Element, getRoot: () => Root | null, reset:
         getRoot()?.unmount?.();
       } catch {}
       container.innerHTML = '';
-      reset();
-      resetting = false;
+      try {
+        reset();
+      } finally {
+        resetting = false;
+      }
     }
   };
   const mo = new MutationObserver(() => check());
