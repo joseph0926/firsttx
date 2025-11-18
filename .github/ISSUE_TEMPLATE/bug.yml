@@ -12,7 +12,6 @@ body:
         - prepaint
         - local-first
         - tx
-        - demo
         - playground
         - devtools
         - other
