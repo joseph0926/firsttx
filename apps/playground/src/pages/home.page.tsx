@@ -4,8 +4,13 @@ import { LevelSection } from '@/components/home/level-section';
 import { StatCard } from '@/components/home/stat-card';
 import { levels } from '@/data/scenarios';
 import { BookOpen, GitBranch, RefreshCw, Terminal, Zap } from 'lucide-react';
+import { useModel } from '@firsttx/local-first';
+import { PlaygroundMetricsModel, type PlaygroundMetrics } from '@/models/metrics.model';
 
 export default function HomePage() {
+  const [metrics] = useModel(PlaygroundMetricsModel);
+  const scenarioMetrics = metrics?.scenarios ?? {};
+
   return (
     <div className="min-h-screen">
       <section className="relative px-6 py-24 md:py-32">
@@ -62,6 +67,7 @@ export default function HomePage() {
               title={level.title}
               description={level.description}
               scenarios={level.scenarios}
+              metrics={scenarioMetrics as PlaygroundMetrics['scenarios']}
             />
           ))}
         </div>

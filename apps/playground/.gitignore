@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .metrics
+test-results/.last-run.json
 
 # Editor directories and files
 .vscode/*

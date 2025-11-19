@@ -2,11 +2,15 @@ export type ScenarioType = 'observe' | 'interact' | 'experiment';
 
 export type PackageName = 'prepaint' | 'local-first' | 'tx';
 
+export type MetricFormat = 'ms' | 'percentage' | 'count' | 'number' | 'boolean';
+
 export interface ScenarioMetric {
   label: string;
   value: string;
   target?: string;
   description: string;
+  metricKey?: string;
+  format?: MetricFormat;
 }
 
 export interface ScenarioMeta {
@@ -64,6 +68,8 @@ export const levels: LevelData[] = [
             value: '~12ms',
             target: '<20ms',
             description: 'Time user sees white screen. Above 50ms causes noticeable flash.',
+            metricKey: 'warmFirstContentfulPaint',
+            format: 'ms',
           },
           {
             label: 'DOM Reuse',
@@ -118,11 +124,15 @@ export const levels: LevelData[] = [
             target: '0ms',
             description:
               'UI responds instantly via optimistic update. Server sync happens in background.',
+            metricKey: 'firstTxActionLatency',
+            format: 'ms',
           },
           {
             label: 'Time Saved',
             value: '~1,300ms',
             description: 'Cumulative time saved per interaction vs traditional CSR.',
+            metricKey: 'timeSavedPerInteraction',
+            format: 'ms',
           },
         ],
       },
@@ -213,11 +223,15 @@ export const levels: LevelData[] = [
             label: 'Throughput',
             value: '10 tx/s',
             description: 'Concurrent transaction processing rate.',
+            metricKey: 'successRate',
+            format: 'percentage',
           },
           {
             label: 'Consistency',
             value: 'Guaranteed',
             description: 'All-or-nothing guarantee for each transaction.',
+            metricKey: 'dataConsistent',
+            format: 'boolean',
           },
         ],
       },

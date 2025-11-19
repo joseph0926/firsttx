@@ -4,7 +4,7 @@ import { z } from 'zod';
 const ScenarioMetricsSchema = z.object({
   scenarioId: z.string(),
   runId: z.string(),
-  metrics: z.record(z.union([z.number(), z.string()])),
+  metrics: z.record(z.union([z.number(), z.string(), z.boolean()])),
   meta: z.record(z.any()).nullable(),
   updatedAt: z.number(),
 });
