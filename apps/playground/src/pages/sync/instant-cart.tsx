@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Clock, Zap, RefreshCw, Loader2 } from 'lucide-react';
 import {
   ScenarioLayout,
@@ -18,11 +18,15 @@ export default function InstantCart() {
   const [traditionalLoading, setTraditionalLoading] = useState(false);
   const [traditionalUpdating, setTraditionalUpdating] = useState(false);
 
-  const [firstTxResponseTime, setFirstTxResponseTime] = useState(0);
+  const [firstTxInitialLoadMs, setFirstTxInitialLoadMs] = useState<number | null>(null);
+  const firstTxLoadStartRef = useRef(performance.now());
+  const [firstTxServerAck, setFirstTxServerAck] = useState<number | null>(null);
+  const firstTxMutationStartRef = useRef<number | null>(null);
+  const [traditionalInitialLoadMs, setTraditionalInitialLoadMs] = useState<number | null>(null);
   const [traditionalResponseTime, setTraditionalResponseTime] = useState(0);
   const [actionLatency, setActionLatency] = useState({ firstTx: 0, traditional: 0 });
 
-  const { mutate: incrementItem, isPending: isIncrementing } = useTx({
+  const { mutateAsync: incrementItem, isPending: isIncrementing } = useTx({
     optimistic: async (itemId: string) => {
       await patch((draft) => {
         const item = draft.items.find((i) => i.id === itemId);
@@ -59,10 +63,15 @@ export default function InstantCart() {
     transition: true,
 
     onSuccess: (result, itemId) => {
+      if (firstTxMutationStartRef.current !== null) {
+        setFirstTxServerAck(performance.now() - firstTxMutationStartRef.current);
+        firstTxMutationStartRef.current = null;
+      }
       console.log('✅ [SUCCESS]', itemId, result);
     },
 
     onError: (error, itemId) => {
+      firstTxMutationStartRef.current = null;
       console.error('❌ [ERROR]', itemId, error);
     },
   });
@@ -76,16 +85,19 @@ export default function InstantCart() {
       setTraditionalCart(cart);
       const end = performance.now();
       setTraditionalResponseTime(end - start);
+      if (traditionalInitialLoadMs === null) {
+        setTraditionalInitialLoadMs(end - start);
+      }
     } finally {
       setTraditionalLoading(false);
     }
   };
 
   useEffect(() => {
-    if (firstTxCart) {
-      setFirstTxResponseTime(0);
+    if (firstTxCart && firstTxInitialLoadMs === null) {
+      setFirstTxInitialLoadMs(performance.now() - firstTxLoadStartRef.current);
     }
-  }, [firstTxCart]);
+  }, [firstTxCart, firstTxInitialLoadMs]);
 
   const handleFirstTxIncrement = (itemId: string) => {
     const start = performance.now();
@@ -95,7 +107,10 @@ export default function InstantCart() {
       return;
     }
 
-    incrementItem(itemId);
+    firstTxMutationStartRef.current = start;
+    incrementItem(itemId).catch(() => {
+      firstTxMutationStartRef.current = null;
+    });
 
     const end = performance.now();
     setActionLatency((prev) => ({ ...prev, firstTx: end - start }));
@@ -121,7 +136,7 @@ export default function InstantCart() {
   };
 
   const timeSaved =
-    traditionalResponseTime > 0 && firstTxResponseTime === 0
+    traditionalResponseTime > 0 && firstTxInitialLoadMs !== null
       ? traditionalResponseTime + actionLatency.traditional - actionLatency.firstTx
       : 0;
 
@@ -138,21 +153,29 @@ export default function InstantCart() {
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
           label="Initial Load"
-          value={firstTxCart ? '0ms' : '--'}
-          target="vs 800ms Traditional"
+          value={firstTxInitialLoadMs !== null ? `${firstTxInitialLoadMs.toFixed(1)}ms` : '--'}
+          target={
+            traditionalInitialLoadMs !== null
+              ? `vs ${traditionalInitialLoadMs.toFixed(1)}ms Traditional`
+              : 'Awaiting data'
+          }
           status={firstTxCart ? 'excellent' : 'good'}
         />
         <MetricCard
           icon={<Zap className="h-5 w-5" />}
           label="Action Latency"
-          value={actionLatency.firstTx > 0 ? `${actionLatency.firstTx.toFixed(0)}ms` : '--'}
-          target={`vs ${actionLatency.traditional.toFixed(0)}ms`}
+          value={actionLatency.firstTx > 0 ? `${actionLatency.firstTx.toFixed(1)}ms` : '--'}
+          target={
+            actionLatency.traditional > 0
+              ? `vs ${actionLatency.traditional.toFixed(1)}ms`
+              : 'Click +1 to measure'
+          }
           status={actionLatency.firstTx > 0 && actionLatency.firstTx < 100 ? 'excellent' : 'good'}
         />
         <MetricCard
           icon={<RefreshCw className="h-5 w-5" />}
           label="Time Saved"
-          value={timeSaved > 0 ? `${timeSaved.toFixed(0)}ms` : '--'}
+          value={timeSaved > 0 ? `${timeSaved.toFixed(1)}ms` : '--'}
           target="Per Interaction"
           status={timeSaved > 1000 ? 'excellent' : timeSaved > 500 ? 'good' : 'poor'}
         />
@@ -160,6 +183,17 @@ export default function InstantCart() {
       <SectionHeader
         title="Traditional CSR vs FirstTx"
         description="Click +1 buttons to see the response time difference. FirstTx updates instantly using local cache."
+      />
+
+      <div
+        className="sr-only"
+        data-testid="instant-cart-metrics"
+        data-firsttx-initial={firstTxInitialLoadMs ?? ''}
+        data-traditional-initial={traditionalInitialLoadMs ?? ''}
+        data-firsttx-action={actionLatency.firstTx || ''}
+        data-traditional-action={actionLatency.traditional || ''}
+        data-firsttx-server-ack={firstTxServerAck ?? ''}
+        data-time-saved={timeSaved || ''}
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -211,7 +245,7 @@ export default function InstantCart() {
 
           <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/5 p-4">
             <div className="flex gap-3">
-              <Clock className="h-5 w-5 flex-shrink-0 text-yellow-500" />
+              <Clock className="h-5 w-5 shrink-0 text-yellow-500" />
               <div className="text-sm">
                 <div className="font-medium">Every action waits for server</div>
                 <div className="text-muted-foreground">Initial load: ~800ms, Updates: ~500ms</div>
@@ -264,7 +298,7 @@ export default function InstantCart() {
 
           <div className="rounded-lg border border-green-500/50 bg-green-500/5 p-4">
             <div className="flex gap-3">
-              <Zap className="h-5 w-5 flex-shrink-0 text-green-500" />
+              <Zap className="h-5 w-5 shrink-0 text-green-500" />
               <div className="text-sm">
                 <div className="font-medium">Instant local updates</div>
                 <div className="text-muted-foreground">

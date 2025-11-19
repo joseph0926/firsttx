@@ -27,3 +27,11 @@ The initial focus is on three flagship scenarios.
   - Staleness detection (TTL expiry timings) and Timing Attack (race condition protection) will piggyback on the same helper once the two primary sync/tx tests are stable.
 
 All future tests should use the shared helper in `tests/utils/metrics.ts` to guarantee a consistent JSON schema.
+
+### Syncing metrics for the Playground UI
+
+1. Run Playwright tests to generate `.metrics/*.json`.
+2. Execute `pnpm --filter playground metrics:sync` to copy them under `public/metrics/`.
+3. The app loads these files via `loadMetricsFromPublic()` and stores them inside `PlaygroundMetricsModel`.
+
+This keeps the web UI in sync with the latest automated measurements.

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { GitBranch, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   ScenarioLayout,
@@ -17,8 +17,18 @@ interface TransactionLog {
   status: 'pending' | 'running' | 'success' | 'failed' | 'rolled-back';
   startTime: number;
   endTime?: number;
+  attempts: number;
+  retries: number;
   itemId: string;
   action: string;
+}
+
+interface MetricsSnapshot {
+  successRate: number | null;
+  avgDuration: number | null;
+  totalTransactions: number;
+  totalRetries: number;
+  dataConsistent: boolean | null;
 }
 
 export default function ConcurrentUpdates() {
@@ -118,6 +128,8 @@ export default function ConcurrentUpdates() {
       id: i + 1,
       status: 'pending',
       startTime: Date.now(),
+      attempts: 0,
+      retries: 0,
       itemId,
       action: `Reserve ${itemId}`,
     }));
@@ -161,6 +173,19 @@ export default function ConcurrentUpdates() {
     : 0;
 
   const isDataConsistent = stats.total > 0 ? totalReserved === stats.success : true;
+
+  const totalRetries = useMemo(
+    () => transactions.reduce((sum, tx) => sum + tx.retries, 0),
+    [transactions],
+  );
+
+  const metrics: MetricsSnapshot = {
+    successRate: stats.total > 0 ? Number(((stats.success / stats.total) * 100).toFixed(1)) : null,
+    avgDuration: Number(avgDuration.toFixed(1)) || null,
+    totalTransactions: stats.total,
+    totalRetries,
+    dataConsistent: stats.total > 0 ? isDataConsistent : null,
+  };
 
   return (
     <ScenarioLayout
@@ -217,6 +242,15 @@ export default function ConcurrentUpdates() {
       />
 
       <div className="mb-6 space-y-4">
+        <div
+          className="sr-only"
+          data-testid="concurrent-metrics"
+          data-success-rate={metrics.successRate ?? ''}
+          data-avg-duration={metrics.avgDuration ?? ''}
+          data-total-transactions={metrics.totalTransactions}
+          data-total-retries={metrics.totalRetries}
+          data-data-consistent={metrics.dataConsistent ?? ''}
+        />
         <div className="rounded-lg border border-border bg-card p-6">
           <h3 className="mb-4 text-lg font-semibold">Test Configuration</h3>
           <div className="grid gap-6 md:grid-cols-2">

@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "metrics:sync": "node ./scripts/sync-metrics.mjs"
   },
   "dependencies": {
     "@firsttx/local-first": "workspace:*",

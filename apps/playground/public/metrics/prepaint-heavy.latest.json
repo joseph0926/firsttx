@@ -1,0 +1,17 @@
+{
+  "scenario": "prepaint-heavy",
+  "runId": "2025-01-01T00:00:00.000Z",
+  "metrics": {
+    "coldHydrationCompleteMs": 950.5,
+    "warmHydrationCompleteMs": 240.1,
+    "coldFirstContentfulPaint": 320,
+    "warmFirstContentfulPaint": 42,
+    "coldDomContentLoaded": 270.8,
+    "warmDomContentLoaded": 49.9,
+    "blankScreenReductionMs": 278
+  },
+  "meta": {
+    "project": "chromium",
+    "url": "/prepaint/heavy"
+  }
+}

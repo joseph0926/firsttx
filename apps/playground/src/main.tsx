@@ -1,7 +1,8 @@
 import { StrictMode } from 'react';
 import './index.css';
-import Router from './router.tsx';
 import { createFirstTxRoot } from '@firsttx/prepaint';
+import Router from './router.tsx';
+import { loadMetricsFromPublic } from './lib/metrics-loader';
 
 createFirstTxRoot(
   document.getElementById('root')!,
@@ -19,3 +20,5 @@ createFirstTxRoot(
     },
   },
 );
+
+void loadMetricsFromPublic();
