@@ -8,8 +8,9 @@ import {
   SectionHeader,
 } from '../../components/scenario-layout';
 import { useSyncedModel } from '@firsttx/local-first';
-import { RouteMetricsModel } from '../../models/route-metrics.model';
+import { RouteMetricsModel, type RouteMetricsData } from '../../models/route-metrics.model';
 import { fetchRouteMetrics } from '@/api/route-metrics.api';
+import { useHandoffStrategy } from '@/lib/prepaint-handshake';
 
 const routes = [
   { path: '/prepaint/route-switching/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,36 +33,29 @@ export default function RouteSwitching() {
   });
 
   const [currentLoadTime, setCurrentLoadTime] = useState<number>(0);
-  const [isPrepaintActive, setIsPrepaintActive] = useState(false);
+  const handoffStrategy = useHandoffStrategy();
+  const isPrepaintActive = handoffStrategy === 'has-prepaint';
 
   useEffect(() => {
     const startTime = performance.now();
-    const hasPrepaint = document.documentElement.hasAttribute('data-prepaint');
-    setIsPrepaintActive(hasPrepaint);
-
     const path = location.pathname;
 
-    const recordMetric = async () => {
-      const endTime = performance.now();
-      const loadTime = endTime - startTime;
+    const timeoutId = setTimeout(() => {
+      const loadTime = performance.now() - startTime;
       setCurrentLoadTime(loadTime);
 
-      const currentMetrics = await RouteMetricsModel.getSnapshot();
-      const metrics = currentMetrics ?? {};
-
-      const current = metrics[path] || { visits: 0, avgTime: 0 };
+      const cachedMetrics = RouteMetricsModel.getCachedSnapshot() ?? ({} as RouteMetricsData);
+      const current = cachedMetrics[path] || { visits: 0, avgTime: 0 };
       const newVisits = current.visits + 1;
       const newAvgTime = (current.avgTime * current.visits + loadTime) / newVisits;
 
-      await patch((draft) => {
+      patch((draft) => {
         draft[path] = {
           visits: newVisits,
           avgTime: newAvgTime,
         };
-      });
-    };
-
-    const timeoutId = setTimeout(recordMetric, 50);
+      }).catch(() => {});
+    }, 50);
 
     return () => clearTimeout(timeoutId);
   }, [location.pathname, patch]);

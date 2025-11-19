@@ -9,6 +9,7 @@ import {
 import { useSyncedModel } from '@firsttx/local-first';
 import { ProductsModel, type Product } from '@/models/products.model';
 import { fetchProducts } from '@/api/mock-products';
+import { useHandoffStrategy } from '@/lib/prepaint-handshake';
 
 export default function HeavyPage() {
   const {
@@ -38,12 +39,11 @@ export default function HeavyPage() {
 
   const [loadTime, setLoadTime] = useState<number>(0);
   const [visitCount, setVisitCount] = useState<number>(0);
-  const [isPrepaintActive, setIsPrepaintActive] = useState(false);
+  const handoffStrategy = useHandoffStrategy();
+  const isPrepaintActive = handoffStrategy === 'has-prepaint';
 
   useEffect(() => {
     const startTime = performance.now();
-    const hasPrepaint = document.documentElement.hasAttribute('data-prepaint');
-    setIsPrepaintActive(hasPrepaint);
 
     const visits = Number(localStorage.getItem('heavy-page-visits') || '0');
     setVisitCount(visits + 1);

@@ -28,6 +28,10 @@ export default function InstantCart() {
 
   const { mutateAsync: incrementItem, isPending: isIncrementing } = useTx({
     optimistic: async (itemId: string) => {
+      if (!firstTxCart) {
+        throw new Error('Cart unavailable');
+      }
+      const snapshot: Cart = structuredClone(firstTxCart);
       await patch((draft) => {
         const item = draft.items.find((i) => i.id === itemId);
 
@@ -37,21 +41,21 @@ export default function InstantCart() {
           draft.lastModified = new Date().toISOString();
         }
       });
+      return snapshot;
     },
 
-    rollback: async (itemId: string) => {
+    rollback: async (_itemId: string, snapshot?: Cart) => {
+      if (!snapshot) return;
       await patch((draft) => {
-        const item = draft.items.find((i) => i.id === itemId);
-        if (item) {
-          item.quantity -= 1;
-          draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-          draft.lastModified = new Date().toISOString();
-        }
+        draft.items = snapshot.items.map((item) => ({ ...item }));
+        draft.total = snapshot.total;
+        draft.lastModified = snapshot.lastModified;
       });
     },
 
     request: async (itemId: string) => {
-      const item = firstTxCart?.items.find((i) => i.id === itemId);
+      const latest = await CartModel.getSnapshot();
+      const item = latest?.items.find((i) => i.id === itemId);
       if (!item) {
         throw new Error('Item not found');
       }
