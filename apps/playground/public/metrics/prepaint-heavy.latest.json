@@ -1,14 +1,14 @@
 {
   "scenario": "prepaint-heavy",
-  "runId": "2025-11-19T05:42:02.985Z",
+  "runId": "2025-11-19T06:29:29.401Z",
   "metrics": {
-    "coldHydrationCompleteMs": 1097.2,
-    "warmHydrationCompleteMs": 3909.3,
-    "coldFirstContentfulPaint": 412,
-    "warmFirstContentfulPaint": 60,
-    "coldDomContentLoaded": 325.6,
-    "warmDomContentLoaded": 50.7,
-    "blankScreenReductionMs": 352
+    "coldHydrationCompleteMs": 974.4,
+    "warmHydrationCompleteMs": 3573.8,
+    "coldFirstContentfulPaint": 140,
+    "warmFirstContentfulPaint": 44,
+    "coldDomContentLoaded": 90.9,
+    "warmDomContentLoaded": 56.2,
+    "blankScreenReductionMs": 96
   },
   "meta": {
     "project": "chromium",

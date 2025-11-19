@@ -1,9 +1,9 @@
 {
   "scenario": "tx-concurrent",
-  "runId": "2025-11-19T05:42:00.225Z",
+  "runId": "2025-11-19T06:29:26.846Z",
   "metrics": {
     "successRate": 100,
-    "averageDurationMs": 290.8,
+    "averageDurationMs": 295.6,
     "totalTransactions": 5,
     "totalRetries": 0,
     "dataConsistent": true

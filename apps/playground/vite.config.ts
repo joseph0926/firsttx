@@ -4,11 +4,17 @@ import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
+const METRICS_BASE_URL =
+  process.env.VITE_METRICS_BASE_URL ?? 'https://joseph0926.github.io/firsttx';
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), firstTx()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  define: {
+    __PLAYGROUND_METRICS_BASE__: JSON.stringify(METRICS_BASE_URL),
   },
 });

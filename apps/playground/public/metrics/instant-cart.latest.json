@@ -1,13 +1,13 @@
 {
   "scenario": "instant-cart",
-  "runId": "2025-11-19T05:41:59.673Z",
+  "runId": "2025-11-19T06:29:26.060Z",
   "metrics": {
-    "firstTxInitialLoadMs": 849.0999999996275,
-    "traditionalInitialLoadMs": 801.5999999996275,
-    "firstTxActionLatency": 0.40000000037252903,
+    "firstTxInitialLoadMs": 835.9000000003725,
+    "traditionalInitialLoadMs": 801.0999999996275,
+    "firstTxActionLatency": 0.2999999998137355,
     "traditionalActionLatency": 0,
     "firstTxServerAckMs": 0,
-    "timeSavedPerInteraction": 801.1999999992549
+    "timeSavedPerInteraction": 800.7999999998137
   },
   "meta": {
     "project": "chromium",
