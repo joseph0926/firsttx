@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { IntroSection } from '@/components/home/intro-section';
 import { LevelSection } from '@/components/home/level-section';
 import { StatCard } from '@/components/home/stat-card';
+import { DevtoolsPanel } from '@/components/home/devtools-panel';
 import { levels } from '@/data/scenarios';
 import { BookOpen, GitBranch, RefreshCw, Terminal, Zap } from 'lucide-react';
 import { useModel } from '@firsttx/local-first';
@@ -108,6 +109,7 @@ export default function HomePage() {
             />
           </div>
           <IntroSection />
+          <DevtoolsPanel scenarioMetrics={scenarioMetrics as PlaygroundMetrics['scenarios']} />
           <div className="grid gap-4 rounded-xl border border-border bg-card/40 p-4 sm:grid-cols-3">
             {liveBenchmarks.map((entry) => (
               <div
