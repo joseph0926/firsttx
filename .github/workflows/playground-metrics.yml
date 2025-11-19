@@ -28,6 +28,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build FirstTx packages
+        run: |
+          pnpm --filter @firsttx/prepaint build
+          pnpm --filter @firsttx/local-first build
+          pnpm --filter @firsttx/tx build
+
       - name: Run Playwright metrics suite
         run: |
           cd apps/playground
