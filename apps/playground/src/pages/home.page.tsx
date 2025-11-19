@@ -6,10 +6,62 @@ import { levels } from '@/data/scenarios';
 import { BookOpen, GitBranch, RefreshCw, Terminal, Zap } from 'lucide-react';
 import { useModel } from '@firsttx/local-first';
 import { PlaygroundMetricsModel, type PlaygroundMetrics } from '@/models/metrics.model';
+import type { MetricFormat } from '@/data/scenarios';
+
+function formatValue(value: unknown, format: MetricFormat): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'number') {
+    switch (format) {
+      case 'percentage':
+        return `${value.toFixed(1)}%`;
+      case 'ms':
+        return `${value.toFixed(1)}ms`;
+      case 'count':
+        return value.toFixed(0);
+      case 'boolean':
+        return value ? '✓' : '✗';
+      default:
+        return value.toFixed(1);
+    }
+  }
+  if (typeof value === 'boolean') {
+    return value ? '✓' : '✗';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return null;
+}
 
 export default function HomePage() {
   const [metrics] = useModel(PlaygroundMetricsModel);
   const scenarioMetrics = metrics?.scenarios ?? {};
+  const liveBenchmarks = [
+    {
+      label: 'Prepaint Warm FCP',
+      description: 'Blank screen on revisit (ms)',
+      metric: formatValue(
+        scenarioMetrics['prepaint-heavy']?.metrics['warmFirstContentfulPaint'],
+        'ms',
+      ),
+      target: '<20ms',
+    },
+    {
+      label: 'Instant Cart Time Saved',
+      description: 'Per interaction (ms)',
+      metric: formatValue(
+        scenarioMetrics['instant-cart']?.metrics['timeSavedPerInteraction'],
+        'ms',
+      ),
+      target: 'Higher is better',
+    },
+    {
+      label: 'Concurrent Success Rate',
+      description: 'Tx completion',
+      metric: formatValue(scenarioMetrics['tx-concurrent']?.metrics['successRate'], 'percentage'),
+      target: '>90%',
+    },
+  ];
 
   return (
     <div className="min-h-screen">
@@ -56,6 +108,26 @@ export default function HomePage() {
             />
           </div>
           <IntroSection />
+          <div className="grid gap-4 rounded-xl border border-border bg-card/40 p-4 sm:grid-cols-3">
+            {liveBenchmarks.map((entry) => (
+              <div
+                key={entry.label}
+                className="rounded-lg border border-border bg-background/70 p-4 shadow-sm"
+                aria-live="polite"
+              >
+                <div className="text-xs uppercase text-muted-foreground tracking-wide">
+                  {entry.label}
+                </div>
+                <div className="text-3xl font-bold">{entry.metric ?? '--'}</div>
+                <div className="text-xs text-muted-foreground">{entry.description}</div>
+                {entry.target && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Target: {entry.target}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
       <section className="px-6 py-16">

@@ -1,0 +1,16 @@
+{
+  "scenario": "instant-cart",
+  "runId": "2025-11-19T05:41:59.673Z",
+  "metrics": {
+    "firstTxInitialLoadMs": 849.0999999996275,
+    "traditionalInitialLoadMs": 801.5999999996275,
+    "firstTxActionLatency": 0.40000000037252903,
+    "traditionalActionLatency": 0,
+    "firstTxServerAckMs": 0,
+    "timeSavedPerInteraction": 801.1999999992549
+  },
+  "meta": {
+    "project": "chromium",
+    "url": "/sync/instant-cart"
+  }
+}

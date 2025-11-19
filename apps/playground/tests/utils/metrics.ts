@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export interface MetricRecord {
   scenario: string;
   runId: string;
-  metrics: Record<string, number | string | null>;
+  metrics: Record<string, number | string | boolean | null>;
   meta?: Record<string, unknown>;
 }
 
@@ -20,7 +20,7 @@ export async function writeMetrics(record: MetricRecord) {
 
 export function createMetricRecord(
   scenario: string,
-  metrics: Record<string, number | string | null>,
+  metrics: Record<string, number | string | boolean | null>,
   meta?: Record<string, unknown>,
 ): MetricRecord {
   return {

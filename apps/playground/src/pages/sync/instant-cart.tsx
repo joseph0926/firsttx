@@ -94,6 +94,17 @@ export default function InstantCart() {
   };
 
   useEffect(() => {
+    const shouldAutoLoad =
+      typeof window !== 'undefined' &&
+      window.sessionStorage.getItem('firsttx:autoLoadTraditional') === '1';
+    if (shouldAutoLoad && !traditionalCart && !traditionalLoading) {
+      loadTraditionalCart().catch((error) => {
+        console.error('Auto load traditional cart failed', error);
+      });
+    }
+  }, [traditionalCart, traditionalLoading]);
+
+  useEffect(() => {
     if (firstTxCart && firstTxInitialLoadMs === null) {
       setFirstTxInitialLoadMs(performance.now() - firstTxLoadStartRef.current);
     }
@@ -196,7 +207,7 @@ export default function InstantCart() {
         data-time-saved={timeSaved || ''}
       />
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="traditional-panel">
           <div className="rounded-lg border border-border bg-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Traditional CSR</h3>
@@ -231,6 +242,7 @@ export default function InstantCart() {
                     item={item}
                     onIncrement={() => handleTraditionalIncrement(item.id)}
                     loading={traditionalUpdating}
+                    testId="traditional-increment"
                   />
                 ))}
                 <div className="border-t border-border pt-3">
@@ -254,7 +266,7 @@ export default function InstantCart() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4" data-testid="firsttx-panel">
           <div className="rounded-lg border border-border bg-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">FirstTx (Local-First)</h3>
@@ -278,6 +290,7 @@ export default function InstantCart() {
                     item={item}
                     onIncrement={() => handleFirstTxIncrement(item.id)}
                     loading={false}
+                    testId="firsttx-increment"
                   />
                 ))}
                 <div className="border-t border-border pt-3">
@@ -317,9 +330,10 @@ interface CartItemCardProps {
   item: CartItem;
   onIncrement: () => void;
   loading: boolean;
+  testId?: string;
 }
 
-function CartItemCard({ item, onIncrement, loading }: CartItemCardProps) {
+function CartItemCard({ item, onIncrement, loading, testId }: CartItemCardProps) {
   return (
     <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
       <img src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded object-cover" />
@@ -333,6 +347,7 @@ function CartItemCard({ item, onIncrement, loading }: CartItemCardProps) {
         onClick={onIncrement}
         disabled={loading}
         className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        data-testid={testId ? `${testId}-${item.id}` : undefined}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : '+1'}
       </button>

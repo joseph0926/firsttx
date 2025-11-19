@@ -266,6 +266,7 @@ export default function ConcurrentUpdates() {
                 onChange={(e) => setConcurrentCount(Number(e.target.value))}
                 disabled={isRunning}
                 className="w-full"
+                data-testid="concurrent-slider"
               />
               <div className="mt-1 text-xs text-muted-foreground">
                 Simulates {concurrentCount} users reserving items simultaneously
@@ -282,6 +283,7 @@ export default function ConcurrentUpdates() {
                 onChange={(e) => setFailureRate(Number(e.target.value))}
                 disabled={isRunning}
                 className="w-full"
+                data-testid="failure-slider"
               />
               <div className="mt-1 text-xs text-muted-foreground">
                 Probability of server rejecting reservation
@@ -293,6 +295,7 @@ export default function ConcurrentUpdates() {
               onClick={launchConcurrent}
               disabled={isRunning || !inventory}
               className="flex items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              data-testid="launch-concurrent"
             >
               <GitBranch className={`h-4 w-4 ${isRunning ? 'animate-pulse' : ''}`} />
               {isRunning ? 'Running...' : 'Launch Concurrent Transactions'}
