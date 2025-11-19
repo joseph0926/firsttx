@@ -1,0 +1,67 @@
+name: Playground Metrics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "metrics/**"
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Playwright metrics suite
+        run: |
+          cd apps/playground
+          pnpm exec playwright install --with-deps
+          pnpm test:e2e
+
+      - name: Copy metrics to public/
+        run: |
+          cd apps/playground
+          pnpm metrics:sync
+
+      - name: Upload metrics artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: playground-metrics
+          path: |
+            apps/playground/.metrics/*.json
+            apps/playground/public/metrics/*.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/playground/public/metrics
+
+  deploy:
+    needs: metrics
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,9 +1,15 @@
 import { PlaygroundMetricsModel, type ScenarioMetrics } from '@/models/metrics.model';
 
+declare global {
+  interface Window {
+    __PLAYGROUND_METRICS_BASE__?: string;
+  }
+}
+
 interface MetricFilePayload {
   scenario: string;
   runId: string;
-  metrics: Record<string, number | string>;
+  metrics: Record<string, number | string | boolean>;
   meta?: Record<string, unknown>;
 }
 
@@ -13,20 +19,30 @@ interface MetricSource {
   title: string;
 }
 
+const metricsBase =
+  import.meta.env.VITE_METRICS_BASE_URL ??
+  (typeof window !== 'undefined' ? window.__PLAYGROUND_METRICS_BASE__ : undefined) ??
+  '';
+
+const withBase = (file: string) => {
+  if (!metricsBase) return file;
+  return `${metricsBase.replace(/\/$/, '')}${file}`;
+};
+
 const METRIC_SOURCES: MetricSource[] = [
   {
     id: 'prepaint-heavy',
-    file: '/metrics/prepaint-heavy.latest.json',
+    file: withBase('/metrics/prepaint-heavy.latest.json'),
     title: 'Prepaint Heavy',
   },
   {
     id: 'instant-cart',
-    file: '/metrics/instant-cart.latest.json',
+    file: withBase('/metrics/instant-cart.latest.json'),
     title: 'Instant Cart',
   },
   {
     id: 'tx-concurrent',
-    file: '/metrics/tx-concurrent.latest.json',
+    file: withBase('/metrics/tx-concurrent.latest.json'),
     title: 'Concurrent Updates',
   },
 ];
