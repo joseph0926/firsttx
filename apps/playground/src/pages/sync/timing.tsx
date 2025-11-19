@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock, Zap, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
 import {
   ScenarioLayout,
@@ -6,6 +6,11 @@ import {
   MetricCard,
   SectionHeader,
 } from '../../components/scenario-layout';
+import { useSyncedModel } from '@firsttx/local-first';
+import { startTransaction } from '@firsttx/tx';
+import { CartModel, type Cart } from '@/models/cart.model';
+import { fetchCart, updateCartItem } from '@/api/cart.api';
+import { sleep } from '@/lib/utils';
 
 interface TimelineEvent {
   time: number;
@@ -14,19 +19,43 @@ interface TimelineEvent {
   status?: 'pending' | 'success' | 'error';
 }
 
+const TARGET_ITEM_ID = '1';
+const SERVER_OVERRIDE_QTY = 5;
+
+const countItems = (cart?: Cart | null) =>
+  cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+
 export default function TimingAttack() {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [cartItems, setCartItems] = useState(3);
+  const [cartItems, setCartItems] = useState(0);
   const [isSimulating, setIsSimulating] = useState(false);
   const [testResult, setTestResult] = useState<'pass' | 'fail' | null>(null);
   const [serverSyncTiming, setServerSyncTiming] = useState(50);
-  const [consistencyRate, setConsistencyRate] = useState(100);
+  const [stats, setStats] = useState({ total: 0, passes: 0 });
+
+  const {
+    data: cart,
+    patch,
+    sync,
+  } = useSyncedModel(CartModel, fetchCart, {
+    syncOnMount: 'stale',
+  });
+
+  useEffect(() => {
+    setCartItems(countItems(cart));
+  }, [cart]);
+
+  const consistencyRate = stats.total === 0 ? 100 : Math.round((stats.passes / stats.total) * 100);
 
   const runTimingTest = async () => {
+    if (!cart) {
+      await sync();
+      return;
+    }
+
     setIsSimulating(true);
     setTimeline([]);
     setTestResult(null);
-    setCartItems(3);
 
     const startTime = performance.now();
     const events: TimelineEvent[] = [];
@@ -41,42 +70,109 @@ export default function TimingAttack() {
       setTimeline([...events]);
     };
 
+    const tx = startTransaction({ transition: true });
     addEvent('Transaction started', 'tx-start', 'success');
-    await sleep(100);
 
-    addEvent('Step 1: Optimistic update (+1 item)', 'tx-step', 'success');
-    setCartItems(4);
-    await sleep(100);
+    const refreshCartCount = async () => {
+      const snapshot = await CartModel.getSnapshot();
+      setCartItems(countItems(snapshot));
+      return snapshot;
+    };
 
-    addEvent('🔴 Server sync arrives (unexpected)', 'server-sync', 'success');
-    await sleep(serverSyncTiming);
+    const triggerServerSync = () =>
+      (async () => {
+        addEvent('Server sync scheduled', 'server-sync', 'pending');
+        await sleep(serverSyncTiming);
+        const serverCart = await updateCartItem(TARGET_ITEM_ID, SERVER_OVERRIDE_QTY);
+        await CartModel.replace(serverCart);
+        await refreshCartCount();
+        addEvent(`Server sync applied ${SERVER_OVERRIDE_QTY} items`, 'server-sync', 'success');
+      })();
 
-    addEvent('Step 2: API call fails', 'tx-step', 'error');
-    await sleep(100);
+    let serverSyncPromise: Promise<void> | null = null;
 
-    addEvent('Transaction rollback initiated', 'tx-rollback', 'pending');
-    await sleep(50);
+    try {
+      await tx.run(
+        async () => {
+          addEvent('Step 1: Optimistic update (+1 item)', 'tx-step', 'pending');
+          await patch((draft) => {
+            const item = draft.items.find((i) => i.id === TARGET_ITEM_ID);
+            if (item) {
+              item.quantity += 1;
+              draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+              draft.lastModified = new Date().toISOString();
+            }
+          });
+          await refreshCartCount();
+          addEvent('Optimistic write applied locally', 'tx-step', 'success');
+        },
+        {
+          compensate: async () => {
+            addEvent('Rollback: reverting optimistic change', 'tx-rollback', 'pending');
+            await patch((draft) => {
+              const item = draft.items.find((i) => i.id === TARGET_ITEM_ID);
+              if (item) {
+                item.quantity -= 1;
+                draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+                draft.lastModified = new Date().toISOString();
+              }
+            });
+            await refreshCartCount();
+            addEvent('Optimistic change reverted', 'tx-rollback', 'success');
+          },
+        },
+      );
 
-    const serverDataPreserved = Math.random() > 0.1;
+      serverSyncPromise = triggerServerSync();
 
-    if (serverDataPreserved) {
-      setCartItems(5);
-      addEvent('✅ Server data preserved (5 items)', 'tx-rollback', 'success');
+      await tx.run(async () => {
+        addEvent('Step 2: Server mutation (simulated)', 'tx-step', 'pending');
+        await sleep(250);
+        throw new Error('API request failed');
+      });
+
+      await serverSyncPromise;
+      await tx.commit();
+      addEvent('Transaction committed', 'tx-commit', 'success');
       setTestResult('pass');
-      setConsistencyRate((prev) => Math.min(100, prev + 1));
-    } else {
-      setCartItems(3);
-      addEvent('❌ Data corrupted (rolled back to 3)', 'tx-rollback', 'error');
-      setTestResult('fail');
-      setConsistencyRate((prev) => Math.max(0, prev - 10));
-    }
+      setStats((prev) => ({
+        total: prev.total + 1,
+        passes: prev.passes + 1,
+      }));
+    } catch (error) {
+      console.error(error);
+      addEvent('Step 2 failed - starting rollback', 'tx-step', 'error');
 
-    setIsSimulating(false);
+      if (!serverSyncPromise) {
+        serverSyncPromise = triggerServerSync();
+      }
+
+      await serverSyncPromise;
+      const latest = await refreshCartCount();
+      const serverPreserved =
+        latest?.items.find((item) => item.id === TARGET_ITEM_ID)?.quantity === SERVER_OVERRIDE_QTY;
+
+      addEvent(
+        serverPreserved
+          ? 'Rollback respected server snapshot'
+          : 'Rollback overwrote server snapshot',
+        'tx-rollback',
+        serverPreserved ? 'success' : 'error',
+      );
+
+      setTestResult(serverPreserved ? 'pass' : 'fail');
+      setStats((prev) => ({
+        total: prev.total + 1,
+        passes: prev.passes + (serverPreserved ? 1 : 0),
+      }));
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   const resetTest = () => {
     setTimeline([]);
-    setCartItems(3);
+    setCartItems(countItems(cart));
     setTestResult(null);
   };
 
@@ -246,10 +342,10 @@ export default function TimingAttack() {
               ) : (
                 timeline.map((event, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-16 pt-1 text-xs text-muted-foreground terminal-text">
+                    <div className="shrink-0 w-16 pt-1 text-xs text-muted-foreground terminal-text">
                       {event.time.toFixed(0)}ms
                     </div>
-                    <div className="flex-shrink-0 pt-1">
+                    <div className="shrink-0 pt-1">
                       {event.type === 'tx-start' && <Zap className="h-4 w-4 text-blue-500" />}
                       {event.type === 'tx-step' && event.status === 'success' && (
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -283,7 +379,7 @@ export default function TimingAttack() {
             <h3 className="mb-4 text-lg font-semibold">Expected Behavior</h3>
             <div className="space-y-3 text-sm">
               <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
                   <div className="font-medium">Protected Against Race</div>
                   <div className="text-muted-foreground">
@@ -292,14 +388,14 @@ export default function TimingAttack() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
                   <div className="font-medium">Memory Cache Integrity</div>
                   <div className="text-muted-foreground">Cache must reflect final server state</div>
                 </div>
               </div>
               <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-500" />
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
                   <div className="font-medium">notifySubscribers Order</div>
                   <div className="text-muted-foreground">
@@ -313,8 +409,4 @@ export default function TimingAttack() {
       </div>
     </ScenarioLayout>
   );
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
