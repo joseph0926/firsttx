@@ -386,6 +386,7 @@ describe('captureSnapshot', () => {
       const quotaError = new Error('QuotaExceededError');
       quotaError.name = 'QuotaExceededError';
       setTimeout(() => {
+        // @ts-expect-error test type
         request.error = quotaError;
         request.onerror?.(new Event('error'));
       }, 0);
