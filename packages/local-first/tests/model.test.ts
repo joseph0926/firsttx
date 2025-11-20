@@ -77,6 +77,44 @@ describe('Model', () => {
 
       expect(stored?._v).toBe(3);
     });
+
+    it('should use storageKey for persistence', async () => {
+      const TestModel = defineModel('cart', {
+        schema: z.object({
+          items: z.array(z.string()),
+        }),
+        ttl: 5000,
+        storageKey: 'app1-cart',
+      });
+
+      const serverData = { items: ['apple'] };
+      await TestModel.replace(serverData);
+
+      const storage = Storage.getInstance();
+      const storedCustom = await storage.get('app1-cart');
+      const storedDefault = await storage.get('cart');
+
+      expect(storedCustom?.data).toEqual(serverData);
+      expect(storedDefault).toBeNull();
+    });
+
+    it('should merge incoming data with existing using merge option', async () => {
+      const TestModel = defineModel('cart', {
+        schema: z.object({
+          items: z.array(z.string()),
+        }),
+        ttl: 5000,
+        merge: (current, incoming) => ({ items: [...current.items, ...incoming.items] }),
+      });
+
+      await TestModel.replace({ items: ['apple'] });
+      await TestModel.replace({ items: ['banana'] });
+
+      const storage = Storage.getInstance();
+      const stored = await storage.get('cart');
+
+      expect(stored?.data).toEqual({ items: ['apple', 'banana'] });
+    });
   });
 
   describe('getSnapshot - re visit', () => {
