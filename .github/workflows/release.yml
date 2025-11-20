@@ -32,6 +32,8 @@ jobs:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+          scope: "@firsttx"
+          always-auth: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
