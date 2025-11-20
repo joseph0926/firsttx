@@ -4,6 +4,12 @@
 
 ### Minor Changes
 
+- Fix timeout handling so long-running steps and retries are aborted with proper errors. & Add storageKey option to avoid IndexedDB key collisions and apply user-defined merge when replacing data. & Add route-key override and sensitive-field scrubbing to snapshot capture; make capture tests memory/Offline-friendly.
+
+## 0.6.0
+
+### Minor Changes
+
 Add route-key override and sensitive-field scrubbing to snapshot capture; make capture tests memory/Offline-friendly.
 
 ## 0.5.0
