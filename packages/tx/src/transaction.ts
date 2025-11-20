@@ -135,7 +135,8 @@ export class Transaction {
 
       if (remaining <= 0) {
         if (this.abortController) {
-          this.abortController.abort();
+          const timeoutError = new TransactionTimeoutError(this.options.timeout, elapsed);
+          this.abortController.abort(timeoutError);
         }
 
         emitTxEvent('timeout', {
@@ -152,7 +153,8 @@ export class Transaction {
         const finalElapsed = this.startTime ? Date.now() - this.startTime : 0;
 
         if (this.abortController) {
-          this.abortController.abort();
+          const timeoutError = new TransactionTimeoutError(this.options.timeout, finalElapsed);
+          this.abortController.abort(timeoutError);
         }
 
         emitTxEvent('timeout', {

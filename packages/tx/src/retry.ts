@@ -2,6 +2,7 @@ import type { RetryConfig } from './types';
 import { DEFAULT_RETRY_CONFIG } from './types';
 import { RetryExhaustedError } from './errors';
 import { emitTxEvent } from './devtools';
+import { abortableSleep } from './utils';
 
 export async function executeWithRetry<T>(
   fn: (signal?: AbortSignal) => Promise<T>,
@@ -18,11 +19,31 @@ export async function executeWithRetry<T>(
 
   const errors: Error[] = [];
 
+  const getAbortError = () => {
+    if (signal?.aborted) {
+      const reason = signal.reason as unknown;
+      return reason instanceof Error ? reason : new Error('Aborted');
+    }
+    return null;
+  };
+
+  const throwIfAborted = () => {
+    const abortError = getAbortError();
+    if (abortError) {
+      throw abortError;
+    }
+  };
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const result = await fn(signal);
+      throwIfAborted();
+      const result = await runWithAbort(fn, signal);
       return result;
     } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
+
       errors.push(error as Error);
 
       if (attempt === maxAttempts) {
@@ -42,10 +63,49 @@ export async function executeWithRetry<T>(
         });
       }
 
-      await sleep(delay);
+      await abortableSleep(delay, signal);
     }
   }
   throw new Error('[FirstTx] Unexpected: retry loop ended without return or throw');
+}
+
+async function runWithAbort<T>(
+  fn: (signal?: AbortSignal) => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) {
+    return fn(undefined);
+  }
+
+  if (signal.aborted) {
+    const reason = signal.reason as unknown;
+    throw reason instanceof Error ? reason : new Error('Aborted');
+  }
+
+  let aborted = false;
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      aborted = true;
+      const reason = signal.reason as unknown;
+      reject(reason instanceof Error ? reason : new Error('Aborted'));
+    };
+
+    signal.addEventListener('abort', onAbort, { once: true });
+
+    fn(signal)
+      .then((value) => {
+        if (aborted) return;
+        resolve(value);
+      })
+      .catch((err) => {
+        if (aborted) return;
+        reject(err instanceof Error ? err : new Error(String(err)));
+      })
+      .finally(() => {
+        signal.removeEventListener('abort', onAbort);
+      });
+  });
 }
 
 function calculateDelay(
@@ -58,8 +118,4 @@ function calculateDelay(
   } else {
     return baseDelayMs * Math.pow(2, attempt - 1);
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
