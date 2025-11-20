@@ -56,6 +56,7 @@ export function defineModel<T>(
     schema: z.ZodType<T>;
     ttl?: number;
     merge?: (current: T, incoming: T) => T;
+    storageKey?: string;
   },
 ): Model<T>;
 export function defineModel<T>(
@@ -66,6 +67,7 @@ export function defineModel<T>(
     schema: z.ZodType<T>;
     ttl?: number;
     merge?: (current: T, incoming: T) => T;
+    storageKey?: string;
   },
 ): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
@@ -73,6 +75,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   const subscribers = new Set<() => void>();
 
   const effectiveTTL = options.ttl ?? 5 * 60 * 1000;
+  const storageKey = options.storageKey ?? name;
 
   let cachedHistory: ModelHistory = {
     updatedAt: 0,
@@ -150,14 +153,14 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
   const reloadCache = async () => {
     const storage = Storage.getInstance();
-    const stored = await storage.get<T>(name);
+    const stored = await storage.get<T>(storageKey);
     if (stored) {
       updateCache(stored.data, stored.updatedAt);
     }
   };
 
   const persist = async (storage: Storage, data: T, updatedAt: number) => {
-    await storage.set(name, {
+    await storage.set(storageKey, {
       _v: options.version ?? 1,
       updatedAt,
       data,
@@ -166,7 +169,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   };
 
   const broadcaster = ModelBroadcaster.getInstance();
-  broadcaster.subscribe(name, () => {
+  broadcaster.subscribe(storageKey, () => {
     void reloadCache();
   });
 
@@ -176,14 +179,14 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   } | null> => {
     const loadStartTime = performance.now();
     const storage = Storage.getInstance();
-    const stored = await storage.get<T>(name);
+    const stored = await storage.get<T>(storageKey);
 
     if (!stored) {
       return null;
     }
 
     if (options.version && stored._v !== options.version) {
-      await storage.delete(name);
+      await storage.delete(storageKey);
 
       if (!options.initialData) {
         throw new Error('[FirstTx] Unreachable: version set but no initialData');
@@ -203,7 +206,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
     const parseResult = options.schema.safeParse(stored.data);
     if (!parseResult.success) {
-      await storage.delete(name);
+      await storage.delete(storageKey);
 
       emitModelEvent('validation.error', {
         modelName: name,
@@ -289,14 +292,14 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     getSnapshot: async () => {
       const loadStartTime = performance.now();
       const storage = Storage.getInstance();
-      const stored = await storage.get<T>(name);
+      const stored = await storage.get<T>(storageKey);
 
       if (!stored) {
         return null;
       }
 
       if (options.version && stored._v !== options.version) {
-        await storage.delete(name);
+        await storage.delete(storageKey);
 
         if (!options.initialData) {
           throw new Error('[FirstTx] Unreachable: version set but no initialData');
@@ -307,7 +310,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
       const parseResult = options.schema.safeParse(stored.data);
       if (!parseResult.success) {
-        await storage.delete(name);
+        await storage.delete(storageKey);
 
         emitModelEvent('validation.error', {
           modelName: name,
@@ -345,7 +348,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
      */
     getHistory: async (): Promise<ModelHistory> => {
       const storage = Storage.getInstance();
-      const stored = await storage.get<T>(name);
+      const stored = await storage.get<T>(storageKey);
 
       if (!stored) {
         return {
@@ -388,17 +391,66 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         }
 
         const storage = Storage.getInstance();
+        const stored = await storage.get<T>(storageKey);
+
+        let base: T | null = null;
+
+        if (stored) {
+          if (options.version && stored._v !== options.version) {
+            await storage.delete(storageKey);
+
+            if (!options.initialData) {
+              throw new Error(
+                `[FirstTx] Cannot replace model "${name}" - stored data is outdated and no initialData provided`,
+              );
+            }
+
+            base = structuredClone(options.initialData);
+          } else {
+            const parseStored = options.schema.safeParse(stored.data);
+
+            if (!parseStored.success) {
+              await storage.delete(storageKey);
+
+              emitModelEvent('validation.error', {
+                modelName: name,
+                error: parseStored.error.message,
+                path: parseStored.error.issues[0]?.path.join('.'),
+              });
+
+              if (process.env.NODE_ENV !== 'production') {
+                throw new ValidationError(
+                  `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
+                  name,
+                  parseStored.error,
+                );
+              }
+
+              if (!options.initialData) {
+                throw new Error(
+                  `[FirstTx] Cannot replace model "${name}" - no data exists and no initialData provided`,
+                );
+              }
+
+              base = structuredClone(options.initialData);
+            } else {
+              base = parseStored.data;
+            }
+          }
+        }
+
+        const merged = base ? model.merge(base, parseResult.data) : parseResult.data;
         const now = Date.now();
 
-        await persist(storage, parseResult.data, now);
+        await persist(storage, merged, now);
 
-        broadcaster.broadcast({ type: 'model-replaced', key: name });
+        broadcaster.broadcast({ type: 'model-replaced', key: storageKey });
 
         const replaceDuration = performance.now() - replaceStartTime;
 
         emitModelEvent('replace', {
           modelName: name,
-          dataSize: JSON.stringify(parseResult.data).length,
+          dataSize: JSON.stringify(merged).length,
           source: 'manual',
           duration: replaceDuration,
         });
@@ -411,7 +463,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       enqueue(async () => {
         const patchStartTime = performance.now();
         const storage = Storage.getInstance();
-        const stored = await storage.get<T>(name);
+        const stored = await storage.get<T>(storageKey);
 
         let draft: T;
 
@@ -424,7 +476,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
           draft = structuredClone(options.initialData);
         } else if (options.version && stored._v !== options.version) {
-          await storage.delete(name);
+          await storage.delete(storageKey);
 
           if (!options.initialData) {
             throw new Error(
@@ -437,7 +489,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
           const parseStored = options.schema.safeParse(stored.data);
 
           if (!parseStored.success) {
-            await storage.delete(name);
+            await storage.delete(storageKey);
 
             emitModelEvent('validation.error', {
               modelName: name,
@@ -486,7 +538,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
         await persist(storage, parseResult.data, now);
 
-        broadcaster.broadcast({ type: 'model-patched', key: name });
+        broadcaster.broadcast({ type: 'model-patched', key: storageKey });
 
         const patchDuration = performance.now() - patchStartTime;
         emitModelEvent('patch', {

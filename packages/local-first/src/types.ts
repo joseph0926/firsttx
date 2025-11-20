@@ -38,6 +38,7 @@ export interface ModelOptions<T> {
    * and must return the resolved value to persist.
    */
   merge?: (current: T, incoming: T) => T;
+  storageKey?: string;
 
   // TODO: Phase 1
   // redact?: Record<string, boolean>
