@@ -1,7 +1,7 @@
 declare const __FIRSTTX_DEV__: boolean;
 
 import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
-import { openDB } from './utils';
+import { openDB, resolveRouteKey } from './utils';
 import { mountOverlay } from './overlay';
 import { normalizeSnapshotStyleEntry } from './style-utils';
 import { BootError, PrepaintStorageError, convertDOMException } from './errors';
@@ -62,7 +62,7 @@ function shouldUseOverlay(route: string): boolean {
 
 export async function boot(): Promise<void> {
   const restoreStartTime = performance.now();
-  const route = window.location.pathname;
+  const route = resolveRouteKey();
   let db: IDBDatabase | null = null;
 
   try {

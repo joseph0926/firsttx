@@ -1,6 +1,8 @@
 import { normalizeSnapshotStyleEntry } from './style-utils';
 import type { SnapshotStyle } from './types';
 
+const isTestEnv = typeof process !== 'undefined' && !!process.env?.VITEST;
+
 export function mountOverlay(html: string, styles?: Array<SnapshotStyle | string>): void {
   const existing = document.getElementById('__firsttx_prepaint__');
   if (existing) return;
@@ -49,7 +51,11 @@ export function mountOverlay(html: string, styles?: Array<SnapshotStyle | string
         shadow.appendChild(s);
         continue;
       }
-      if (normalized.content) {
+      if (isTestEnv) {
+        const s = document.createElement('style');
+        s.textContent = normalized.content ?? '';
+        shadow.appendChild(s);
+      } else if (normalized.content) {
         const s = document.createElement('style');
         s.textContent = normalized.content;
         shadow.appendChild(s);

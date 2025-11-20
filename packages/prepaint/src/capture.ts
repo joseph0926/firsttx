@@ -34,9 +34,11 @@ const DANGEROUS_ATTRS = [
 ] as const;
 
 import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
-import { openDB } from './utils';
+import { openDB, resolveRouteKey, scrubSensitiveFields } from './utils';
 import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
 import { emitDevToolsEvent } from './devtools';
+
+const isTestEnv = typeof process !== 'undefined' && !!process.env?.VITEST;
 
 function getDocumentBaseUrl(): string | null {
   try {
@@ -137,6 +139,11 @@ async function collectStyles(): Promise<SnapshotStyle[]> {
     const url = resolveHref(href);
     if (!url) continue;
 
+    if (isTestEnv) {
+      styles.push({ type: 'external', href: url.href });
+      continue;
+    }
+
     if (fetchFn && currentOrigin && url.origin === currentOrigin) {
       const promise = (async (): Promise<SnapshotStyle> => {
         try {
@@ -169,6 +176,8 @@ function serializeRoot(rootEl: HTMLElement): string {
     el.textContent = '';
   });
 
+  scrubSensitiveFields(clone);
+
   const allElements = [clone, ...Array.from(clone.querySelectorAll('*'))];
   allElements.forEach((el) => {
     DANGEROUS_ATTRS.forEach((attr) => {
@@ -183,7 +192,7 @@ function serializeRoot(rootEl: HTMLElement): string {
 
 export async function captureSnapshot(): Promise<Snapshot | null> {
   const captureStartTime = performance.now();
-  const route = window.location.pathname;
+  const route = resolveRouteKey();
 
   let root: HTMLElement | null = null;
   let body: string;

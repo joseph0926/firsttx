@@ -35,3 +35,62 @@ export function supportsViewTransition(): boolean {
     typeof document.startViewTransition === 'function'
   );
 }
+
+const DEFAULT_SENSITIVE_SELECTORS = ['input[type="password"]', '[data-firsttx-sensitive]'] as const;
+
+export function resolveRouteKey(): string {
+  try {
+    const override = (window as typeof window & { __FIRSTTX_ROUTE_KEY__?: unknown })
+      .__FIRSTTX_ROUTE_KEY__;
+    if (typeof override === 'function') {
+      const route = override();
+      if (typeof route === 'string' && route.trim().length > 0) return route;
+    }
+    if (typeof override === 'string' && override.trim().length > 0) {
+      return override;
+    }
+  } catch {}
+
+  try {
+    const path = window.location?.pathname;
+    if (typeof path === 'string' && path.length > 0) return path;
+  } catch {}
+
+  return '/';
+}
+
+function getCustomSensitiveSelectors(): string[] {
+  try {
+    const raw = (window as typeof window & { __FIRSTTX_SENSITIVE_SELECTORS__?: unknown })
+      .__FIRSTTX_SENSITIVE_SELECTORS__;
+    if (Array.isArray(raw)) {
+      return raw
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+  } catch {}
+  return [];
+}
+
+export function getSensitiveSelectors(): string[] {
+  const custom = getCustomSensitiveSelectors();
+  const selectors = [...DEFAULT_SENSITIVE_SELECTORS, ...custom];
+  return Array.from(new Set(selectors));
+}
+
+export function scrubSensitiveFields(root: HTMLElement): void {
+  const selectors = getSensitiveSelectors();
+  if (selectors.length === 0) return;
+
+  const query = selectors.join(',');
+
+  const elements = root.querySelectorAll<HTMLElement>(query);
+  elements.forEach((el) => {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      el.value = '';
+      el.defaultValue = '';
+    }
+    el.textContent = '';
+  });
+}
