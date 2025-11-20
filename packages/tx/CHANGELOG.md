@@ -1,5 +1,11 @@
 # @firsttx/tx
 
+## 0.5.2
+
+### Patch Changes
+
+Fix timeout handling so long-running steps and retries are aborted with proper errors.
+
 ## 0.5.1
 
 ### Patch Changes

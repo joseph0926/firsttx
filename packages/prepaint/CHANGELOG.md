@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.6.0
+
+### Minor Changes
+
+Add route-key override and sensitive-field scrubbing to snapshot capture; make capture tests memory/Offline-friendly.
+
 ## 0.5.0
 
 ### Minor Changes

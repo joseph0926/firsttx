@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.7.0
+
+### Minor Changes
+
+Add storageKey option to avoid IndexedDB key collisions and apply user-defined merge when replacing data.
+
 ## 0.6.0
 
 ### Minor Changes
