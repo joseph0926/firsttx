@@ -8,6 +8,7 @@ import {
   TransactionTimeoutError,
   TransactionStateError,
 } from '../src/errors';
+import { abortableSleep } from '../src/utils';
 
 describe('Transaction - Basic', () => {
   it('should create a transaction', () => {
@@ -779,17 +780,17 @@ describe('Transaction - Timeout', () => {
     await expect(tx.run(async () => {})).rejects.toThrow('transaction is rolled-back');
   });
 
-  it('should NOT cancel ongoing function after timeout (current bug)', async () => {
+  it('should cancel ongoing function after timeout when step supports abort', async () => {
     const tx = startTransaction({ timeout: 100 });
     const executionLog: string[] = [];
 
-    const longRunningFn = vi.fn().mockImplementation(async () => {
+    const longRunningFn = vi.fn().mockImplementation(async (signal?: AbortSignal) => {
       executionLog.push('started');
-      await sleep(50);
+      await abortableSleep(50, signal);
       executionLog.push('checkpoint-1');
-      await sleep(100);
+      await abortableSleep(100, signal);
       executionLog.push('checkpoint-2');
-      await sleep(50);
+      await abortableSleep(50, signal);
       executionLog.push('completed');
     });
 
@@ -797,19 +798,19 @@ describe('Transaction - Timeout', () => {
 
     await sleep(250);
 
-    expect(executionLog).toEqual(['started', 'checkpoint-1', 'checkpoint-2', 'completed']);
+    expect(executionLog).toEqual(['started', 'checkpoint-1']);
   });
 
-  it('should NOT cancel API requests after timeout (current bug)', async () => {
+  it('should abort API requests after timeout when request honors the signal', async () => {
     const tx = startTransaction({ timeout: 100 });
     const apiCallMade = vi.fn();
     const apiCallCompleted = vi.fn();
 
-    const apiRequestFn = vi.fn().mockImplementation(async () => {
-      await sleep(50);
+    const apiRequestFn = vi.fn().mockImplementation(async (signal?: AbortSignal) => {
+      await abortableSleep(50, signal);
       apiCallMade();
 
-      await sleep(150);
+      await abortableSleep(150, signal);
 
       apiCallCompleted();
       return 'api-response';
@@ -820,7 +821,7 @@ describe('Transaction - Timeout', () => {
     await sleep(250);
 
     expect(apiCallMade).toHaveBeenCalledTimes(1);
-    expect(apiCallCompleted).toHaveBeenCalledTimes(1);
+    expect(apiCallCompleted).toHaveBeenCalledTimes(0);
   });
 });
 
