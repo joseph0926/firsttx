@@ -2,7 +2,7 @@
   "name": "@firsttx/docs",
   "version": "0.1.0",
   "private": true,
-  "description": "FirstTx 공식 문서 사이트 (Next.js / App Router)",
+  "description": "Docs for FirstTx packages: Prepaint, Local-First, and Tx.",
   "license": "MIT",
   "engines": {
     "node": ">=22"

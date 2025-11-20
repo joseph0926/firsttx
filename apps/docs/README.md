@@ -1,6 +1,6 @@
 # FirstTx Docs (`apps/docs`)
 
-Next.js (App Router) site for FirstTx packages: Prepaint, Local-First, and Tx.
+Docs for FirstTx packages: Prepaint, Local-First, and Tx.
 
 ## Getting Started
 
