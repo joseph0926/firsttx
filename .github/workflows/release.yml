@@ -29,11 +29,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: "24.x"
           cache: pnpm
           registry-url: https://registry.npmjs.org
           scope: "@firsttx"
           always-auth: true
+
+      - name: Upgrade npm
+        run: |
+          corepack enable || true
+          npm install -g npm@latest
+
+      - name: Print npm version (debug)
+        run: npm -v
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
