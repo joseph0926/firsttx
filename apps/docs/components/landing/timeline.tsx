@@ -2,24 +2,32 @@
 
 import { Activity } from "lucide-react";
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 
 export function Timeline() {
+  const t = useTranslations("Timeline");
+  const rows = t.raw("rows") as Array<{
+    label: string;
+    badge: string;
+    status: "success" | "pending" | "error";
+    detail: string;
+  }>;
+
   return (
     <motion.div className="relative rounded-2xl border border-border/70 bg-linear-to-br from-background/80 via-card/80 to-card/60 p-4 shadow-[0_24px_80px_-44px_rgba(15,23,42,1)] backdrop-blur-xl" initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.6 }}>
       <div className="mb-3 flex items-center justify-between text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <Activity className="size-3" />
-          Live timeline (DevTools)
+          {t("title")}
         </span>
-        <span className="rounded-full bg-secondary/80 px-2 py-1">prepaint · model · tx</span>
+        <span className="rounded-full bg-secondary/80 px-2 py-1">{t("legend")}</span>
       </div>
       <div className="space-y-2 text-[11px]">
-        <TimelineRow label="prepaint.restore" badge="Prepaint" status="success" detail="IndexedDB snapshot → DOM 복원 (4ms)" />
-        <TimelineRow label="model.sync.start" badge="Local-First" status="pending" detail="TTL 초과로 백그라운드 동기화 시작" />
-        <TimelineRow label="tx.commit" badge="Tx" status="success" detail="UI 업데이트 + 서버 요청 모두 성공" />
-        <TimelineRow label="tx.rollback" badge="Tx" status="error" detail="네트워크 실패 → compensate로 UI 상태 되돌림" />
+        {rows.map((row) => (
+          <TimelineRow key={`${row.label}-${row.detail}`} label={row.label} badge={row.badge} status={row.status} detail={row.detail} />
+        ))}
       </div>
-      <p className="mt-4 text-[11px] text-muted-foreground">Chrome 확장 프로그램인 FirstTx DevTools에서 위와 같은 이벤트를 타임라인으로 추적할 수 있습니다.</p>
+      <p className="mt-4 text-[11px] text-muted-foreground">{t("footnote")}</p>
     </motion.div>
   );
 }

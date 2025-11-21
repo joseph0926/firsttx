@@ -10,5 +10,86 @@
     "tagInternal": "Internal tools / dashboards",
     "tagOffline": "Offline-first apps",
     "tagLargeCsr": "Large CSR codebases"
+  },
+  "Navbar": {
+    "tagline": "Prepaint · Local-First · Tx",
+    "menuProduct": "Product",
+    "menuQuickstart": "Quickstart",
+    "menuPlayground": "Playground",
+    "menuGithub": "GitHub",
+    "menuDocs": "Docs Home",
+    "ctaStart": "Get started fast"
+  },
+  "HeaderRow": {
+    "eyebrow": "THREE LAYERS · ONE TOOLKIT",
+    "title": "Prepaint + Local-First + Tx",
+    "description": "Start with what you need. Use Prepaint for revisit optimization, or add Local-First and Tx for sync and optimistic UI.",
+    "chipReact": "Optimized for React 19 + CSR",
+    "chipVite": "Vite / SPA / internal tools",
+    "chipOptional": "Adopt layers selectively"
+  },
+  "Layers": {
+    "layerBadge": "LAYER {order}",
+    "items": {
+      "prepaint": {
+        "name": "Prepaint",
+        "role": "Render layer",
+        "description": "Save the last screen as a DOM snapshot and restore it in 0ms on the next visit.",
+        "points": ["Store full screen snapshot in IndexedDB", "Restore instantly before React loads on revisits", "Keep CSR structure with SSR-like revisit experience"]
+      },
+      "localFirst": {
+        "name": "Local-First",
+        "role": "Data layer",
+        "description": "Keep IndexedDB as the single source and automate server sync.",
+        "points": ["Type-safe models with zod", "TTL and staleness metadata provided", "Background sync for offline-friendly UX"]
+      },
+      "tx": {
+        "name": "Tx",
+        "role": "Execution layer",
+        "description": "Bundle UI updates into transactions to make optimistic updates safe.",
+        "points": ["Run multi-step updates as one transaction", "Auto rollback (compensate) on failure", "Keep UI state consistent even on network errors"]
+      }
+    }
+  },
+  "Experience": {
+    "eyebrow": "HOW IT FEELS",
+    "title": "FirstTx from a user’s perspective",
+    "description": "SSR helps first visits, but users spend more time revisiting, tabbing, and going back. FirstTx focuses on those moments so returning feels already-ready.",
+    "cards": [
+      { "title": "Internal tools with frequent revisits", "description": "Show the previous state immediately in CRM/admin/dashboard flows that bounce list → detail → list." },
+      { "title": "Refreshing mid-task", "description": "Local models keep the latest snapshot, so accidental refreshes preserve your working context." },
+      { "title": "Handling failed optimistic UI", "description": "Rollback happens per transaction, avoiding half-reverted screens when servers fail." },
+      { "title": "Offline resilience", "description": "A simple sync hook results in a data layer that tolerates offline/online transitions." }
+    ]
+  },
+  "Timeline": {
+    "title": "Live timeline (DevTools)",
+    "legend": "prepaint · model · tx",
+    "rows": [
+      { "label": "prepaint.restore", "badge": "Prepaint", "status": "success", "detail": "IndexedDB snapshot → DOM restore (4ms)" },
+      { "label": "model.sync.start", "badge": "Local-First", "status": "pending", "detail": "TTL exceeded → background sync starting" },
+      { "label": "tx.commit", "badge": "Tx", "status": "success", "detail": "UI update and server request succeeded" },
+      { "label": "tx.rollback", "badge": "Tx", "status": "error", "detail": "Network failure → compensate and restore UI state" }
+    ],
+    "footnote": "See these events in the FirstTx DevTools Chrome extension."
+  },
+  "QuickStart": {
+    "eyebrow": "QUICK START",
+    "title": "Start FirstTx with three lines",
+    "description": "Most cases install all three packages. You can pick only Prepaint / Local-First / Tx as needed.",
+    "chipSpa": "React SPA / Vite template",
+    "chipPartial": "Layer-by-layer adoption",
+    "installLabel": "Install",
+    "installBadge": "pnpm / npm / yarn",
+    "stepVite": "1. Configure Vite plugin",
+    "stepEntry": "2. Swap the entry point",
+    "snippetModelTitle": "Local-First model + sync hook",
+    "snippetTxTitle": "Wrap optimistic updates with Tx",
+    "snippetTxDescription": "Update UI before the request and safely roll back when it fails."
+  },
+  "Footer": {
+    "copyright": "© 2025 FirstTx. MIT Licensed. Built for CSR-first teams.",
+    "github": "GitHub",
+    "playground": "Playground"
   }
 }
