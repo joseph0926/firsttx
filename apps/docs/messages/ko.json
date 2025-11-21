@@ -1,0 +1,14 @@
+{
+  "Hero": {
+    "badge": "CSR 재방문에서 빈 화면을 없애는 3가지 레이어",
+    "title": "CSR 재방문, 기다림 없이 복구",
+    "subtitle": "마지막 화면을 저장·동기화·롤백까지 한 번에 처리합니다.",
+    "bodyLine1": "FirstTx는 Prepaint, Local-First, Tx 세 레이어로 구성된 툴킷입니다.",
+    "bodyLine2": "CSR 아키텍처는 그대로 유지하면서, 재방문 화면 복원과 오프라인 내구성, 안전한 낙관적 업데이트를 한 번에 갖춥니다.",
+    "ctaInstall": "npm 패키지로 바로 설치하기",
+    "ctaPlayground": "Playground 열어보기",
+    "tagInternal": "내부 도구 / 대시보드",
+    "tagOffline": "오프라인 우선 앱",
+    "tagLargeCsr": "큰 CSR 코드베이스"
+  }
+}

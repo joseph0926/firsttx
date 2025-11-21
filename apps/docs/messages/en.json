@@ -1,0 +1,14 @@
+{
+  "Hero": {
+    "badge": "Three layers to remove blank screens on CSR revisits",
+    "title": "CSR revisits, restored instantly",
+    "subtitle": "We save, sync, and roll back your last screen all at once.",
+    "bodyLine1": "FirstTx is a toolkit built with Prepaint, Local-First, and Tx.",
+    "bodyLine2": "Keep your CSR architecture while adding instant revisit recovery, offline resilience, and safe optimistic updates together.",
+    "ctaInstall": "Install via npm packages now",
+    "ctaPlayground": "Open the Playground",
+    "tagInternal": "Internal tools / dashboards",
+    "tagOffline": "Offline-first apps",
+    "tagLargeCsr": "Large CSR codebases"
+  }
+}
