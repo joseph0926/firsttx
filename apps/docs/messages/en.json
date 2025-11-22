@@ -88,7 +88,7 @@
     "snippetTxDescription": "Update UI before the request and safely roll back when it fails."
   },
   "Footer": {
-    "copyright": "© 2025 FirstTx. MIT Licensed. Built for CSR-first teams.",
+    "copyright": "© 2025 FirstTx. MIT Licensed. Firsttx Teams.",
     "github": "GitHub",
     "playground": "Playground"
   }

@@ -3,7 +3,6 @@ import { HeaderRow } from "@/components/landing/header-row";
 import { LayersGrid } from "@/components/landing/layers-grid";
 import { ExperienceSection } from "@/components/landing/experience-section";
 import { QuickStartSection } from "@/components/landing/quick-start";
-import { LandingFooter } from "@/components/landing/landing-footer";
 
 export default function LandingPage() {
   return (
@@ -16,7 +15,6 @@ export default function LandingPage() {
         </section>
         <ExperienceSection />
         <QuickStartSection />
-        <LandingFooter />
       </div>
     </main>
   );

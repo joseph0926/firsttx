@@ -2,7 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { GitHubIcon } from "../ui/icons";
 import { useTranslations } from "next-intl";
 
-export function LandingFooter() {
+export function Footer() {
   const t = useTranslations("Footer");
 
   return (

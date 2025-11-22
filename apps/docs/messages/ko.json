@@ -88,7 +88,7 @@
     "snippetTxDescription": "서버 요청 전 UI를 먼저 업데이트하고, 실패 시 자동 롤백하는 패턴을 안전하게 캡슐화합니다."
   },
   "Footer": {
-    "copyright": "© 2025 FirstTx. MIT 라이선스. CSR-first 팀을 위해 만들었습니다.",
+    "copyright": "© 2025 FirstTx. MIT 라이선스. Firsttx Teams.",
     "github": "GitHub",
     "playground": "Playground"
   }
