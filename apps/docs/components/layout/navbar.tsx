@@ -9,10 +9,9 @@ export function Navbar({ scrollContainerRef }: { scrollContainerRef?: React.RefO
   return (
     <NavbarRoot scrollContainerRef={scrollContainerRef}>
       <NavBody>
-        <NavbarLogo src="/logo/firsttx_logo.png" href="/" title="Firsttx" subTitle={t("tagline")} />
+        <NavbarLogo src="/logo/firsttx_logo.png" href="/" title="Firsttx" />
         <NavItems items={navItems} />
         <div className="flex items-center gap-4">
-          <NavbarButton variant="secondary">Login</NavbarButton>
           <NavbarButton variant="primary">Book a call</NavbarButton>
         </div>
       </NavBody>

@@ -13,7 +13,7 @@ export function MobileNavbar() {
   return (
     <MobileNav>
       <MobileNavHeader>
-        <NavbarLogo src="/logo/firsttx_logo.png" href="/" title="Firsttx" subTitle={t("tagline")} />
+        <NavbarLogo src="/logo/firsttx_logo.png" href="/" title="Firsttx" />
         <MobileNavToggle isOpen={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
       </MobileNavHeader>
       <MobileNavMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)}>
@@ -23,9 +23,6 @@ export function MobileNavbar() {
           </a>
         ))}
         <div className="flex w-full flex-col gap-4">
-          <NavbarButton onClick={() => setIsMobileMenuOpen(false)} variant="primary" className="w-full">
-            Login
-          </NavbarButton>
           <NavbarButton onClick={() => setIsMobileMenuOpen(false)} variant="primary" className="w-full">
             Book a call
           </NavbarButton>
