@@ -12,7 +12,7 @@ export function Hero() {
   return (
     <section className="mt-10 grid gap-10 lg:mt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center">
       <div className="space-y-7 text-center lg:text-left">
-        <motion.div className="inline-flex animate-in items-center gap-2 rounded-full border border-border/70 bg-primary-foreground/60 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm fade-in slide-in-from-top-4" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+        <motion.div className="inline-flex animate-in items-center gap-2 rounded-full border border-border/70 bg-primary-foreground/60 px-3 py-1 text-[11px] font-medium text-foreground shadow-sm fade-in slide-in-from-top-4 dark:bg-primary-foreground/20" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <div className="flex size-4 items-center justify-center rounded-full bg-primary/15">
             <Sparkles className="size-2.5 text-primary" />
           </div>

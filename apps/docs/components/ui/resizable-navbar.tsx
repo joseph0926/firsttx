@@ -146,7 +146,7 @@ export const NavbarLogo = ({ href, src, title, subTitle }: { href: string; src: 
     <Link href={href} className="relative z-20 mr-4 flex items-center gap-3 space-x-2 px-2 py-1 text-sm font-normal text-black">
       <Image src={src} alt="logo" width={30} height={30} />
       <div className="flex flex-col">
-        <span className="text-sm font-semibold tracking-tight">{title}</span>
+        <span className="text-sm font-semibold tracking-tight text-foreground">{title}</span>
         {subTitle ? <span className="text-[10px] tracking-[0.2em] text-muted-foreground uppercase">{subTitle}</span> : null}
       </div>
     </Link>
