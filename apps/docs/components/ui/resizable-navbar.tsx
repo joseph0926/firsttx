@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "motion/react";
 import { Menu, X } from "lucide-react";
@@ -50,17 +50,6 @@ export const NavbarRoot = ({ children, className, scrollContainerRef }: NavbarPr
   const [visible, setVisible] = useState(false);
 
   const { scrollY } = useScroll(scrollContainerRef ? { container: scrollContainerRef } : undefined);
-  useEffect(() => {
-    const el = document.querySelector("#scroll-container");
-    if (!el) return;
-
-    const onScroll = () => {
-      console.log("inner scrollTop", (el as HTMLElement).scrollTop);
-    };
-
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     setVisible(latest > 100);

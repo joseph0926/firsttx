@@ -1,32 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { MobileNav, MobileNavHeader, MobileNavMenu, MobileNavToggle, NavbarButton, NavbarLogo } from "../ui/resizable-navbar";
-import { useTranslations } from "next-intl";
+import { MobileNav, MobileNavHeader, MobileNavMenu, MobileNavToggle, NavbarLogo } from "../ui/resizable-navbar";
 import { navItems } from "@/constants/nav";
+import { NavbarSettingsDropdown } from "../navbar-settings-dropdown";
+import Link from "next/link";
 
-export function MobileNavbar() {
-  const t = useTranslations("Navbar");
-
+export function MobileNavbar({ visible }: { visible?: boolean }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   return (
-    <MobileNav>
+    <MobileNav visible={visible}>
       <MobileNavHeader>
         <NavbarLogo src="/logo/firsttx_logo.png" href="/" title="Firsttx" />
-        <MobileNavToggle isOpen={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+        <div className="flex items-center gap-3">
+          <NavbarSettingsDropdown />
+          <MobileNavToggle isOpen={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+        </div>
       </MobileNavHeader>
       <MobileNavMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)}>
         {navItems.map((item, idx) => (
-          <a key={`mobile-link-${idx}`} href={item.link} onClick={() => setIsMobileMenuOpen(false)} className="relative text-neutral-600 dark:text-neutral-300">
+          <Link key={`mobile-link-${idx}`} href={item.link} onClick={() => setIsMobileMenuOpen(false)} className="relative text-neutral-600 dark:text-neutral-300">
             <span className="block">{item.name}</span>
-          </a>
+          </Link>
         ))}
-        <div className="flex w-full flex-col gap-4">
-          <NavbarButton onClick={() => setIsMobileMenuOpen(false)} variant="primary" className="w-full">
-            Book a call
-          </NavbarButton>
-        </div>
       </MobileNavMenu>
     </MobileNav>
   );
