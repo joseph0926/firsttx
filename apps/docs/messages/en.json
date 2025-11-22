@@ -44,11 +44,11 @@
   },
   "HeaderRow": {
     "eyebrow": "THREE LAYERS · ONE TOOLKIT",
-    "title": "Prepaint + Local-First + Tx",
-    "description": "Start with what you need. Use Prepaint for revisit optimization, or add Local-First and Tx for sync and optimistic UI.",
-    "chipReact": "Optimized for React 19 + CSR",
+    "title": "Prepaint · Local-First · Tx",
+    "description": "Pick the layers you need. Use Prepaint for revisit speed, and add Local-First and Tx for sync and optimistic UI.",
+    "chipReact": "Built for React 19 + CSR",
     "chipVite": "Vite / SPA / internal tools",
-    "chipOptional": "Adopt layers selectively"
+    "chipOptional": "Adopt each layer independently"
   },
   "Layers": {
     "layerBadge": "LAYER {order}",
@@ -56,20 +56,20 @@
       "prepaint": {
         "name": "Prepaint",
         "role": "Render layer",
-        "description": "Save the last screen as a DOM snapshot and restore it in 0ms on the next visit.",
-        "points": ["Store full screen snapshot in IndexedDB", "Restore instantly before React loads on revisits", "Keep CSR structure with SSR-like revisit experience"]
+        "description": "Capture the last screen as a DOM snapshot and restore it before React loads.",
+        "points": ["Store full-screen snapshots in IndexedDB", "Restore on revisit before any JS runs", "Make CSR revisits feel close to SSR"]
       },
       "localFirst": {
         "name": "Local-First",
         "role": "Data layer",
-        "description": "Keep IndexedDB as the single source and automate server sync.",
-        "points": ["Type-safe models with zod", "TTL and staleness metadata provided", "Background sync for offline-friendly UX"]
+        "description": "Use IndexedDB as the source of truth and automate server sync.",
+        "points": ["Type-safe models defined with zod", "TTL and staleness metadata built in", "Background sync for offline-friendly flows"]
       },
       "tx": {
         "name": "Tx",
         "role": "Execution layer",
-        "description": "Bundle UI updates into transactions to make optimistic updates safe.",
-        "points": ["Run multi-step updates as one transaction", "Auto rollback (compensate) on failure", "Keep UI state consistent even on network errors"]
+        "description": "Wrap optimistic UI updates in transactions you can safely roll back.",
+        "points": ["Run multi-step updates as a single transaction", "Compensating rollback on failure", "Keep UI state consistent on network errors"]
       }
     }
   },

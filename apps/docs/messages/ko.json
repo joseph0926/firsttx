@@ -44,11 +44,11 @@
   },
   "HeaderRow": {
     "eyebrow": "THREE LAYERS · ONE TOOLKIT",
-    "title": "Prepaint + Local-First + Tx",
-    "description": "한 번에 도입할 필요는 없습니다. 재방문 최적화만 필요하다면 Prepaint부터, 동기화/낙관적 UI가 필요하다면 Local-First와 Tx만 가져올 수도 있습니다.",
-    "chipReact": "React 19 + CSR 환경 최적화",
+    "title": "Prepaint · Local-First · Tx",
+    "description": "필요한 레이어만 골라 도입하세요. 재방문 속도는 Prepaint로, 동기화·낙관적 UI는 Local‑First와 Tx로 해결합니다.",
+    "chipReact": "React 19 + CSR 환경",
     "chipVite": "Vite / SPA / 내부 도구",
-    "chipOptional": "선택적 레이어 도입"
+    "chipOptional": "레이어별 선택 도입"
   },
   "Layers": {
     "layerBadge": "LAYER {order}",
@@ -56,20 +56,20 @@
       "prepaint": {
         "name": "Prepaint",
         "role": "Render layer",
-        "description": "마지막 화면을 DOM 스냅샷으로 저장했다가, 다음 방문 시 0ms로 복원합니다.",
-        "points": ["IndexedDB에 전체 화면 스냅샷 보관", "재방문 시 React 로딩 전에 즉시 복원", "CSR 구조 그대로, SSR 수준의 revisit 경험"]
+        "description": "마지막 화면을 DOM 스냅샷으로 저장하고, 재방문 시 React보다 먼저 복원합니다.",
+        "points": ["전체 화면 스냅샷을 IndexedDB에 보관", "재방문 시 JS 실행 전에 바로 복원", "CSR 구조는 그대로 두고 SSR에 가까운 재방문 경험 제공"]
       },
       "localFirst": {
         "name": "Local-First",
         "role": "Data layer",
-        "description": "IndexedDB를 단일 소스로 두고, 서버 동기화를 자동화합니다.",
-        "points": ["zod 기반 타입 세이프 모델 정의", "TTL과 staleness 메타데이터 제공", "백그라운드 동기화로 오프라인 친화적"]
+        "description": "IndexedDB를 단일 소스로 두고 서버 동기화를 자동화합니다.",
+        "points": ["zod 기반 타입 세이프 모델 정의", "TTL·staleness 메타데이터 기본 제공", "백그라운드 동기화로 오프라인 친화적 플로우"]
       },
       "tx": {
         "name": "Tx",
         "role": "Execution layer",
-        "description": "UI 업데이트를 트랜잭션으로 묶어 낙관적 업데이트를 안전하게 만듭니다.",
-        "points": ["여러 단계의 업데이트를 하나의 트랜잭션으로 실행", "실패 시 자동 롤백(compensate) 처리", "네트워크 오류에도 일관된 UI 상태 유지"]
+        "description": "UI 업데이트를 트랜잭션으로 감싸 낙관적 업데이트를 안전하게 만듭니다.",
+        "points": ["여러 단계를 하나의 트랜잭션으로 실행", "실패 시 보상(rollback) 로직 자동 실행", "네트워크 오류에서도 일관된 UI 상태 유지"]
       }
     }
   },

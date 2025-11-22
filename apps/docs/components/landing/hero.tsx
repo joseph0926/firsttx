@@ -27,11 +27,11 @@ export function Hero() {
           {t("bodyLine2")}
         </motion.p>
         <motion.div className="flex flex-wrap items-center justify-center gap-3 pt-1 lg:justify-start" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.5 }}>
-          <a href="#quickstart" className="group inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition hover:-translate-y-0.5 hover:shadow-xl">
+          <a href="#quickstart" className="group inline-flex h-8 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition hover:-translate-y-0.5 hover:shadow-xl">
             {t("ctaInstall")}
             <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
           </a>
-          <a href="https://firsttx-playground.vercel.app" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/90 px-4 py-2 text-xs font-medium text-foreground/80 backdrop-blur transition hover:bg-secondary/70">
+          <a href="https://firsttx-playground.vercel.app" target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-2 rounded-full border border-border/70 bg-background/90 px-4 py-2 text-xs font-medium text-foreground/80 backdrop-blur transition hover:bg-secondary/70">
             {t("ctaPlayground")}
             <ExternalLink className="size-3.5" />
           </a>
