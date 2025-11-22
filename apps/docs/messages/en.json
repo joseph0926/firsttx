@@ -75,39 +75,76 @@
   },
   "Experience": {
     "eyebrow": "HOW IT FEELS",
-    "title": "FirstTx from a user’s perspective",
-    "description": "SSR helps first visits, but users spend more time revisiting, tabbing, and going back. FirstTx focuses on those moments so returning feels already-ready.",
+    "title": "User-facing behavior in your app",
+    "description": "SSR makes first visits fast. FirstTx focuses on everything that happens after: revisits, back navigation, and tabbing around, so users see a ready screen instead of a blank one.",
     "cards": [
-      { "title": "Internal tools with frequent revisits", "description": "Show the previous state immediately in CRM/admin/dashboard flows that bounce list → detail → list." },
-      { "title": "Refreshing mid-task", "description": "Local models keep the latest snapshot, so accidental refreshes preserve your working context." },
-      { "title": "Handling failed optimistic UI", "description": "Rollback happens per transaction, avoiding half-reverted screens when servers fail." },
-      { "title": "Offline resilience", "description": "A simple sync hook results in a data layer that tolerates offline/online transitions." }
+      {
+        "title": "Internal tools with frequent revisits",
+        "description": "CRM, admin, and dashboard users jump between list and detail all day. Show the previous state instantly instead of reloading each time."
+      },
+      {
+        "title": "Refreshing in the middle of a task",
+        "description": "Local models keep the latest snapshot, so an accidental refresh keeps filters, scroll, and form state instead of starting over."
+      },
+      {
+        "title": "When optimistic UI fails",
+        "description": "Run optimistic updates as transactions. If the server rejects a change, the screen rolls back cleanly instead of getting stuck half-updated."
+      },
+      {
+        "title": "Handling offline and flaky networks",
+        "description": "A simple sync hook turns your data layer into something that tolerates offline and reconnection, without users losing their place."
+      }
     ]
   },
   "Timeline": {
-    "title": "Live timeline (DevTools)",
-    "legend": "prepaint · model · tx",
+    "title": "Sample runtime events (DevTools)",
+    "legend": "Layers: prepaint · model · tx",
+    "status": {
+      "success": "Success",
+      "pending": "In progress",
+      "error": "Error"
+    },
     "rows": [
-      { "label": "prepaint.restore", "badge": "Prepaint", "status": "success", "detail": "IndexedDB snapshot → DOM restore (4ms)" },
-      { "label": "model.sync.start", "badge": "Local-First", "status": "pending", "detail": "TTL exceeded → background sync starting" },
-      { "label": "tx.commit", "badge": "Tx", "status": "success", "detail": "UI update and server request succeeded" },
-      { "label": "tx.rollback", "badge": "Tx", "status": "error", "detail": "Network failure → compensate and restore UI state" }
+      {
+        "label": "prepaint.restore",
+        "badge": "Prepaint",
+        "status": "success",
+        "detail": "IndexedDB snapshot → DOM restore (4 ms)"
+      },
+      {
+        "label": "model.sync.start",
+        "badge": "Local-First",
+        "status": "pending",
+        "detail": "TTL exceeded → background sync starting"
+      },
+      {
+        "label": "tx.commit",
+        "badge": "Tx",
+        "status": "success",
+        "detail": "UI update and server request succeeded"
+      },
+      {
+        "label": "tx.rollback",
+        "badge": "Tx",
+        "status": "error",
+        "detail": "Network failure → compensate and restore UI state"
+      }
     ],
-    "footnote": "See these events in the FirstTx DevTools Chrome extension."
+    "footnote": "In the FirstTx DevTools Chrome extension, these events appear as a layered timeline you can filter and inspect."
   },
   "QuickStart": {
     "eyebrow": "QUICK START",
-    "title": "Start FirstTx with three lines",
-    "description": "Most cases install all three packages. You can pick only Prepaint / Local-First / Tx as needed.",
-    "chipSpa": "React SPA / Vite template",
-    "chipPartial": "Layer-by-layer adoption",
-    "installLabel": "Install",
-    "installBadge": "pnpm / npm / yarn",
-    "stepVite": "1. Configure Vite plugin",
-    "stepEntry": "2. Swap the entry point",
-    "snippetModelTitle": "Local-First model + sync hook",
-    "snippetTxTitle": "Wrap optimistic updates with Tx",
-    "snippetTxDescription": "Update UI before the request and safely roll back when it fails."
+    "title": "Wire up FirstTx in three small steps",
+    "description": "Install the packages, enable the Vite plugin, and wrap your root. You can start with all three layers or add Local-First and Tx after Prepaint.",
+    "chipSpa": "React SPA / Vite",
+    "chipPartial": "Pick layers as you go",
+    "installLabel": "Install packages",
+    "installBadge": "pnpm · npm · yarn",
+    "stepVite": "1. Enable the Vite plugin",
+    "stepEntry": "2. Swap your entry point",
+    "snippetModelTitle": "Local-First model and sync hook",
+    "snippetTxTitle": "Wrap optimistic updates in a transaction",
+    "snippetTxDescription": "Update the UI first and sync to the server, with a clear rollback path when requests fail."
   },
   "Footer": {
     "copyright": "© 2025 FirstTx. MIT Licensed. Firsttx Teams.",

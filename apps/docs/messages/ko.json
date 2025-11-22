@@ -75,39 +75,76 @@
   },
   "Experience": {
     "eyebrow": "HOW IT FEELS",
-    "title": "유저 입장에서 보는 FirstTx 경험",
-    "description": "첫 방문의 SSR 이점은 인정하지만, 실제로는 재방문·탭 이동·뒤로 가기 같은 맥락이 더 많습니다. FirstTx는 이 순간에 집중해 “다시 왔을 때도 이미 준비된 화면”을 만듭니다.",
+    "title": "앱에서 보이는 동작 방식",
+    "description": "SSR은 첫 진입을 빠르게 해주지만, 실제 사용 시간은 재방문·뒤로 가기·탭 이동에 더 많이 쓰입니다. FirstTx는 이 순간들을 빠르게 만들어, 다시 올 때마다 준비된 화면을 보여줍니다.",
     "cards": [
-      { "title": "재방문이 잦은 내부 도구", "description": "목록-상세-목록을 반복해서 오가는 CRM, 어드민, 대시보드에서 빈 화면 없이 바로 이전 상태를 보여줍니다." },
-      { "title": "작업 중 새로고침", "description": "로컬 모델이 최신 스냅샷을 들고 있어, 실수로 새로고침해도 작업 맥락이 그대로 유지됩니다." },
-      { "title": "낙관적 UI의 실패 핸들링", "description": "서버 에러로 롤백할 때도 UI 상태는 트랜잭션 단위로 되돌아가 ‘반쯤만 롤백된 화면’을 피합니다." },
-      { "title": "오프라인 내구성", "description": "구현은 단순한 동기화 훅이지만 결과적으로 오프라인/재연결을 견디는 데이터 레이어가 됩니다." }
+      {
+        "title": "재방문이 잦은 내부 도구",
+        "description": "CRM·어드민·대시보드처럼 목록↔상세를 반복하는 화면에서 매번 새로 로딩하는 대신, 이전 상태를 바로 복원합니다."
+      },
+      {
+        "title": "작업 중 실수로 새로고침",
+        "description": "로컬 모델이 최신 스냅샷을 들고 있어 필터·스크롤·폼 상태가 유지되고, 처음부터 다시 시작할 필요가 없습니다."
+      },
+      {
+        "title": "낙관적 UI가 실패했을 때",
+        "description": "낙관적 업데이트를 트랜잭션으로 묶어 서버에서 거절되면 화면이 깔끔하게 되돌아가고, ‘반쯤만 롤백된 상태’를 피할 수 있습니다."
+      },
+      {
+        "title": "오프라인·불안정한 네트워크",
+        "description": "간단한 동기화 훅 하나로, 오프라인/재연결을 견디면서도 유저의 위치와 컨텍스트를 잃지 않는 데이터 레이어를 만들 수 있습니다."
+      }
     ]
   },
   "Timeline": {
-    "title": "Live timeline (DevTools)",
-    "legend": "prepaint · model · tx",
+    "title": "DevTools에서 보는 런타임 이벤트 예시",
+    "legend": "레이어: prepaint · model · tx",
+    "status": {
+      "success": "성공",
+      "pending": "진행 중",
+      "error": "오류"
+    },
     "rows": [
-      { "label": "prepaint.restore", "badge": "Prepaint", "status": "success", "detail": "IndexedDB 스냅샷 → DOM 복원 (4ms)" },
-      { "label": "model.sync.start", "badge": "Local-First", "status": "pending", "detail": "TTL 초과로 백그라운드 동기화 시작" },
-      { "label": "tx.commit", "badge": "Tx", "status": "success", "detail": "UI 업데이트와 서버 요청 모두 성공" },
-      { "label": "tx.rollback", "badge": "Tx", "status": "error", "detail": "네트워크 실패 → compensate로 UI 상태 되돌림" }
+      {
+        "label": "prepaint.restore",
+        "badge": "Prepaint",
+        "status": "success",
+        "detail": "IndexedDB 스냅샷 → DOM 복원 (4ms)"
+      },
+      {
+        "label": "model.sync.start",
+        "badge": "Local-First",
+        "status": "pending",
+        "detail": "TTL 초과로 백그라운드 동기화 시작"
+      },
+      {
+        "label": "tx.commit",
+        "badge": "Tx",
+        "status": "success",
+        "detail": "UI 업데이트와 서버 요청 모두 성공"
+      },
+      {
+        "label": "tx.rollback",
+        "badge": "Tx",
+        "status": "error",
+        "detail": "네트워크 실패 → compensate로 UI 상태 되돌림"
+      }
     ],
-    "footnote": "Chrome 확장 프로그램 FirstTx DevTools에서 위 이벤트를 타임라인으로 볼 수 있습니다."
+    "footnote": "Chrome 확장 프로그램 FirstTx DevTools에서 위와 같은 이벤트들을 레이어별 타임라인으로 확인할 수 있습니다."
   },
   "QuickStart": {
     "eyebrow": "QUICK START",
-    "title": "세 줄 설치로 시작하는 FirstTx",
-    "description": "가장 일반적인 케이스는 세 패키지를 모두 설치하는 것입니다. 필요에 따라 Prepaint / Local-First / Tx만 선택적으로 도입할 수도 있습니다.",
-    "chipSpa": "React SPA / Vite 템플릿",
-    "chipPartial": "부분 도입 가능",
-    "installLabel": "Install",
-    "installBadge": "pnpm / npm / yarn",
-    "stepVite": "1. Vite 플러그인 설정",
+    "title": "세 단계로 FirstTx 연결하기",
+    "description": "패키지를 설치하고 Vite 플러그인을 켠 뒤, 루트 엔트리를 한 번 감싸기만 하면 됩니다. 처음에는 세 레이어를 모두 쓰거나, Prepaint부터 도입한 뒤 Local-First와 Tx를 나중에 추가해도 괜찮습니다.",
+    "chipSpa": "React SPA / Vite",
+    "chipPartial": "레이어별 선택 도입",
+    "installLabel": "패키지 설치",
+    "installBadge": "pnpm · npm · yarn",
+    "stepVite": "1. Vite 플러그인 활성화",
     "stepEntry": "2. 엔트리 포인트 교체",
     "snippetModelTitle": "Local-First 모델 + 동기화 훅",
-    "snippetTxTitle": "Tx로 낙관적 업데이트를 트랜잭션으로 묶기",
-    "snippetTxDescription": "서버 요청 전 UI를 먼저 업데이트하고, 실패 시 자동 롤백하는 패턴을 안전하게 캡슐화합니다."
+    "snippetTxTitle": "Tx로 낙관적 업데이트를 트랜잭션으로 감싸기",
+    "snippetTxDescription": "UI를 먼저 업데이트한 뒤 서버와 동기화하고, 요청이 실패하면 되돌릴 수 있는 트랜잭션 경로를 제공합니다."
   },
   "Footer": {
     "copyright": "© 2025 FirstTx. MIT 라이선스. Firsttx Teams.",
