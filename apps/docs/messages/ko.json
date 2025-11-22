@@ -1,15 +1,37 @@
 {
   "Hero": {
-    "badge": "CSR 재방문에서 빈 화면을 없애는 3가지 레이어",
-    "title": "CSR 재방문, 기다림 없이 복구",
-    "subtitle": "마지막 화면을 저장·동기화·롤백까지 한 번에 처리합니다.",
-    "bodyLine1": "FirstTx는 Prepaint, Local-First, Tx 세 레이어로 구성된 툴킷입니다.",
-    "bodyLine2": "CSR 아키텍처는 그대로 유지하면서, 재방문 화면 복원과 오프라인 내구성, 안전한 낙관적 업데이트를 한 번에 갖춥니다.",
-    "ctaInstall": "npm 패키지로 바로 설치하기",
-    "ctaPlayground": "Playground 열어보기",
+    "badge": "CSR 재방문에서 빈 화면 제거",
+    "title": "CSR 재방문, 빈 화면은 끝.",
+    "subtitle": "마지막 화면을 즉시 복구하는 3-레이어 툴킷.",
+    "bodyLine1": "FirstTx는 Prepaint, Local-First, Tx 세 레이어를 하나의 툴킷으로 묶었습니다.",
+    "bodyLine2": "CSR 아키텍처는 그대로 두고, 재방문 복원·오프라인 내구성·안전한 낙관적 UI를 한 번에 더하세요.",
+    "ctaInstall": "npm에서 바로 설치하기",
+    "ctaPlayground": "Playground에서 직접 보기",
     "tagInternal": "내부 도구 / 대시보드",
     "tagOffline": "오프라인 우선 앱",
-    "tagLargeCsr": "큰 CSR 코드베이스"
+    "tagLargeCsr": "대규모 CSR 앱"
+  },
+  "DemoCard": {
+    "windowTitle": "재방문 타임라인",
+    "devtoolsLabel": "FirstTx DevTools",
+
+    "beforeTitle": "FirstTx 도입 전",
+    "beforeUserRevisitLabel": "사용자 재방문",
+    "beforeUserRevisitDetail": "브라우저 뒤로 가기나 링크 클릭으로 CSR 앱으로 다시 진입합니다.",
+    "beforeBlankLabel": "빈 화면 노출",
+    "beforeBlankDetail": "JS 번들과 API 응답을 기다리며 1~2초 동안 흰 화면이나 스피너가 보입니다.",
+    "beforeMountLabel": "JS 로딩 & 마운트",
+    "beforeMountDetail": "React와 데이터 요청이 끝난 뒤에야 실제 화면이 렌더링됩니다.",
+
+    "afterTitle": "FirstTx 도입 후",
+    "afterBootLabel": "부트 스니펫",
+    "afterBootDetail": "HTML 로드 직후, 작은 부트 스크립트가 한 번 실행됩니다.",
+    "afterRestoreLabel": "마지막 화면 복원",
+    "afterRestoreDetail": "IndexedDB에 저장된 마지막 DOM 스냅샷을 재방문 직후 바로 복원합니다.",
+    "afterHydrationLabel": "Hydration & 동기화",
+    "afterHydrationDetail": "사용자는 복원된 화면을 보고 있는 동안, React 마운트와 데이터 동기화가 백그라운드에서 진행됩니다.",
+
+    "viewTransitions": "View Transition API가 있을 경우 이 복원 과정을 부드러운 크로스페이드로 연출할 수 있습니다."
   },
   "Navbar": {
     "tagline": "Prepaint · Local-First · Tx",
