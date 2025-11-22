@@ -6,6 +6,9 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { notFound } from "next/navigation";
+import { Navbar } from "@/components/layout/navbar";
+import { BackgroundGlow } from "@/components/layout/background-glow";
+import { AppShell } from "@/components/app-shell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,7 +79,7 @@ export default async function RootLayout({ children, params }: Props) {
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-            {children}
+            <AppShell>{children}</AppShell>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
