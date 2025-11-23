@@ -1,0 +1,232 @@
+export const metadata = {
+  title: "Getting Started",
+};
+
+# 빠른 시작
+
+이 가이드는 Vite + React 19 기반 CSR 앱에  
+Prepaint, Local-First, Tx를 한 번에 연결하는 방법을 다룹니다.
+
+---
+
+## 1. 패키지 설치
+
+<InstallTabs title="패키지 설치" packages={["@firsttx/prepaint", "@firsttx/local-first", "@firsttx/tx", "zod"]} />
+
+<Callout type="warning" title="Tx 단독 사용은 지원하지 않습니다">
+  <code>@firsttx/tx</code>는 내부적으로 Local-First에 의존합니다. Tx만 단독으로 설치해서 사용하는 것은 지원하지 않습니다.
+</Callout>
+
+---
+
+## 2. Vite 플러그인 설정 (Prepaint 부트 스크립트)
+
+Vite 설정에 Prepaint 플러그인을 추가합니다.
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import { firstTx } from "@firsttx/prepaint/plugin/vite";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    firstTx(),
+  ],
+});
+```
+
+이 플러그인은 빌드 시 HTML에 작은 부트 스크립트를 주입합니다. 이 스크립트가,
+
+1. 페이지 진입 시 IndexedDB에서 마지막 DOM 스냅샷을 읽어오고
+2. 가능하다면 바로 화면에 복원한 뒤
+3. 그 다음에 React가 하이드레이션/렌더링을 진행하도록 도와줍니다.
+
+---
+
+## 3. 엔트리 포인트 교체 (`createFirstTxRoot`)
+
+이제 기존 `ReactDOM.createRoot` 대신 `createFirstTxRoot`를 사용합니다.
+
+```tsx
+// main.tsx (혹은 main.ts)
+import React from "react";
+import { createFirstTxRoot } from "@firsttx/prepaint";
+import { App } from "./App";
+
+createFirstTxRoot(
+  document.getElementById("root")!,
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+```
+
+`createFirstTxRoot`는 다음을 처리합니다,
+
+1. 페이지를 떠날 때 현재 화면을 IndexedDB에 캡처
+2. 재방문 시 React가 로드되기 전에 스냅샷을 즉시 복원
+3. View Transition API가 가능하면 복원을 크로스페이드로 감싸고
+4. 마지막으로 React 앱을 Hydration 또는 Client Render로 마운트
+
+이 단계까지 하면 **“재방문 빈 화면 제거 + 화면 복원”**이 동작합니다.
+
+---
+
+## 4. Local-First 모델 정의 (`defineModel`)
+
+다음으로, IndexedDB에 저장될 모델을 정의합니다. 예시로 `CartModel`,
+
+```ts
+// models/cart.ts
+import { defineModel } from "@firsttx/local-first";
+import { z } from "zod";
+
+export const CartModel = defineModel("cart", {
+  schema: z.object({
+    items: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        qty: z.number(),
+      }),
+    ),
+  }),
+  // ttl은 선택사항입니다. 기본값은 5분(5 * 60 * 1000 ms)입니다.
+  ttl: 5 * 60 * 1000,
+});
+```
+
+- `schema`: Zod 스키마로 모델 구조를 정의합니다.
+- `ttl`: 데이터가 “stale”로 간주되기까지의 시간 (ms). 기본값은 5분입니다.
+
+Local-First는 이 모델을 기반으로,
+
+- IndexedDB에 안전하게 저장하고,
+- TTL/새로고침 메타데이터를 관리하며,
+- DevTools로 히스토리를 내보냅니다.
+
+---
+
+## 5. 컴포넌트에서 동기화 훅 사용 (`useSyncedModel`)
+
+`useSyncedModel`은 모델과 서버를 자동으로 동기화해 주는 React 훅입니다.
+
+```tsx
+// CartPage.tsx
+import { useSyncedModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+async function fetchCart() {
+  const res = await fetch("/api/cart");
+  if (!res.ok) throw new Error("Failed to fetch cart");
+  return res.json();
+}
+
+export function CartPage() {
+  const { data: cart, isSyncing, error } = useSyncedModel(CartModel, fetchCart, {
+    syncOnMount: "stale", // 기본값: 'stale'
+  });
+
+  if (!cart) {
+    return <div>Loading cart...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {cart.items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-sm text-muted-foreground">x {item.qty}</span>
+        </div>
+      ))}
+      {isSyncing && (
+        <p className="text-xs text-muted-foreground">
+          Syncing latest data…
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-destructive">
+          Failed to sync: {error.message}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+이렇게 하면,
+
+- 최초 진입 시 로컬 IndexedDB에 데이터가 있으면 즉시 그걸 사용하고,
+- TTL이 만료된 경우 백그라운드에서 서버 동기화를 진행합니다.
+
+---
+
+## 6. Tx로 낙관적 업데이트를 트랜잭션으로 감싸기 (선택)
+
+이제 장바구니에 아이템을 추가하는 예시로 Tx를 사용해 봅니다.
+
+```ts
+// cart-actions.ts
+import { startTransaction } from "@firsttx/tx";
+import { CartModel } from "./models/cart";
+
+type CartItem = {
+  id: string;
+  name: string;
+  qty: number;
+};
+
+export async function addToCart(item: CartItem) {
+  const tx = startTransaction();
+
+  // 1단계: 로컬 모델 낙관적 업데이트
+  await tx.run(
+    () =>
+      CartModel.patch((draft) => {
+        draft.items.push(item);
+      }),
+    {
+      // 실패 시 보상(rollback)
+      compensate: () =>
+        CartModel.patch((draft) => {
+          draft.items.pop();
+        }),
+    },
+  );
+
+  // 2단계: 서버에 실제 반영
+  await tx.run(() =>
+    fetch("/api/cart", {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+  );
+
+  // 모든 단계가 성공하면 커밋
+  await tx.commit();
+}
+```
+
+이 코드는 다음을 보장합니다,
+
+1. 사용자는 즉시 UI에서 아이템이 추가된 것을 보고,
+2. 서버 요청이 실패하면 `compensate`가 실행되어 UI가 원래 상태로 되돌아가며,
+3. 전체 과정을 DevTools에서 하나의 트랜잭션 타임라인으로 추적할 수 있습니다.
+
+---
+
+## 다음 단계
+
+- Prepaint 내부 동작과 보안 옵션은 `/docs/prepaint`에서,
+- Local-First의 TTL, 버전, multi-tab 동기화는 `/docs/local-first`에서,
+- Tx의 재시도/타임아웃/에러 모델은 `/docs/tx`에서 자세히 다룹니다.
+
+우선은 여기까지 구현하면,
+
+1. 재방문 시 빈 화면 없이 마지막 화면 복원
+2. 로컬 IndexedDB 기반 데이터 레이어
+3. 트랜잭션 기반 낙관적 업데이트
+
+까지 모두 한 번에 체험할 수 있습니다.

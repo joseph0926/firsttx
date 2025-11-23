@@ -1,7 +1,15 @@
-export default function DocsHomePage() {
-  return (
-    <div className="prose dark:prose-invert max-w-none">
-      <h1>FirstTx Docs</h1>
-    </div>
-  );
+import type { Locale } from "@/i18n/routing";
+import OverviewKo from "@/content/docs/overview.ko.mdx";
+import OverviewEn from "@/content/docs/overview.en.mdx";
+
+type Props = {
+  params: Promise<{ locale: Locale }>;
+};
+
+export default async function DocsHomePage({ params }: Props) {
+  const { locale } = await params;
+
+  const Content = locale === "ko" ? OverviewKo : OverviewEn;
+
+  return <Content />;
 }

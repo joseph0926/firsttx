@@ -1,0 +1,237 @@
+export const metadata = {
+  title: "Getting Started",
+};
+
+# Getting Started
+
+This guide walks you through wiring Prepaint, Local-First, and Tx into a  
+Vite + React 19 CSR app step by step.
+
+---
+
+## 1. Install packages
+
+<InstallTabs title="Install packages" packages={["@firsttx/prepaint", "@firsttx/local-first", "@firsttx/tx", "zod"]} />
+
+<Callout type="warning" title="Tx cannot be used alone">
+  <code>@firsttx/tx</code> depends on Local-First internally. Using Tx without Local-First is not supported.
+</Callout>
+
+---
+
+## 2. Configure the Vite plugin (Prepaint boot)
+
+Add the Prepaint plugin to your Vite config,
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import { firstTx } from "@firsttx/prepaint/plugin/vite";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    firstTx(),
+  ],
+});
+```
+
+The plugin injects a tiny boot script into your HTML that,
+
+1. Reads the last DOM snapshot from IndexedDB on page load,
+2. Restores it immediately before any React code runs,
+3. Then lets React hydrate or render your actual app.
+
+This alone removes blank screens on revisits for CSR apps.
+
+---
+
+## 3. Swap the entry point (`createFirstTxRoot`)
+
+Replace your usual `createRoot` call with `createFirstTxRoot`,
+
+```tsx
+// main.tsx
+import React from "react";
+import { createFirstTxRoot } from "@firsttx/prepaint";
+import { App } from "./App";
+
+createFirstTxRoot(
+  document.getElementById("root")!,
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+```
+
+`createFirstTxRoot` will,
+
+1. Capture the current screen into IndexedDB when leaving the page,
+2. Restore it instantly on revisit before React loads,
+3. Use the View Transition API for a smooth crossfade when available,
+4. Finally mount your app via hydration or client render.
+
+At this point you already have **instant revisits**.
+
+---
+
+## 4. Define a Local-First model (`defineModel`)
+
+Next, define a model that will live in IndexedDB. Example: `CartModel`.
+
+```ts
+// models/cart.ts
+import { defineModel } from "@firsttx/local-first";
+import { z } from "zod";
+
+export const CartModel = defineModel("cart", {
+  schema: z.object({
+    items: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        qty: z.number(),
+      }),
+    ),
+  }),
+  // Optional: TTL defaults to 5 minutes (5 * 60 * 1000 ms)
+  ttl: 5 * 60 * 1000,
+});
+```
+
+Local-First will,
+
+- Validate data with Zod before writing,
+- Persist it in IndexedDB with TTL and freshness metadata,
+- Expose history to DevTools for debugging.
+
+---
+
+## 5. Use the sync hook in a component (`useSyncedModel`)
+
+`useSyncedModel` keeps the model synced with your server while exposing a React-friendly API.
+
+```tsx
+// CartPage.tsx
+import { useSyncedModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+async function fetchCart() {
+  const res = await fetch("/api/cart");
+  if (!res.ok) throw new Error("Failed to fetch cart");
+  return res.json();
+}
+
+export function CartPage() {
+  const { data: cart, isSyncing, error } = useSyncedModel(
+    CartModel,
+    fetchCart,
+    {
+      syncOnMount: "stale", // default
+    },
+  );
+
+  if (!cart) {
+    return <div>Loading cart...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {cart.items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-sm text-muted-foreground">
+            x {item.qty}
+          </span>
+        </div>
+      ))}
+      {isSyncing && (
+        <p className="text-xs text-muted-foreground">
+          Syncing latest data…
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-destructive">
+          Failed to sync: {error.message}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+On mount,
+
+- If there’s cached data, it renders immediately from IndexedDB,
+- If the TTL has expired, a background sync kicks in.
+
+---
+
+## 6. Wrap optimistic updates in a transaction (Tx, optional)
+
+Finally, use Tx to make optimistic updates atomic and reversible.
+
+```ts
+// cart-actions.ts
+import { startTransaction } from "@firsttx/tx";
+import { CartModel } from "./models/cart";
+
+type CartItem = {
+  id: string;
+  name: string;
+  qty: number;
+};
+
+export async function addToCart(item: CartItem) {
+  const tx = startTransaction();
+
+  // 1. Optimistically update the local model
+  await tx.run(
+    () =>
+      CartModel.patch((draft) => {
+        draft.items.push(item);
+      }),
+    {
+      // Rollback logic if something goes wrong later
+      compensate: () =>
+        CartModel.patch((draft) => {
+          draft.items.pop();
+        }),
+    },
+  );
+
+  // 2. Persist to the server
+  await tx.run(() =>
+    fetch("/api/cart", {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+  );
+
+  // 3. Commit if all steps succeed
+  await tx.commit();
+}
+```
+
+This gives you,
+
+- Instant optimistic UI,
+- A clear rollback path if the server request fails,
+- A single transaction timeline in DevTools for debugging.
+
+---
+
+## Next steps
+
+From here,
+
+- Dive into `/docs/prepaint` for how Prepaint captures/restores DOM snapshots safely,
+- `/docs/local-first` for TTL, versioning, and multi-tab sync details,
+- `/docs/tx` for timeouts, retry strategies, and the Tx error model.
+
+With just the steps above, you already get,
+
+1. Instant revisit restores,
+2. A durable local data layer,
+3. Transactional optimistic updates.

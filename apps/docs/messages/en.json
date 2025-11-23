@@ -152,6 +152,7 @@
     "playground": "Playground"
   },
   "DocsNav": {
+    "title": "Docs",
     "overview": "Overview",
     "gettingStarted": "Getting started",
     "prepaint": "Prepaint",

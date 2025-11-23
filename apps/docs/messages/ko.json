@@ -152,12 +152,13 @@
     "playground": "Playground"
   },
   "DocsNav": {
+    "title": "문서",
     "overview": "Overview",
     "gettingStarted": "빠른 시작",
     "prepaint": "Prepaint",
     "localFirst": "Local-First",
     "tx": "Tx",
     "devtools": "DevTools",
-    "patterns": "Patterns & Recipes"
+    "patterns": "패턴 & 레시피"
   }
 }

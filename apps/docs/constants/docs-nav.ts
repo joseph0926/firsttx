@@ -1,36 +1,36 @@
 export type DocsNavItem = {
-  labelKey: string;
+  id: string;
   href: string;
   children?: DocsNavItem[];
 };
 
 export const docsNav: DocsNavItem[] = [
   {
-    labelKey: "overview",
+    id: "overview",
     href: "/docs",
   },
   {
-    labelKey: "gettingStarted",
+    id: "gettingStarted",
     href: "/docs/getting-started",
   },
   {
-    labelKey: "prepaint",
+    id: "prepaint",
     href: "/docs/prepaint",
   },
   {
-    labelKey: "localFirst",
+    id: "localFirst",
     href: "/docs/local-first",
   },
   {
-    labelKey: "tx",
+    id: "tx",
     href: "/docs/tx",
   },
   {
-    labelKey: "devtools",
+    id: "devtools",
     href: "/docs/devtools",
   },
   {
-    labelKey: "patterns",
+    id: "patterns",
     href: "/docs/patterns",
   },
 ];

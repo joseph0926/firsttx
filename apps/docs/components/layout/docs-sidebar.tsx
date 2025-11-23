@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { docsNav } from "@/constants/docs-nav";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { docsNav } from "@/constants/docs-nav";
 
 export function DocsSidebar() {
   const t = useTranslations("DocsNav");
@@ -12,33 +12,37 @@ export function DocsSidebar() {
   const pathname = usePathname();
 
   return (
-    <nav className="space-y-3 text-sm">
-      {docsNav.map((item) => {
-        const href = `/${locale}${item.href}`;
-        const isActive = pathname === href || pathname?.startsWith(href + "/");
+    <nav className="sticky top-24 flex flex-col gap-3 text-sm">
+      <div className="mb-1 text-[11px] font-medium tracking-[0.14em] text-muted-foreground/80 uppercase">{t("title")}</div>
+      <div className="space-y-1">
+        {docsNav.map((item) => {
+          const href = `/${locale}${item.href}`;
+          const isActive = pathname === href || (item.href !== "/docs" && pathname?.startsWith(href));
 
-        return (
-          <div key={item.href}>
-            <Link href={href} className={cn("block rounded-md px-2 py-1.5 text-muted-foreground hover:bg-muted/40 hover:text-foreground", isActive && "bg-muted/60 font-medium text-foreground")}>
-              {t(item.labelKey)}
-            </Link>
-            {item.children && (
-              <div className="mt-1 space-y-1 pl-3">
-                {item.children.map((child) => {
-                  const childHref = `/${locale}${child.href}`;
-                  const childActive = pathname === childHref || pathname?.startsWith(childHref + "/");
+          return (
+            <div key={item.id}>
+              <Link href={href} className={cn("group flex items-center justify-between rounded-xl px-3 py-2", "text-xs font-medium text-muted-foreground transition-colors", "hover:bg-muted/60 hover:text-foreground", isActive && "bg-muted/80 text-foreground shadow-[0_12px_30px_rgba(15,23,42,0.12)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.7)]")}>
+                <span>{t(item.id)}</span>
+                <span className={cn("h-1.5 w-1.5 rounded-full bg-transparent transition-all duration-200", "group-hover:bg-primary/40", isActive && "bg-primary/80 shadow-[0_0_12px_rgba(0,0,0,0.35)]")} />
+              </Link>
+              {item.children && (
+                <div className="mt-1 space-y-1 pl-4">
+                  {item.children.map((child) => {
+                    const childHref = `/${locale}${child.href}`;
+                    const childActive = pathname === childHref || pathname?.startsWith(childHref + "/");
 
-                  return (
-                    <Link key={child.href} href={childHref} className={cn("block rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground", childActive && "bg-muted/60 font-medium text-foreground")}>
-                      {t(child.labelKey)}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                    return (
+                      <Link key={child.id} href={childHref} className={cn("flex items-center rounded-lg px-3 py-1.5 text-[11px] text-muted-foreground", "hover:bg-muted/40 hover:text-foreground", childActive && "bg-muted/60 text-foreground")}>
+                        {t(child.id)}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </nav>
   );
 }

@@ -1,0 +1,30 @@
+export const metadata = {
+  title: "Overview",
+};
+
+# FirstTx Overview
+
+FirstTx is a three-layer toolkit for React 19 + CSR apps that tackles
+**revisit speed, offline resilience, and optimistic UI** all at once.
+
+<Callout type="info" title="What this page covers">
+  This page gives you a high-level picture of what problems FirstTx solves and when it is a good fit. For installation and wiring details, see the <code>Getting Started</code> page.
+</Callout>
+
+- **Prepaint** - Captures the last screen as a DOM snapshot and restores it before React mounts on revisits.
+- **Local-First** - Treats IndexedDB as the single source of truth and automates server sync.
+- **Tx** - Wraps UI updates and server calls in transactions that can safely roll back on failure.
+
+## What problems does it focus on?
+
+In typical CSR apps:
+
+- First visits can be optimized with SSR or skeleton UIs,
+- but **revisits, tabbing around, and back navigation** often show 1-2 seconds of blank screen or a loading spinner.
+- With flaky networks or offline usage, optimistic UIs can leave the screen in a **half-rolled-back** state.
+
+FirstTx addresses this with three layers:
+
+1. Use Prepaint to remember the last screen,
+2. Use Local-First to keep a local model alive,
+3. Use Tx to wrap UI changes in transactions.
