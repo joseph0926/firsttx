@@ -1,0 +1,361 @@
+export const metadata = {
+  title: "Tx",
+};
+
+# Tx
+
+Tx는 **낙관적 UI 업데이트와 서버 요청을 하나의 트랜잭션으로 묶고, 실패 시 자동으로 롤백**해 주는 실행 레이어입니다.
+
+- 여러 단계를 한 번에 실행하고
+- 중간에 실패하면 보상(compensate) 단계를 **역순으로 실행**해서 UI를 되돌리며
+- 재시도(선형/지수 백오프)와 전역 타임아웃, ViewTransition까지 처리합니다.
+
+<Callout type="info" title="Tx를 쓰면 좋은 상황">
+  - 낙관적 UI를 쓰고 싶은데 <strong>반쯤만 롤백된 상태</strong>가 자꾸 생길 때 - 여러 API 호출/로컬 모델 변경을 <strong>원자적으로</strong> 다루고 싶을 때 - 실패 케이스까지 DevTools에서 한 번에 추적하고 싶을 때
+</Callout>
+
+---
+
+## 1. 가장 단순한 사용: `startTransaction`
+
+먼저 Tx를 설치합니다:
+
+```bash
+pnpm add @firsttx/local-first @firsttx/tx
+```
+
+> Tx는 Local‑First에 의존하므로, 두 패키지를 함께 설치해야 합니다. ([GitHub][1])
+
+이제 **단일 트랜잭션으로 Cart에 아이템을 추가하는 예제**입니다. (README의 예제를 FirstTx 스타일 코드 블록으로 옮긴 버전입니다.) ([GitHub][1])
+
+```ts
+import { startTransaction } from "@firsttx/tx";
+import { CartModel } from "./models/cart";
+
+async function addToCart(item: { id: string; name: string; qty: number }) {
+  // ViewTransition을 켜고 트랜잭션 시작
+  const tx = startTransaction({ transition: true });
+
+  // 1단계: 로컬 모델에 낙관적 추가 + 보상(compensate)
+  await tx.run(
+    () =>
+      CartModel.patch((draft) => {
+        draft.items.push(item);
+      }),
+    {
+      compensate: () =>
+        CartModel.patch((draft) => {
+          draft.items.pop();
+        }),
+    },
+  );
+
+  // 2단계: 서버 요청
+  await tx.run(() =>
+    fetch("/api/cart", {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+  );
+
+  // 모든 단계가 성공했다면 commit
+  await tx.commit();
+}
+```
+
+여기서 중요한 포인트:
+
+- `startTransaction(options?)`
+  - `options.transition?: boolean` – ViewTransition API를 사용할지 여부 (기본값 `true`) ([GitHub][1])
+
+- `tx.run(fn, options?)`
+  - `fn`이 실패하면 해당 단계 이후의 단계는 실행되지 않고,
+  - `options.compensate`가 있다면 지금까지 성공한 단계들을 **역순으로 보상 실행**합니다.
+
+- `tx.commit()`
+  - 모든 단계가 문제 없이 끝났다는 신호입니다.
+  - commit 전에 에러가 나면 자동으로 rollback 경로로 들어갑니다.
+
+---
+
+## 2. 트랜잭션 수명주기 & 상태
+
+내부 트랜잭션 엔진은 대략 아래 상태를 가집니다:
+
+- `pending` – 아직 아무 단계도 실행하지 않은 상태
+- `running` – 하나 이상의 단계를 실행 중
+- `committed` – 모든 단계 실행 + commit 완료
+- `rolled-back` – 실패 후 compensate가 모두 성공적으로 끝난 상태
+- `failed` – 롤백 과정에서조차 문제가 생긴 상태 (아래 `CompensationFailedError` 참고)
+
+각 단계는 **독립적인 AbortController**로 감싸져 있고, 트랜잭션 전체에는 **전역 타임아웃(기본 30초)**이 설정되어 있습니다.
+남은 시간은 단계마다 나눠 쓰고, 타임아웃이 지나면 해당 단계 Promise는 자동으로 취소됩니다.
+
+<Callout type="warning" title="CompensationFailedError">
+  - <code>run</code> 중 에러가 발생하면, 이미 성공한 단계의 보상(compensate)을 역순으로 실행합니다. - 이 보상 중 하나라도 실패하면 <code>CompensationFailedError</code>가 던져지며,
+  <strong>원래 오류 + 각 보상 단계의 오류들</strong>이 모두 묶여 있습니다. - 따라서 <code>compensate</code>는 <strong>가능한 한 실패 확률이 낮은, idempotent한 연산</strong>이어야 합니다.
+</Callout>
+
+---
+
+## 3. `tx.run`과 재시도(retry)
+
+README 기준 Tx는 `tx.run`의 옵션으로 **재시도 전략**을 받습니다. ([GitHub][1])
+내부 구현에서는 `retry.ts`가 선형/지수 백오프를 처리하고, 마지막 시도까지 실패한 경우 `RetryExhaustedError`를 던집니다.
+
+```ts
+const tx = startTransaction();
+
+await tx.run(
+  async () => {
+    const res = await fetch("/api/order", { method: "POST" });
+    if (!res.ok) throw new Error("Order failed");
+  },
+  {
+    // 실패 시 서버 호출만 재시도 (보상 로직은 최종 실패 이후에만 실행)
+    retry: {
+      maxAttempts: 3,
+      delayMs: 300,
+      backoff: "exponential", // 또는 "linear"
+    },
+    compensate: async () => {
+      // 필요한 경우 롤백 API 호출 등
+      await fetch("/api/order/cancel", { method: "POST" });
+    },
+  },
+);
+```
+
+<ApiTable
+  kind="options"
+  title="tx.run(fn, options?)"
+  items={[
+    {
+      name: "fn",
+      type: "() => Promise<T> | T",
+      required: true,
+      description: "트랜잭션 단계에서 실제로 실행될 함수입니다. 실패 시 이후 단계는 실행되지 않습니다.",
+    },
+    {
+      name: "options.compensate",
+      type: "() => Promise<void> | void",
+      description: "이 단계까지 성공한 변경 사항을 되돌리는 보상 함수입니다. 롤백 시 역순으로 실행됩니다.",
+    },
+    {
+      name: "options.retry.maxAttempts",
+      type: "number",
+      defaultValue: "1",
+      description: "이 단계에서 실패 시 재시도 최대 횟수입니다. 기본값은 1회(즉, 재시도 없음)입니다. ([GitHub][1])",
+    },
+    {
+      name: "options.retry.delayMs",
+      type: "number",
+      defaultValue: "100",
+      description: "재시도 간격의 기본 지연(ms)입니다. 백오프 전략에 따라 누적됩니다. ([GitHub][1])",
+    },
+    {
+      name: "options.retry.backoff",
+      type: `"exponential" | "linear"`,
+      defaultValue: `"exponential"`,
+      description: "재시도 간격 증가 방식을 정합니다. 지수: 100 → 200 → 400 → 800ms, 선형: 100 → 200 → 300 → 400ms. ([GitHub][1])",
+    },
+  ]}
+/>
+
+---
+
+## 4. React 훅: `useTx`
+
+실제 앱에서는 보통 `startTransaction` + `tx.run`을 직접 쓰기보다는,
+**옵티미스틱/롤백/요청 단계를 한 번에 묶어주는 `useTx` 훅**을 사용하는 편이 많습니다. ([GitHub][1])
+
+```tsx
+import { useTx } from "@firsttx/tx";
+import { CartModel } from "./models/cart";
+
+export function AddToCartButton({ item }: { item: { id: string; name: string; qty: number } }) {
+  const { mutate, isPending, isError, error } = useTx({
+    // 1) 낙관적 UI 업데이트
+    optimistic: async (input) => {
+      await CartModel.patch((draft) => {
+        draft.items.push(input);
+      });
+    },
+
+    // 2) 롤백
+    rollback: async () => {
+      await CartModel.patch((draft) => {
+        draft.items.pop();
+      });
+    },
+
+    // 3) 실제 서버 요청
+    request: async (input) =>
+      fetch("/api/cart", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+
+    // 선택: ViewTransition 사용 여부 (기본 true)
+    transition: true,
+
+    // 선택: 재시도 전략
+    retry: {
+      maxAttempts: 2,
+      delayMs: 200,
+      backoff: "exponential",
+    },
+
+    onSuccess: () => {
+      // 토스트 등 후처리
+      console.log("Added to cart");
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => mutate(item)}
+        className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isPending ? "Adding..." : "Add to cart"}
+      </button>
+      {isError && (
+        <p className="text-xs text-destructive">
+          {error?.message ?? "Failed to add item"}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+<ApiTable
+  kind="options"
+  title="useTx(config)"
+  items={[
+    {
+      name: "config.optimistic",
+      type: "(variables: V) => Promise<void> | void",
+      required: true,
+      description: "낙관적 UI 단계입니다. Local-First 모델 patch, React 상태 업데이트 등 트랜잭션 시작 시 가장 먼저 실행됩니다.",
+    },
+    {
+      name: "config.rollback",
+      type: "(variables: V) => Promise<void> | void",
+      required: true,
+      description: "낙관적 단계에서의 변경을 되돌리는 함수입니다. 요청 실패, 타임아웃, 재시도 소진 후에 호출됩니다.",
+    },
+    {
+      name: "config.request",
+      type: "(variables: V) => Promise<any>",
+      required: true,
+      description: "실제 서버 요청을 담당합니다. 실패하면 rollback이 호출됩니다.",
+    },
+    {
+      name: "config.transition",
+      type: "boolean",
+      defaultValue: "true",
+      description: "ViewTransition API로 UI 상태 전환을 부드럽게 연출할지 여부입니다. 지원 브라우저에서만 적용되며, 미지원 브라우저에서는 자동으로 degrade 됩니다. ([GitHub][1])",
+    },
+    {
+      name: "config.retry",
+      type: "{ maxAttempts?: number; delayMs?: number; backoff?: 'exponential' | 'linear' }",
+      description: "요청 단계에 대한 재시도 정책입니다. 지정하지 않으면 라이브러리 기본값(1회 시도, 재시도 없음)을 사용합니다. ([GitHub][1])",
+    },
+    {
+      name: "config.onSuccess",
+      type: "(result: any) => void",
+      description: "트랜잭션 전체가 성공적으로 끝난 뒤 호출되는 콜백입니다.",
+    },
+    {
+      name: "config.onError",
+      type: "(error: Error) => void",
+      description: "트랜잭션이 실패하거나 롤백 중 오류가 발생했을 때 호출됩니다.",
+    },
+  ]}
+/>
+
+<ApiTable
+  kind="props"
+  title="useTx(config) 반환값"
+  items={[
+    {
+      name: "mutate",
+      type: "(variables: V) => Promise<void>",
+      required: true,
+      description: "트랜잭션을 실제로 실행하는 함수입니다. 버튼 클릭 핸들러 등에 연결합니다. ([GitHub][1])",
+    },
+    {
+      name: "isPending",
+      type: "boolean",
+      description: "트랜잭션이 진행 중인지 여부입니다 (optimistic / request / rollback 포함).",
+    },
+    {
+      name: "isError",
+      type: "boolean",
+      description: "마지막 트랜잭션이 오류로 끝났는지 여부입니다.",
+    },
+    {
+      name: "isSuccess",
+      type: "boolean",
+      description: "마지막 트랜잭션이 정상적으로 commit되었는지 여부입니다.",
+    },
+    {
+      name: "error",
+      type: "Error | null",
+      description: "마지막 오류 객체입니다. TxError 계층을 포함할 수 있습니다.",
+    },
+  ]}
+/>
+
+<Callout type="info" title="React 통합 디테일">
+  - <code>useTx</code>는 내부적으로 <code>startTransaction</code>을 사용해 각 단계를 트랜잭션으로 묶습니다. - 컴포넌트 언마운트 시 <code>cancelOnUnmount</code> 플래그가 활성화되어 있다면 <strong>AbortController</strong>로 남은 단계를 중단시켜, 메모리 누수와 중복 요청을 줄여줍니다. - ViewTransition이 가능한 환경에서는 낙관적 업데이트/롤백 구간을 트랜잭션 단위로 감싸 자연스러운 애니메이션을 제공합니다.
+</Callout>
+
+---
+
+## 5. 오류 모델 & DevTools
+
+Tx는 공통 오류 계층 `TxError`를 기반으로 여러 에러 타입을 제공합니다:
+
+- `TxError`
+  - 사용자 메시지 (`userMessage`)
+  - 디버그 문자열 (`debugMessage`)
+  - 복구 가능 여부 플래그 (`recoverable`)
+
+- `TimeoutError` (전역/단계 타임아웃)
+- `RetryExhaustedError` (모든 재시도 실패)
+- `CompensationFailedError` (롤백 중 보상 단계 오류)
+
+이 구조 덕분에:
+
+- UI 레이어에서는 **사용자에게 보여줄 메시지**만 안전하게 꺼내고,
+- 로깅/모니터링에는 `debugMessage`와 스택만 사용하는 식으로
+- **표현/로깅을 분리**할 수 있습니다.
+
+DevTools 측면에서는:
+
+- 각 `tx.start`, `tx.step`, `tx.commit`, `tx.rollback` 이벤트가
+  `window.__FIRSTTX_DEVTOOLS__`로 전파되어 크롬 확장 패널에 타임라인으로 표시됩니다. ([GitHub][1])
+- 다만 현재 Tx 모듈의 payload 키가 DevTools 브리지 타입과 일부 어긋나 있어
+  타임라인 정렬/메타데이터 표시에 약간의 불일치가 있을 수 있습니다.
+
+<Callout type="danger" title="실전 팁">
+  - 보상(compensate)에서 <strong>네트워크 호출이나 복잡한 로직</strong>은 최소화하세요. - 보상에 실패하면 <code>CompensationFailedError</code>로 오리지널 에러 컨텍스트가 싸여 나가므로, DevTools에서 트랜잭션 ID 기준으로 전체 체인을 확인하는 습관을 들이는 것이 좋습니다.
+</Callout>
+
+---
+
+## 6. Local‑First / Prepaint와 함께 쓰기
+
+마지막으로, Tx는 단독으로도 쓸 수 있지만,
+**Local‑First + Prepaint와 함께 썼을 때** 진가가 드러납니다:
+
+- **Prepaint** – 재방문 시 마지막 화면을 바로 복원해 빈 화면 노출을 없애고, ([GitHub][1])
+- **Local‑First** – IndexedDB를 단일 소스로 두어 작업 중 새로고침/오프라인에도 상태를 유지하며, ([GitHub][1])
+- **Tx** – 이 위에서 낙관적 업데이트를 원자적으로 묶어 실패 시 자연스럽게 롤백합니다. ([GitHub][1])
+
+각 레이어의 상세 설정은 `/docs/prepaint`, `/docs/local-first` 페이지에서 이어서 다룹니다.

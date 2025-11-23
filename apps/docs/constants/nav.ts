@@ -6,26 +6,26 @@ type NavItemType = {
 export const navItems: NavItemType[] = [
   {
     name: "Overview",
-    link: "docs/overview",
+    link: "/docs",
   },
   {
     name: "Quickstart",
-    link: "docs/quickstart",
+    link: "/docs/getting-started",
   },
   {
     name: "Prepaint",
-    link: "docs/prepaint",
+    link: "/docs/prepaint",
   },
   {
     name: "Local-First",
-    link: "docs/local-first",
+    link: "/docs/local-first",
   },
   {
     name: "Tx",
-    link: "docs/tx",
+    link: "/docs/tx",
   },
   {
     name: "DevTools",
-    link: "docs/devtools",
+    link: "/docs/devtools",
   },
 ];

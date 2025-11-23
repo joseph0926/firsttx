@@ -1,0 +1,319 @@
+export const metadata = {
+  title: "Local-First",
+};
+
+# Local‑First
+
+Local‑First는 **IndexedDB + React 동기 스토어**로  
+“오프라인 내구성 있는 데이터 레이어”를 만드는 패키지입니다.
+
+- IndexedDB를 단일 소스로 두고
+- Zod 스키마로 타입/무결성을 보장하며
+- TTL/버전/멀티 탭 동기화까지 기본 내장합니다.
+
+<Callout type="info" title="언제 Local‑First를 쓰면 좋을까요?">
+  - 새로고침·재방문 시에도 목록/폼 상태를 유지하고 싶을 때 - 오프라인/불안정한 네트워크에서도 “최소한의 마지막 상태”는 보장하고 싶을 때 - IndexedDB를 직접 다루고 싶진 않지만, 로컬 내구성이 필요한 내부 도구/대시보드
+</Callout>
+
+---
+
+## 1. 핵심 개념
+
+### 모델 (Model)
+
+Local‑First의 모든 것은 **모델** 단위로 움직입니다.
+
+```ts
+// models/cart.ts
+import { defineModel } from "@firsttx/local-first";
+import { z } from "zod";
+
+export const CartModel = defineModel("cart", {
+  schema: z.object({
+    items: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        qty: z.number(),
+      }),
+    ),
+  }),
+  // 선택: 기본값은 5분 (5 * 60 * 1000 ms)
+  ttl: 5 * 60 * 1000,
+  // 선택: 데이터 구조가 깨지면 version을 올려 초기화
+  version: "1",
+});
+```
+
+- `name`: IndexedDB 키와 브로드캐스트 채널 이름의 베이스가 됩니다.
+- `schema`: Zod 스키마. 저장/패치 전후로 항상 검증에 사용됩니다.
+- `ttl`: 캐시가 “stale”로 간주되기까지의 시간(ms). 기본 5분. ([GitHub][1])
+- `version`: 스키마가 호환되지 않게 바뀌었을 때 올려주는 버전 플래그.
+
+<ApiTable
+  kind="options"
+  title="defineModel(name, options)"
+  items={[
+    {
+      name: "schema",
+      type: "z.ZodType<T>",
+      required: true,
+      description: (
+        <>
+          모델 구조를 정의하는 <code>zod</code> 스키마입니다. 저장/패치 전에 항상 검증되며, 실패 시 데이터는 저장되지 않고 <code>ValidationError</code>가 발생합니다.
+        </>
+      ),
+    },
+    {
+      name: "ttl",
+      type: "number",
+      defaultValue: "5 * 60 * 1000",
+      description: <>캐시가 만료되기까지의 시간(ms)입니다. 만료된 경우에도 이전 데이터는 우선 표시되고, 백그라운드에서 재동기화가 실행될 수 있습니다.</>,
+    },
+    {
+      name: "version",
+      type: "string",
+      defaultValue: '"1"',
+      description: (
+        <>
+          스키마/구조가 깨질 수 있는 변경이 있을 때 올려주는 버전입니다. 디스크에 저장된 버전과 다르면 기존 데이터를 폐기하고 <code>initialData</code> 또는 빈 상태로 재설정합니다.
+        </>
+      ),
+    },
+    {
+      name: "initialData",
+      type: "T | null",
+      defaultValue: "null",
+      description: (
+        <>
+          초기 디스크 값이 없을 때 사용할 기본 데이터입니다. <code>initialData</code>가 없는데 <code>patch</code>를 호출하면 “null에서 mutate”를 막기 위해 에러가 발생합니다.
+        </>
+      ),
+    },
+  ]}
+/>
+
+<Callout type="warning" title="데이터 무결성 방어">
+  - <code>schema</code> 검증에 실패하면 해당 키는 IndexedDB에서 삭제됩니다. - 이런 상황은 대개 스키마/버전 변경 실수이므로, 개발 환경에서는 적극적으로 에러를 던져 조기 발견을 돕습니다.
+</Callout>
+
+---
+
+## 2. React 훅: useModel vs useSyncedModel
+
+Local‑First는 두 가지 훅을 제공합니다.
+
+- `useModel(model)` – 로컬 모델 스냅샷만 구독 (동기화 없음)
+- `useSyncedModel(model, fetcher, options?)` – 로컬 모델 + 서버 동기화
+
+### 2-1. useModel: 로컬 데이터만 사용할 때
+
+```tsx
+import { useModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+export function CartSidebar() {
+  const { data: cart } = useModel(CartModel);
+
+  if (!cart) {
+    return <div className="text-xs text-muted-foreground">No cart yet.</div>;
+  }
+
+  return (
+    <ul className="space-y-1 text-sm">
+      {cart.items.map((item) => (
+        <li key={item.id} className="flex items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-muted-foreground">x {item.qty}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+- `useSyncExternalStore` 기반이라 React 19 환경에서 안정적으로 작동합니다.
+- 동기화는 전혀 하지 않고, **이미 모델에 있는 값만** 읽어옵니다. ([GitHub][1])
+
+### 2-2. useSyncedModel: 서버 동기화 포함
+
+```tsx
+import { useSyncedModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+async function fetchCart() {
+  const res = await fetch("/api/cart");
+  if (!res.ok) throw new Error("Failed to fetch cart");
+  return res.json();
+}
+
+export function CartPage() {
+  const { data: cart, isSyncing, error } = useSyncedModel(
+    CartModel,
+    fetchCart,
+    {
+      syncOnMount: "stale", // "always" | "stale" | "never"
+    },
+  );
+
+  if (!cart) {
+    return <div>Loading cart…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {cart.items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-sm text-muted-foreground">x {item.qty}</span>
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        {isSyncing && <span>Syncing latest data…</span>}
+        {error && (
+          <span className="text-destructive">
+            Failed to sync: {error.message}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+<ApiTable
+  kind="options"
+  title="useSyncedModel(model, fetcher, options)"
+  items={[
+    {
+      name: "syncOnMount",
+      type: `"always" | "stale" | "never"`,
+      defaultValue: '"stale"',
+      description: (
+        <>
+          컴포넌트 마운트 시 동기화를 어떻게 트리거할지 결정합니다. <code>"stale"</code>은 TTL이 지난 경우에만, <code>"always"</code>는 항상, <code>"never"</code>는 자동 동기화를 끕니다.
+        </>
+      ),
+    },
+    {
+      name: "retry",
+      type: "RetryOptions | null",
+      defaultValue: "null",
+      description: (
+        <>
+          동기화 요청 실패 시 재시도 전략입니다. <code>RetryOptions</code>는 <code>@firsttx/tx</code>의 재시도 모듈을 재사용하며, 선형/지수 백오프를 지원합니다.
+        </>
+      ),
+    },
+  ]}
+/>
+
+<Callout type="info" title="syncInProgressRef로 중복 동기화 방지">
+  <code>useSyncedModel</code> 내부에서는 <code>syncInProgressRef</code>로 동기화가 이미 진행 중인지 추적합니다. 동일 모델에 대한 중복 sync 호출이 들어와도, 한 번만 실행되도록 보장합니다.
+</Callout>
+
+---
+
+## 3. 멀티 탭 동기화 & BroadcastChannel
+
+여러 탭에서 같은 앱을 열고 데이터를 수정하면, Local‑First는
+`ModelBroadcaster`를 통해 변경 사항을 전파합니다. ([GitHub][1])
+
+- `BroadcastChannel`이 지원되면 이를 사용해 다른 탭으로 변경 이벤트 전송
+- 지원되지 않으면 폴백 매커니즘으로 최소한 로그·이벤트를 남김
+
+결과적으로:
+
+- A 탭에서 `CartModel.patch` → B 탭의 `useModel(CartModel)` 스냅샷도 자동 갱신
+- DevTools에서는 “model” 카테고리로 이벤트가 타임라인에 표시됩니다.
+
+<Callout type="info" title="충돌 감지는 아직 TODO">
+  현재 <code>isConflicted</code> 플래그는 항상 <code>false</code>로 남아 있어서, 다중 탭 경합에 대한 충돌 감지는 TODO 상태입니다. 실시간 충돌 해결이 중요한 도메인이라면, 별도의 비즈니스 로직으로 최종 승자/머지 전략을 구현하는 것이 좋습니다.
+</Callout>
+
+---
+
+## 4. Suspense 통합
+
+Local‑First는 React Suspense와도 맞물립니다.
+
+핵심 아이디어는:
+
+- 데이터/에러가 아직 없으면 <code>model.getSyncPromise(fetcher)</code>를 호출해
+- 반환된 Promise를 throw하여 Suspense fallback으로 빠지게 하는 것.
+
+```tsx
+// SuspenseCart.tsx
+import { Suspense } from "react";
+import { CartModel } from "./models/cart";
+import { useModel } from "@firsttx/local-first";
+
+async function fetchCart() {
+  const res = await fetch("/api/cart");
+  if (!res.ok) throw new Error("Failed to fetch cart");
+  return res.json();
+}
+
+function CartInner() {
+  // 데이터가 없으면 getSyncPromise가 fetch를 트리거하고 Promise를 throw합니다.
+  CartModel.getSyncPromise(fetchCart);
+
+  const { data: cart } = useModel(CartModel);
+  if (!cart) {
+    // 여기까지 오면 이미 데이터가 있는 상태여야 합니다.
+    return null;
+  }
+
+  return (
+    <ul className="space-y-2 text-sm">
+      {cart.items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+
+export function SuspenseCart() {
+  return (
+    <Suspense fallback={<div>Loading cart…</div>}>
+      <CartInner />
+    </Suspense>
+  );
+}
+```
+
+- 캐시에 데이터가 있으면 `getSyncPromise`는 즉시 반환만 하고 아무것도 throw하지 않습니다.
+- 캐시가 없으면 fetch → replace 후 해결되는 Promise를 throw해 Suspense와 연동됩니다. ([GitHub][1])
+
+---
+
+## 5. DevTools 연동
+
+Local‑First는 다음과 같은 정보를 DevTools로 보냅니다. ([GitHub][1])
+
+- 데이터 크기, 마지막 새로고침 시간
+- model.replace/patch 이벤트
+- 스토리지(IndexedDB) 오류 – `StorageError`로 감싸서 전파
+
+DevTools 패널에서 “model” 카테고리만 필터링해 보면:
+
+- 어떤 모델이 얼마나 자주 동기화되는지
+- 어느 시점에 ValidationError/StorageError가 났는지
+
+를 한눈에 추적할 수 있습니다.
+
+---
+
+## 6. 권장 패턴 요약
+
+- “뷰 상태 + 데이터 상태” 모두를 Local‑First에 넣기보단,
+  **“데이터 상태”만 모델로 관리**하는 것이 좋습니다.
+- TTL은 5분을 기본으로 시작해서,
+  - 리드가 잦고 변경이 적은 데이터 → TTL 늘리기
+  - 변경이 잦고 최신성이 중요한 데이터 → TTL 줄이기
+
+- Tx와 함께 사용할 때는,
+  - <code>CartModel.patch</code> 등 모델 업데이트를 트랜잭션의 첫 단계로 두고
+  - 서버 동기화를 그 다음 단계에 두면,
+    실패 시 보상(rollback)으로 Local‑First 모델까지 깔끔하게 되돌릴 수 있습니다.

@@ -68,16 +68,16 @@ export function InstallTabs({ packages, dev, title, className }: InstallTabsProp
           setCopied(false);
         }}
       >
-        <div className={cn("flex flex-col gap-3 rounded-2xl border border-border/60", "bg-card/80 p-2 backdrop-blur-xl", "shadow-[0_18px_60px_rgba(15,23,42,0.32)] dark:shadow-[0_18px_60px_rgba(0,0,0,0.85)]")}>
+        <div className={cn("flex flex-col gap-3 rounded-2xl border border-border/60", "bg-card/80 p-2 backdrop-blur-xl", "shadow-md")}>
           <div className="flex items-center justify-between gap-2">
             <TabsList className="inline-flex rounded-full bg-muted/60 p-0.5 text-[11px]">
               {MANAGERS.map((m) => (
-                <TabsTrigger key={m} value={m} className={cn("rounded-full border border-transparent px-3 py-1.5", "data-[state=active]:border-border/60 data-[state=active]:bg-background", "data-[state=active]:shadow-[0_8px_30px_rgba(15,23,42,0.35)]", "capitalize")}>
+                <TabsTrigger key={m} value={m} className={cn("rounded-full border border-transparent px-3 py-1.5", "data-[state=active]:border-border/60 data-[state=active]:bg-background", "data-[state=active]:shadow-2xl", "capitalize")}>
                   {m}
                 </TabsTrigger>
               ))}
             </TabsList>
-            <button type="button" onClick={handleCopy} className={cn("inline-flex items-center gap-1 rounded-full border border-border/60", "bg-background/80 px-2 py-1 text-[10px] font-medium text-muted-foreground", "shadow-[0_10px_30px_rgba(15,23,42,0.25)] backdrop-blur-xl")}>
+            <button type="button" onClick={handleCopy} className={cn("inline-flex items-center gap-1 rounded-full border border-border/60", "bg-background/80 px-2 py-1 text-[10px] font-medium text-muted-foreground", "cursor-pointer shadow-2xl backdrop-blur-xl")}>
               {copied ? (
                 <>
                   <Check className="h-3 w-3" />

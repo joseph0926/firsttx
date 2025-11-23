@@ -1,7 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "@/lib/utils";
-import { CodeBlock, Callout, InstallTabs } from "./components/mdx";
+import { CodeBlock, Callout, InstallTabs, ApiTable } from "./components/mdx";
 
 const baseHeading = "scroll-m-20 font-semibold tracking-tight text-foreground";
 const baseText = "text-sm md:text-[0.95rem] leading-relaxed";
@@ -58,6 +58,7 @@ const components: MDXComponents = {
 
   InstallTabs,
   Callout,
+  ApiTable,
 };
 
 export function useMDXComponents(): MDXComponents {

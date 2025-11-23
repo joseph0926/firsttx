@@ -1,0 +1,334 @@
+export const metadata = {
+  title: "Tx",
+};
+
+# Tx
+
+Tx is the **execution layer that bundles optimistic UI updates and server requests into a single transaction with automatic rollback**.
+
+- Run multiple steps as one unit
+- Automatically execute compensating steps in **reverse order** on failure
+- Handle retries (linear/exponential backoff), global timeouts, and ViewTransition.
+
+<Callout type="info" title="When Tx is a good fit">
+  - You already use optimistic UI but keep ending up in <strong>half-rolled-back states</strong>- You want multiple API calls + local model updates to behave <strong>atomically</strong>- You want DevTools to show a single, traceable transaction timeline
+</Callout>
+
+---
+
+## 1. Basic usage: `startTransaction`
+
+Install:
+
+```bash
+pnpm add @firsttx/local-first @firsttx/tx
+```
+
+> Tx depends on Local‑First, so both packages must be installed. ([GitHub][1])
+
+A minimal “add to cart” transaction (adapted from the README example, wrapped in our MDX code block). ([GitHub][1])
+
+```ts
+import { startTransaction } from "@firsttx/tx";
+import { CartModel } from "./models/cart";
+
+async function addToCart(item: { id: string; name: string; qty: number }) {
+  const tx = startTransaction({ transition: true });
+
+  await tx.run(
+    () =>
+      CartModel.patch((draft) => {
+        draft.items.push(item);
+      }),
+    {
+      compensate: () =>
+        CartModel.patch((draft) => {
+          draft.items.pop();
+        }),
+    },
+  );
+
+  await tx.run(() =>
+    fetch("/api/cart", {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+  );
+
+  await tx.commit();
+}
+```
+
+Key points:
+
+- `startTransaction(options?)`
+  - `options.transition?: boolean` – whether to use ViewTransition (default `true`) ([GitHub][1])
+
+- `tx.run(fn, options?)`
+  - If `fn` fails, later steps are skipped and `options.compensate` (if provided) is added to the rollback chain.
+
+- `tx.commit()`
+  - Marks the transaction as successfully completed; any error before this moves into rollback.
+
+---
+
+## 2. Lifecycle & states
+
+Internally a transaction flows roughly through these states:
+
+- `pending` – before any step is executed
+- `running` – one or more steps are in progress
+- `committed` – all steps finished and commit was called
+- `rolled-back` – failure occurred and all compensations succeeded
+- `failed` – rollback itself encountered errors (see `CompensationFailedError`)
+
+Each step is wrapped with its own `AbortController`, and Tx maintains a **global timeout (default ~30s)** for the entire transaction.
+Remaining time is propagated step by step and enforced via `Promise.race`.
+
+<Callout type="warning" title="CompensationFailedError">
+  - When a step fails, Tx runs all registered compensation functions in reverse order. - If any compensation throws, a <code>CompensationFailedError</code> is raised, bundling both the original error and all compensation errors. - To keep this rare, make compensations <strong>simple and idempotent</strong>.
+</Callout>
+
+---
+
+## 3. `tx.run` & retry
+
+README documents `tx.run` options for retry configuration. ([GitHub][1])
+Under the hood, Tx uses a dedicated retry helper with linear/exponential backoff and throws `RetryExhaustedError` once all attempts fail.
+
+```ts
+const tx = startTransaction();
+
+await tx.run(
+  async () => {
+    const res = await fetch("/api/order", { method: "POST" });
+    if (!res.ok) throw new Error("Order failed");
+  },
+  {
+    retry: {
+      maxAttempts: 3,
+      delayMs: 300,
+      backoff: "exponential",
+    },
+    compensate: async () => {
+      await fetch("/api/order/cancel", { method: "POST" });
+    },
+  },
+);
+```
+
+<ApiTable
+  kind="options"
+  title="tx.run(fn, options?)"
+  items={[
+    {
+      name: "fn",
+      type: "() => Promise<T> | T",
+      required: true,
+      description: "The main step function. If this fails, subsequent steps will not be executed.",
+    },
+    {
+      name: "options.compensate",
+      type: "() => Promise<void> | void",
+      description: "Rollback function for this step. When rolling back, compensations run in reverse order of registration.",
+    },
+    {
+      name: "options.retry.maxAttempts",
+      type: "number",
+      defaultValue: "1",
+      description: "Maximum retry attempts for this step. Default is 1 (no retry). ([GitHub][1])",
+    },
+    {
+      name: "options.retry.delayMs",
+      type: "number",
+      defaultValue: "100",
+      description: "Base delay between retries in milliseconds. Actual delay depends on the backoff mode. ([GitHub][1])",
+    },
+    {
+      name: "options.retry.backoff",
+      type: `"exponential" | "linear"`,
+      defaultValue: `"exponential"`,
+      description: "Retry backoff strategy: exponential (100 → 200 → 400 → 800 ms) or linear (100 → 200 → 300 → 400 ms). ([GitHub][1])",
+    },
+  ]}
+/>
+
+---
+
+## 4. React hook: `useTx`
+
+In real apps, you’ll often use the React hook instead of manually orchestrating `startTransaction` and `tx.run`. ([GitHub][1])
+
+```tsx
+import { useTx } from "@firsttx/tx";
+import { CartModel } from "./models/cart";
+
+export function AddToCartButton({ item }: { item: { id: string; name: string; qty: number } }) {
+  const { mutate, isPending, isError, error } = useTx({
+    optimistic: async (input) => {
+      await CartModel.patch((draft) => draft.items.push(input));
+    },
+    rollback: async () => {
+      await CartModel.patch((draft) => {
+        draft.items.pop();
+      });
+    },
+    request: async (input) =>
+      fetch("/api/cart", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    transition: true,
+    retry: {
+      maxAttempts: 2,
+      delayMs: 200,
+      backoff: "exponential",
+    },
+    onSuccess: () => {
+      console.log("Added to cart");
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => mutate(item)}
+        className="rounded-full bg-foreground px-4 py-2 text-xs font-medium text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isPending ? "Adding..." : "Add to cart"}
+      </button>
+      {isError && (
+        <p className="text-xs text-destructive">
+          {error?.message ?? "Failed to add item"}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+<ApiTable
+  kind="options"
+  title="useTx(config)"
+  items={[
+    {
+      name: "config.optimistic",
+      type: "(variables: V) => Promise<void> | void",
+      required: true,
+      description: "Local optimistic update. Runs first when mutate is called.",
+    },
+    {
+      name: "config.rollback",
+      type: "(variables: V) => Promise<void> | void",
+      required: true,
+      description: "Rollback function that undoes the optimistic changes when the transaction fails.",
+    },
+    {
+      name: "config.request",
+      type: "(variables: V) => Promise<any>",
+      required: true,
+      description: "Actual server request. Failures here will trigger rollback.",
+    },
+    {
+      name: "config.transition",
+      type: "boolean",
+      defaultValue: "true",
+      description: "Whether to wrap UI changes in a ViewTransition (where supported). ([GitHub][1])",
+    },
+    {
+      name: "config.retry",
+      type: "{ maxAttempts?: number; delayMs?: number; backoff?: 'exponential' | 'linear' }",
+      description: "Retry config for the request step; omitted to use library defaults. ([GitHub][1])",
+    },
+    {
+      name: "config.onSuccess",
+      type: "(result: any) => void",
+      description: "Callback after a successful commit.",
+    },
+    {
+      name: "config.onError",
+      type: "(error: Error) => void",
+      description: "Callback when the transaction fails or rollback encounters issues.",
+    },
+  ]}
+/>
+
+<ApiTable
+  kind="props"
+  title="useTx(config) returns"
+  items={[
+    {
+      name: "mutate",
+      type: "(variables: V) => Promise<void>",
+      required: true,
+      description: "Function you call to run the transaction. ([GitHub][1])",
+    },
+    {
+      name: "isPending",
+      type: "boolean",
+      description: "True while any part of the transaction (optimistic, request, or rollback) is running.",
+    },
+    {
+      name: "isError",
+      type: "boolean",
+      description: "True if the last transaction ended in an error.",
+    },
+    {
+      name: "isSuccess",
+      type: "boolean",
+      description: "True if the last transaction committed successfully.",
+    },
+    {
+      name: "error",
+      type: "Error | null",
+      description: "Last error object, often a TxError subtype.",
+    },
+  ]}
+/>
+
+<Callout type="info" title="React integration details">
+  - <code>useTx</code> internally uses <code>startTransaction</code> to orchestrate each step. - With <code>cancelOnUnmount</code> enabled, it uses an AbortController to cancel pending steps on unmount, avoiding memory leaks and duplicate requests. - Where supported, ViewTransition is used to animate optimistic updates and rollbacks as a single, smooth transition.
+</Callout>
+
+---
+
+## 5. Error model & DevTools
+
+Tx’s error model is built around a shared `TxError` base:
+
+- `TxError`
+  - `userMessage` for UI
+  - `debugMessage` for logs
+  - `recoverable` flag
+
+- `TimeoutError` – global/step timeout
+- `RetryExhaustedError` – all retries exhausted
+- `CompensationFailedError` – rollback chain failure
+
+This separation allows:
+
+- UI to show only safe, user-facing messages and
+- logging/monitoring to use debug details without leaking them to users.
+
+DevTools integration:
+
+- Events like `tx.start`, `tx.step`, `tx.commit`, and `tx.rollback` are emitted to `window.__FIRSTTX_DEVTOOLS__` and displayed in the Chrome extension’s timeline. ([GitHub][1])
+- Some payload keys currently differ from the bridge types, so certain metadata may not line up perfectly in the panel.
+
+<Callout type="danger" title="Practical tips">
+  - Keep compensations as simple as possible; avoid heavy network work when you can. - When debugging, use DevTools to filter by transaction ID and inspect both failure and rollback events.
+</Callout>
+
+---
+
+## 6. Working with Local‑First / Prepaint
+
+Tx is even more powerful when combined with the other layers:
+
+- **Prepaint** restores the last screen instantly on revisits, removing blank CSR revisits. ([GitHub][1])
+- **Local‑First** makes IndexedDB the single source of truth so refreshes/offline periods don’t lose context. ([GitHub][1])
+- **Tx** runs optimistic updates on top of that, with atomic rollback on failure. ([GitHub][1])
+
+For more details, see `/docs/prepaint` and `/docs/local-first`.

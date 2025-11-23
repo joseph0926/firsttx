@@ -66,7 +66,7 @@ export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
   }
 
   return (
-    <div className={cn("relative my-6 overflow-hidden rounded-2xl border border-border/60", "bg-card/80 backdrop-blur-xl", "shadow-[0_0_24px_rgba(34,42,53,0.12),0_18px_60px_rgba(15,23,42,0.35)]", "dark:shadow-[0_0_24px_rgba(15,23,42,0.8),0_18px_60px_rgba(0,0,0,0.85)]", className)}>
+    <div className={cn("relative my-6 overflow-hidden rounded-2xl border border-border/60", "bg-card/80 backdrop-blur-xl", "shadow-md", className)}>
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-2 w-2 rounded-full bg-red-400/80" />
@@ -74,7 +74,7 @@ export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/80" />
           {language && <span className="ml-2 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] tracking-[0.14em] uppercase">{language}</span>}
         </div>
-        <button type="button" onClick={handleCopy} className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:bg-muted/70 hover:text-foreground">
+        <button type="button" onClick={handleCopy} className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:bg-muted/70 hover:text-foreground">
           {copied ? (
             <>
               <Check className="h-3 w-3" />

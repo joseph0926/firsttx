@@ -1,0 +1,246 @@
+export const metadata = {
+  title: "DevTools",
+};
+
+# FirstTx DevTools
+
+FirstTx DevTools is a **Chrome extension that gives you full visibility into Prepaint, Local‑First, and Tx runtime events**.
+
+- Prepaint: restore/capture/hydration events
+- Local‑First: model sync, patch/replace, TTL metadata
+- Tx: transaction start/steps/commit/rollback/failures
+
+All in a single **timeline + event list** UI, with category/priority/text filters.
+
+<Callout type="info" title="What can you debug?">
+  From the README examples:
+  <ul>
+    <li>
+      <strong>"Why didn't Prepaint restore?"</strong> → Check <code>prepaint.restore</code> and <code>prepaint.hydration.error</code>.
+    </li>
+    <li>
+      <strong>"Which model keeps re-syncing?"</strong> → Filter by Model and inspect <code>model.sync.start</code>.
+    </li>
+    <li>
+      <strong>"Transaction rolled back but UI broke"</strong> → Look up the <code>txId</code> in the timeline and check for <code>tx.rollback.fail</code>.
+    </li>
+  </ul>
+</Callout>
+
+---
+
+## 1. Installation & requirements
+
+From the README DevTools section:
+
+- Browser
+  - Chrome 111+ or Edge 111+
+- FirstTx package versions
+  - `@firsttx/prepaint@^0.3.3`
+  - `@firsttx/local-first@^0.4.1`
+  - `@firsttx/tx@^0.2.2`
+- Extension
+  - Install **Firsttx Devtools** from the Chrome Web Store
+
+In a typical web app you don’t need to change your code:
+
+1. Install the extension.
+2. Open your app.
+3. Open DevTools → “FirstTx” tab.
+4. Check that the panel shows a “Connected” status.
+
+<Callout type="info" title="No manual bridge import needed">
+  In the browser + extension setup, FirstTx packages simply check for
+  <code>window.__FIRSTTX_DEVTOOLS__</code> and emit events automatically. You don’t need to import <code>@firsttx/devtools/bridge</code> yourself.
+</Callout>
+
+---
+
+## 2. Panel layout
+
+Based on the README and the devtools implementation:
+
+1. Top bar
+2. Timeline view
+3. Event list view
+
+### 2-1. Top bar
+
+- **Connection status**: Connected / Disconnected
+- **Filters**
+  - Category: prepaint · model · tx · system
+  - Priority
+  - Errors‑only toggle
+  - Text search (over JSON‑stringified event)
+- **View switch**
+  - Timeline view ↔ Event list view
+- **Event count**
+  - Number of events collected in the current session
+
+---
+
+### 2-2. Timeline view
+
+- **Layer lanes**
+  - Separate lanes for Prepaint, Model, Tx (and System)
+- **Grouped events**
+  - Grouped by transaction ID or model name for easier reading
+- **Status colors**
+  - success / error / pending rendered with different colors
+- **Details on selection**
+  - Selecting a group lets you inspect the underlying events
+
+This view is best for understanding **end‑to‑end flows**:
+
+- How a transaction sits relative to Prepaint restore and model sync
+- Where in time a rollback or hydration error occurred
+
+---
+
+### 2-3. Event list view
+
+- One **row per event** with:
+  - Timestamp
+  - Category
+  - Event name (e.g., <code>prepaint.restore</code>, <code>model.sync.start</code>, <code>tx.rollback</code>)
+  - Status
+  - Short message/summary
+- Click a row to:
+  - See the full JSON payload
+  - Copy the event for logging or sharing
+
+<Callout type="info" title="Error-only debugging">
+  Use the “Errors only” toggle to temporarily hide everything except error events in both the timeline and list. This is especially useful when you’re drowning in noise from high-frequency events.
+</Callout>
+
+---
+
+## 3. Event categories
+
+The devtools bridge defines four main categories: `prepaint`, `model`, `tx`, and `system`. {index=18}
+
+### 3-1. Prepaint
+
+Typical events:
+
+- `prepaint.capture` – Snapshot captured
+- `prepaint.restore` – Snapshot restored
+- `prepaint.handoff` – Handoff to React
+- `prepaint.storage.error` – IndexedDB/storage issues
+- `prepaint.hydration.error` – Hydration failures
+
+From the README:
+
+```ts
+// Debug: "Why didn't prepaint restore?"
+// → Check 'restore' event in DevTools
+// → Look for 'hydration.error' events
+```
+
+### 3-2. Model (Local‑First)
+
+Events such as:
+
+- `model.replace`, `model.patch`
+- `model.sync.start` / `model.sync.success` / `model.sync.error`
+- TTL metadata (age, isStale, updatedAt via ModelHistory) ([GitHub][1])
+
+```ts
+// Debug: "Which model keeps re-syncing?"
+// → Filter by Model category
+// → Check 'sync.start' event trigger field
+```
+
+### 3-3. Tx
+
+Tx events represent transaction lifecycle:
+
+- `tx.start` – Transaction created
+- `tx.step` – Individual steps running
+- `tx.commit` – Successful completion
+- `tx.rollback` – Rollback executed
+- `tx.rollback.fail` – Compensation failed
+
+```ts
+// Debug: "Transaction rolled back but UI broken"
+// → Find your txId in Timeline
+// → Check if 'rollback.fail' event exists
+```
+
+### 3-4. System
+
+- Bridge initialization, buffered event replay, version info, etc.
+- Mostly useful to verify that DevTools is attached correctly.
+
+---
+
+## 4. Under the hood (bridge & buffering)
+
+From the devtools package and your earlier notes: ([GitHub][1])
+
+- **Event delivery**
+  - Runtime emits events into `window.__FIRSTTX_DEVTOOLS__`.
+  - The bridge uses `BroadcastChannel` to distribute events across listeners in the tab.
+
+- **Extension wiring**
+  - The Chrome extension’s content script injects the bridge into the page.
+  - It relays events between the page, the background script, and the DevTools panel via window messaging.
+
+- **Buffering**
+  - A circular buffer (default size ~500) stores events before the panel connects.
+  - High‑priority events may be persisted to IndexedDB so they can be replayed when the panel attaches.
+
+- **Schema mismatch caveat**
+  - Some field names emitted by runtime packages don’t perfectly match the bridge’s type definitions (e.g. <code>timeout</code> vs <code>timeoutMs</code>).
+  - As a result, certain advanced fields may not show up or sort correctly in the panel yet.
+
+<Callout type="info" title="Production usage">
+  The bridge itself can run in production, but the extension is mainly for development. Since events are kept in memory and sometimes persisted, it’s best to keep DevTools focused on targeted debugging sessions.
+</Callout>
+
+---
+
+## 5. Performance & UX considerations
+
+From observed behavior and the implementation: ([GitHub][1])
+
+- The panel stores events in an in‑memory array.
+  - Extremely long sessions with very high event rates can increase memory usage.
+
+- Search filters operate on `JSON.stringify(event)`.
+  - Large `data` payloads (e.g. big model snapshots) combined with heavy search use may become expensive.
+
+- IndexedDB cleanup happens in batches (~200 events at a time).
+  - If you keep generating events for very long periods, older persisted events can accumulate.
+
+Practical tips:
+
+- For debugging, prefer **short, focused sessions** and reload the page after you find the root cause.
+- If you see too many model/tx events:
+  - Reduce unnecessary syncs or artificial noise in your app, or
+  - Toggle DevTools only in dedicated debug builds/environments.
+
+---
+
+## 6. Programmatic usage
+
+If you need to consume FirstTx events programmatically (e.g. in Electron or a custom admin console):
+
+- The `@firsttx/devtools` package exposes bridge types and helpers. ([GitHub][1])
+- However, they’re currently designed primarily for the Chrome extension and not yet a fully stable public API.
+
+Recommendation:
+
+- If you can use the existing DevTools panel, prefer that.
+- If you build your own viewer:
+  - Inspect the TypeScript types in `@firsttx/devtools` to understand the event schema.
+  - Expect breaking changes across versions and pin versions accordingly.
+
+---
+
+## 7. TL;DR
+
+- DevTools gives you a **unified view** of Prepaint, Local‑First, and Tx events. ([GitHub][1])
+- Installation is just a Chrome extension + minimum FirstTx versions—no app code changes needed.
+- Use the timeline for big‑picture flows, and the event list + filters for detailed inspection.
+- Understanding the bridge/buffering model helps you reason about performance and data retention.

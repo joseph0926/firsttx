@@ -1,0 +1,256 @@
+export const metadata = {
+  title: "DevTools",
+};
+
+# FirstTx DevTools
+
+FirstTx DevTools는 **Prepaint · Local‑First · Tx 런타임 이벤트를 한 곳에서 보는 크롬 확장**입니다.
+
+- Prepaint 복원 / 캡처 / 하이드레이션
+- Local‑First 모델 동기화 / patch / replace
+- Tx 트랜잭션 시작 / 단계 / 롤백 / 실패
+
+를 **타임라인 + 이벤트 리스트**로 보여주고, 카테고리·우선순위·텍스트로 필터링할 수 있습니다.
+
+<Callout type="info" title="무엇을 디버그할 수 있나요?">
+  README가 제안하는 대표 질문들:
+  <ul>
+    <li>
+      <strong>“왜 Prepaint가 복원되지 않았지?”</strong> → restore / hydration.error 이벤트 확인
+    </li>
+    <li>
+      <strong>“어떤 모델이 계속 sync를 때리지?”</strong> → Model 카테고리로 필터, sync.start 이벤트 확인
+    </li>
+    <li>
+      <strong>“트랜잭션은 롤백됐다는데 UI가 깨졌다”</strong> → 해당 txId로 타임라인 검색, rollback.fail 유무 확인
+    </li>
+  </ul>
+</Callout>
+
+---
+
+## 1. 설치 & 요구사항
+
+README 기준 DevTools 요구사항은 다음과 같습니다:
+
+- 브라우저
+  - Chrome 111+ 또는 Edge 111+
+- FirstTx 패키지 버전
+  - `@firsttx/prepaint@^0.3.3`
+  - `@firsttx/local-first@^0.4.1`
+  - `@firsttx/tx@^0.2.2`
+- 크롬 확장
+  - Chrome Web Store에서 **“Firsttx Devtools”**를 설치
+
+일반적인 웹 앱에서는 **코드 수정 없이** 확장만 설치하면 됩니다.
+
+1. Chrome에서 Firsttx DevTools 설치
+2. 앱 페이지 열기
+3. DevTools (F12) → “FirstTx” 탭 클릭
+4. 패널 상단의 Connection 상태가 “Connected”로 표시되는지 확인
+
+<Callout type="info" title="별도 브리지 임포트 필요 없음">
+  - 브라우저 환경에서 확장을 사용하는 경우,
+  <code>@firsttx/prepaint</code>, <code>@firsttx/local-first</code>, <code>@firsttx/tx</code>는<code>window.__FIRSTTX_DEVTOOLS__</code>가 존재하는지만 확인하고, 자동으로 이벤트를 emit 합니다. - 즉, <code>@firsttx/devtools/bridge</code>를 직접 임포트할 필요는 없습니다.
+</Callout>
+
+---
+
+## 2. 패널 구조 한눈에 보기
+
+README + 실제 구현 기준으로, DevTools 패널은 크게 세 부분으로 나뉩니다:
+
+1. 상단 바
+2. 타임라인 뷰
+3. 이벤트 리스트 뷰
+
+### 2-1. 상단 바
+
+- **연결 상태**: Connected / Disconnected
+- **필터**
+  - Category (prepaint · model · tx · system)
+  - Priority (HIGH / NORMAL 등)
+  - Error Only 토글
+  - 텍스트 검색 (JSON stringify 기반)
+- **뷰 전환**
+  - Timeline View ↔ Event List View
+- **이벤트 카운트**
+  - 현재 세션에서 받은 이벤트 수
+
+---
+
+### 2-2. 타임라인 뷰
+
+README 설명 + 코드 구조 기준:
+
+- **레이어별 레인**
+  - Prepaint, Model(Local‑First), Tx, System
+- **이벤트 그룹**
+  - 트랜잭션 ID(txId)나 모델 이름(modelKey)을 기준으로 묶어서 보여줌
+- **상태 색상**
+  - success / error / pending 상태를 색상으로 표현
+- **툴팁/선택 시**
+  - 해당 그룹의 상세 이벤트 리스트를 아래에서 확인할 수 있음
+
+이 뷰는 “전체 흐름”을 볼 때 좋습니다:
+
+- 한 트랜잭션이 어떤 Prepaint 복원/모델 동기화 후에 실행됐는지,
+- 특정 Tx 롤백이 어떤 네트워크 에러에 의해 발생했는지
+
+를 시간 순서대로 파악할 수 있습니다.
+
+---
+
+### 2-3. 이벤트 리스트 뷰
+
+- 각 이벤트가 **한 줄(row)** 로 표시됩니다:
+  - Timestamp (상대 시간)
+  - Category (prepaint/model/tx/system)
+  - Event name (예: `prepaint.restore`, `model.sync.start`, `tx.rollback`)
+  - Status (success/error/pending)
+  - 요약 메시지
+- 행을 클릭하면:
+  - 오른쪽 혹은 하단 패널에서 JSON 상세 보기
+  - “Copy event JSON” 같은 기능으로 그대로 복사 가능
+
+<Callout type="info" title="에러만 보고 싶을 때">
+  상단의 “Errors only” 토글을 켜면,
+  <strong>오류 이벤트만 리스트/타임라인에 남기고</strong> 나머지는 숨길 수 있습니다. (성능 이슈나 노이즈 많은 상황에서 유용)
+</Callout>
+
+---
+
+## 3. 이벤트 카테고리별로 보는 DevTools
+
+DevTools 브리지 타입 정의 기준 카테고리는 `prepaint` · `model` · `tx` · `system` 입니다.
+
+### 3-1. Prepaint
+
+대표 이벤트:
+
+- `prepaint.capture` – DOM 스냅샷 캡처 완료
+- `prepaint.restore` – 스냅샷 복원
+- `prepaint.handoff` – Prepaint → React 제어권 전달
+- `prepaint.storage.error` – IndexedDB 쓰기/읽기 오류
+- `prepaint.hydration.error` – Hydration 실패/경고 감지
+
+디버그 예시 (README에서 제시하는 패턴):
+
+```ts
+// Debug: "Why didn't prepaint restore?"
+// → Check 'restore' event in DevTools
+// → Look for 'hydration.error' events
+```
+
+### 3-2. Model (Local‑First)
+
+대표적으로 볼 수 있는 것들:
+
+- `model.replace` / `model.patch`
+- `model.sync.start` / `model.sync.success` / `model.sync.error`
+- TTL 관련 메타데이터 (age, isStale, updatedAt 등은 ModelHistory로 노출) ([GitHub][1])
+
+README 예시 패턴: ([GitHub][1])
+
+```ts
+// Debug: "Which model keeps re-syncing?"
+// → Filter by Model category
+// → Check 'sync.start' event trigger field
+```
+
+### 3-3. Tx
+
+Tx 이벤트는 한 트랜잭션의 전체 수명주기를 보여줍니다:
+
+- `tx.start` – 트랜잭션 시작
+- `tx.step` – 각 단계 실행
+- `tx.commit` – 정상 완료
+- `tx.rollback` – 롤백 실행
+- `tx.rollback.fail` – 보상(compensate) 실패로 인한 추가 오류
+
+README의 예시: ([GitHub][1])
+
+```ts
+// Debug: "Transaction rolled back but UI broken"
+// → Find your txId in Timeline
+// → Check if 'rollback.fail' event exists
+```
+
+### 3-4. System
+
+- DevTools 브리지 초기화, IndexedDB 버퍼 복원, 버전 정보 등
+- 보통 직접 보진 않지만, DevTools 자체가 정상 연결되었는지 확인할 때 참고할 수 있습니다.
+
+---
+
+## 4. 내부 동작(Bridge) 이해하기 (조금 더 깊게)
+
+라이브러리 관점의 DevTools 브리지는 대략 이렇게 동작합니다(이미 정리해주신 내용 기반):
+
+- **이벤트 전송**
+  - 앱 런타임에서 `window.__FIRSTTX_DEVTOOLS__`로 이벤트를 emit
+  - 브리지는 BroadcastChannel로 같은 탭 내의 여러 리스너에 이벤트를 배포합니다.
+
+- **확장과의 연결** ([GitHub][1])
+  - Chrome 확장의 content 스크립트가 `bridge.js`를 페이지에 주입
+  - 페이지 ↔ background ↔ DevTools 패널 간 window 메시지로 통신
+
+- **버퍼링**
+  - 원형 버퍼(기본 500개)로 패널이 열리기 전 이벤트를 보관
+  - HIGH 우선순위 이벤트는 IndexedDB에 영속 저장해, 패널 초기화 후 재주입합니다.
+
+- **한계**
+  - 현재 Tx 모듈 쪽에서 보내는 payload 키와 DevTools 브리지 타입 정의가 100% 정합하지 않아서,
+    패널에서 일부 필드(예: timeout vs timeoutMs, hasCompensate vs hasCompensation)가 누락/정렬이 어긋날 수 있습니다.
+
+<Callout type="info" title="프로덕션에서 써도 되나요?">
+  - 브리지 자체는 프로덕션에서도 동작하지만, DevTools 확장은 보통 개발 환경에서만 켜 두는 것이 일반적입니다. - 이벤트 버퍼는 메모리 + IndexedDB를 함께 사용하므로, 장시간 세션에서 필요 없는 이벤트를 자주 발생시키지 않는 것이 좋습니다.
+</Callout>
+
+---
+
+## 5. 퍼포먼스 & UX 주의사항
+
+이미 정리해주신 관찰을 바탕으로, DevTools 사용 시 주의할 점을 요약하면:
+
+- 패널은 수신 이벤트를 **메모리 배열에 누적**합니다.
+  - 아주 긴 세션·매우 빈번한 이벤트(초당 수백 개 등)에서는 메모리 사용량이 늘어날 수 있습니다.
+
+- 검색 필터는 `JSON.stringify(event)` 기반이라,
+  - 이벤트의 `data` 필드가 매우 큰 경우(대형 모델 payload)를 자주 검색하면 비용이 커질 수 있습니다.
+
+- 브리지의 IndexedDB 클린업은 **200개씩 잘라 삭제**하므로,
+  - 수십만 개 단위의 이벤트를 오랫동안 쌓아두는 워크로드에는 적합하지 않습니다.
+
+실제 사용 팁:
+
+- “에러 원인 찾기” 같이 **짧은 세션**으로 집중 디버깅하고, 디버깅이 끝나면 페이지를 새로고침해 이벤트 버퍼를 리셋하는 패턴을 추천합니다.
+- Model/Tx 이벤트가 지나치게 많다면,
+  - 불필요한 sync 주기를 줄이거나,
+  - 특정 디버그 환경에서만 DevTools를 활성화하는 전략도 고려할 수 있습니다.
+
+---
+
+## 6. 프로그램적으로 DevTools 이벤트를 사용하고 싶다면?
+
+브라우저 확장 없이도, 앱 내부에서 FirstTx 이벤트를 구독하고 싶은 경우:
+
+- `@firsttx/devtools` 패키지에는 **브리지 타입/헬퍼**가 정의되어 있습니다. ([GitHub][1])
+- 이를 직접 임포트해 Electron/Native Shell/커스텀 패널 등에서 사용할 수 있지만,
+  현재는 **문서화된 안정 API**라기보다는 확장을 위한 내부 헬퍼에 가깝습니다.
+
+따라서:
+
+- DevTools 패널을 그대로 쓸 수 있는 환경이라면 → **크롬 확장 사용 권장**
+- 자체 뷰어나 로깅 시스템을 만들고 싶다면 →
+  - `@firsttx/devtools` 패키지의 타입 정의를 참고해서 내부 이벤트 스키마를 직접 확인한 뒤,
+  - 버전 업 시 schema 변경 가능성에 대비하는 것을 권장합니다.
+
+---
+
+## 7. 요약
+
+- DevTools는 **Prepaint · Local‑First · Tx를 하나의 타임라인에서 보는 도구**입니다. ([GitHub][1])
+- 설치는 **크롬 확장 + 최소 패키지 버전 충족**만 하면 되고, 앱 코드 수정은 필요 없습니다.
+- Timeline View로 큰 흐름을, Event List View + 필터로 디테일을 파고드는 패턴이 가장 효율적입니다.
+- 브리지/버퍼 구조를 이해해 두면, 메모리/성능 이슈도 예측 가능해집니다.
