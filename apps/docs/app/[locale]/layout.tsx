@@ -6,8 +6,6 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { notFound } from "next/navigation";
-import { Navbar } from "@/components/layout/navbar";
-import { BackgroundGlow } from "@/components/layout/background-glow";
 import { AppShell } from "@/components/app-shell";
 
 const geistSans = Geist({

@@ -150,5 +150,14 @@
     "copyright": "© 2025 FirstTx. MIT 라이선스. Firsttx Teams.",
     "github": "GitHub",
     "playground": "Playground"
+  },
+  "DocsNav": {
+    "overview": "Overview",
+    "gettingStarted": "빠른 시작",
+    "prepaint": "Prepaint",
+    "localFirst": "Local-First",
+    "tx": "Tx",
+    "devtools": "DevTools",
+    "patterns": "Patterns & Recipes"
   }
 }
