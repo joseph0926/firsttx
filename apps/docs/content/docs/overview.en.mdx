@@ -1,30 +1,556 @@
 export const metadata = {
-  title: "Overview",
+  title: "Local-First",
 };
 
-# FirstTx Overview
+# Local‑First
 
-FirstTx is a three-layer toolkit for React 19 + CSR apps that tackles
-**revisit speed, offline resilience, and optimistic UI** all at once.
+Local‑First is a package for building an **“offline‑durable data layer”**  
+on top of **IndexedDB + a synchronous React store + Zod schemas**.
 
-<Callout type="info" title="What this page covers">
-  This page gives you a high-level picture of what problems FirstTx solves and when it is a good fit. For installation and wiring details, see the <code>Getting Started</code> page.
+- Uses IndexedDB as the single source of truth
+- Ensures type and integrity with Zod schemas
+- Comes with TTL, versioning, multi‑tab sync, server sync hooks, and Suspense integration built in.
+
+<Callout type="info" title="When is Local‑First a good fit?">
+  <ul>
+    <li>When you want to keep list/form state intact across refreshes and revisits</li>
+    <li>
+      When you want to guarantee <strong>“the last state the user saw”</strong> even on offline/unstable networks
+    </li>
+    <li>When you need local durability for internal tools/dashboards but don’t want to deal with IndexedDB directly</li>
+  </ul>
 </Callout>
 
-- **Prepaint** - Captures the last screen as a DOM snapshot and restores it before React mounts on revisits.
-- **Local-First** - Treats IndexedDB as the single source of truth and automates server sync.
-- **Tx** - Wraps UI updates and server calls in transactions that can safely roll back on failure.
+---
 
-## What problems does it focus on?
+## 1. Core concepts
 
-In typical CSR apps:
+### Model
 
-- First visits can be optimized with SSR or skeleton UIs,
-- but **revisits, tabbing around, and back navigation** often show 1-2 seconds of blank screen or a loading spinner.
-- With flaky networks or offline usage, optimistic UIs can leave the screen in a **half-rolled-back** state.
+In Local‑First, everything is organized around **models**.
 
-FirstTx addresses this with three layers:
+```ts
+// models/cart.ts
+import { defineModel } from "@firsttx/local-first";
+import { z } from "zod";
 
-1. Use Prepaint to remember the last screen,
-2. Use Local-First to keep a local model alive,
-3. Use Tx to wrap UI changes in transactions.
+export const CartModel = defineModel("cart", {
+  schema: z.object({
+    items: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        qty: z.number(),
+      }),
+    ),
+  }),
+
+  // Optional: default is 5 minutes (5 * 60 * 1000 ms)
+  ttl: 5 * 60 * 1000,
+
+  // Optional: bump version to reset if the data shape breaks
+  version: "1",
+
+  // Recommended when using version: initial value on disk
+  initialData: {
+    items: [],
+  },
+});
+```
+
+- `name`
+  - Base for the IndexedDB key and the BroadcastChannel name (`firsttx:models`).
+
+- `schema`
+  - Zod schema. Always used to validate before/after storing/patching.
+
+- `ttl`
+  - Time (ms) before the cache is considered “stale”. Default: 5 minutes.
+
+- `version`
+  - Version flag to bump when the schema changes in a breaking way. If the version on disk differs, Local‑First discards the old data and re‑initializes.
+
+- `initialData`
+  - Initial data to use when there is nothing on disk yet. When using `version`, it’s effectively required so the model can reset to a sensible default.
+
+<ApiTable
+  kind="options"
+  title="defineModel(name, options)"
+  items={[
+    {
+      name: "schema",
+      type: "z.ZodType<T>",
+      required: true,
+      description: (
+        <>
+          Zod schema describing the model structure. It is always validated before storing/patching. If validation fails, the stored data is deleted and a <code>ValidationError</code> is produced (in development it is thrown to help you catch issues early).
+        </>
+      ),
+    },
+    {
+      name: "ttl",
+      type: "number",
+      defaultValue: "5 * 60 * 1000",
+      description: (
+        <>
+          Time (ms) before the cache is considered expired. Once TTL has passed, <code>history.isStale</code> becomes <code>true</code>. The previous data is still shown first, and hooks like <code>useSyncedModel</code> can trigger a background resync.
+        </>
+      ),
+    },
+    {
+      name: "version",
+      type: "string",
+      defaultValue: '"1"',
+      description: (
+        <>
+          Version to bump when you make schema/shape changes that can break existing data. If the stored version differs, Local‑First discards the old data and resets it to <code>initialData</code> or an empty state. When you use <code>version</code>, it’s strongly recommended to define <code>initialData</code> as well.
+        </>
+      ),
+    },
+    {
+      name: "initialData",
+      type: "T | null",
+      defaultValue: "null",
+      description: (
+        <>
+          Default data to use when there is no value on disk. If <code>initialData</code> is missing and you call <code>patch</code>, an error is thrown to prevent “mutating from null”. In most cases, you should provide <code>initialData</code>.
+        </>
+      ),
+    },
+    {
+      name: "merge",
+      type: "(previous: T, next: T) => T",
+      defaultValue: "(prev, next) => next",
+      description: (
+        <>
+          Merge function used when calling <code>replace</code>. By default, the new value simply replaces the old one. <strong>Note:</strong> this is only used by <code>replace</code>, not by <code>patch</code>.
+        </>
+      ),
+    },
+    {
+      name: "storageKey",
+      type: "string",
+      defaultValue: "name",
+      description: (
+        <>
+          Actual key used in IndexedDB. If omitted, the first argument to <code>defineModel</code>(<code>name</code>) is used.
+        </>
+      ),
+    },
+  ]}
+/>
+
+<Callout type="warning" title="Defending data integrity">
+  <ul>
+    <li>
+      If Zod <code>schema</code> validation fails, the corresponding key is deleted from IndexedDB, and DevTools records a <code>validation.error</code> event.
+    </li>
+    <li>
+      This usually indicates a mistake in schema/version changes, so in development Local‑First throws
+      <code>ValidationError</code> to help you catch it early. In production, corrupted data is quietly removed and treated as <code>null</code>.
+    </li>
+    <li>
+      When you bump <code>version</code>, defining <code>initialData</code> together allows a smooth transition from “broken data → new initial state”.
+    </li>
+  </ul>
+</Callout>
+
+---
+
+## 2. React hooks: `useModel` vs `useSyncedModel`
+
+Local‑First exposes two main hooks:
+
+- `useModel(model)` – subscribe only to the local model snapshot (no server sync)
+- `useSyncedModel(model, fetcher, options?)` – local model + server sync
+
+Both hooks internally use `useSyncExternalStore`, so they behave reliably in React 18/19.
+
+### 2‑1. `useModel`: when you only need local data
+
+```tsx
+import { useModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+export function CartSidebar() {
+  const [cart, patch, history, error] = useModel(CartModel);
+
+  if (error) {
+    return (
+      <div className="text-xs text-destructive">
+        Failed to load cart: {error.getUserMessage?.() ?? String(error)}
+      </div>
+    );
+  }
+
+  if (!cart) {
+    return <div className="text-xs text-muted-foreground">No cart yet.</div>;
+  }
+
+  return (
+    <ul className="space-y-1 text-sm">
+      {cart.items.map((item) => (
+        <li key={item.id} className="flex items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-muted-foreground">x {item.qty}</span>
+        </li>
+      ))}
+
+      {history && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Last updated {Math.round(history.age / 1000)}s ago
+          {history.isStale && " · stale"}
+        </p>
+      )}
+    </ul>
+  );
+}
+```
+
+- `useModel` returns the **synchronous current snapshot from disk**.
+- It does not talk to the server; it only reads whatever is already stored.
+
+<ApiTable
+  kind="returns"
+  title="useModel(model) return value"
+  items={[
+    {
+      name: "[0] data",
+      type: "T | null",
+      description: "Current model data. <code>null</code> if there is no value yet.",
+    },
+    {
+      name: "[1] patch",
+      type: "(mutator: (draft: T) => void) => Promise<void>",
+      description: "Function to update local data. It validates with Zod, persists to IndexedDB, and emits broadcast/DevTools events.",
+    },
+    {
+      name: "[2] history",
+      type: "{ updatedAt: number | null; age: number; isStale: boolean }",
+      description: "Last update time and freshness information based on TTL. When there is no data, <code>updatedAt = null</code>, <code>age = Infinity</code>, <code>isStale = true</code>.",
+    },
+    {
+      name: "[3] error",
+      type: "FirstTxError | null",
+      description: "Error object when a storage or validation error occurred. <code>null</code> otherwise.",
+    },
+  ]}
+/>
+
+### 2‑2. `useSyncedModel`: when you want server sync as well
+
+```tsx
+import { useSyncedModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+async function fetchCart(current: unknown) {
+  // current contains the currently cached value (or null).
+  const res = await fetch("/api/cart");
+  if (!res.ok) throw new Error("Failed to fetch cart");
+  return res.json();
+}
+
+export function CartPage() {
+  const {
+    data: cart,
+    isSyncing,
+    error,
+    history,
+    patch,
+    sync,
+  } = useSyncedModel(CartModel, fetchCart, {
+    syncOnMount: "stale", // "always" | "stale" | "never"
+  });
+
+  if (error) {
+    return (
+      <div className="text-sm text-destructive">
+        Failed to sync: {error.getUserMessage?.() ?? error.message}
+      </div>
+    );
+  }
+
+  if (!cart) {
+    return <div>Loading cart…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {cart.items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-sm text-muted-foreground">x {item.qty}</span>
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        {isSyncing && <span>Syncing latest data…</span>}
+        {history && (
+          <span>
+            Last updated {Math.round(history.age / 1000)}s ago
+            {history.isStale && " (stale)"}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => sync("manual")}
+          className="rounded-full border border-border px-2 py-0.5 text-[11px]"
+        >
+          Refresh
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+<ApiTable
+  kind="options"
+  title="useSyncedModel(model, fetcher, options)"
+  items={[
+    {
+      name: "fetcher",
+      type: "(current: T | null) => Promise<T>",
+      required: true,
+      description: (
+        <>
+          Function that fetches the latest data from the server. Receives the current cached value (or <code>null</code>) as its first argument. On success, Local‑First calls <code>replace</code>
+          on the model with the new data.
+        </>
+      ),
+    },
+    {
+      name: "options.syncOnMount",
+      type: `"always" | "stale" | "never"`,
+      defaultValue: '"always"',
+      description: (
+        <>
+          Strategy for automatic sync when the component mounts. <ul className="mt-1 list-disc pl-4">
+            {" "}
+            <li>
+              <code>"always"</code>: always sync once on mount, regardless of TTL (default)
+            </li> <li>
+              <code>"stale"</code>: sync only when <code>history.isStale</code> is <code>true</code>
+            </li> <li>
+              <code>"never"</code>: no automatic sync; only sync when you call <code>sync()</code> manually.
+            </li>{" "}
+          </ul>
+        </>
+      ),
+    },
+    {
+      name: "options.retry",
+      type: "RetryConfig | null",
+      defaultValue: "null",
+      description: (
+        <>
+          Retry strategy when the sync request fails. Uses the same shape as <code>@firsttx/tx</code>'s retry config (<code>maxAttempts</code>, <code>delayMs</code>, <code>backoff</code>). If omitted, no retry is performed.
+        </>
+      ),
+    },
+    {
+      name: "options.onSuccess",
+      type: "(data: T) => void",
+      description: <>Callback invoked when sync succeeds.</>,
+    },
+    {
+      name: "options.onError",
+      type: "(error: FirstTxError) => void",
+      description: (
+        <>
+          Callback invoked when an error occurs during sync. DevTools also records a <code>sync.error</code> event.
+        </>
+      ),
+    },
+  ]}
+/>
+
+<ApiTable
+  kind="returns"
+  title="useSyncedModel(model, fetcher, options) return value"
+  items={[
+    {
+      name: "data",
+      type: "T | null",
+      description: "Current model data. <code>null</code> if there is no value yet.",
+    },
+    {
+      name: "history",
+      type: "{ updatedAt: number | null; age: number; isStale: boolean }",
+      description: "Last update time and freshness information based on TTL.",
+    },
+    {
+      name: "error",
+      type: "FirstTxError | null",
+      description: "Error from the last sync attempt. Takes precedence over model‑level errors.",
+    },
+    {
+      name: "isSyncing",
+      type: "boolean",
+      description: "Whether a server sync is currently in progress.",
+    },
+    {
+      name: "patch",
+      type: "typeof model.patch",
+      description: "Direct reference to the model's <code>patch</code> method. Use this for local optimistic updates.",
+    },
+    {
+      name: "sync",
+      type: "(trigger?: 'mount' | 'manual') => Promise<void>",
+      description: "Function to manually trigger sync. Internally it deduplicates concurrent calls and records <code>sync.start</code>/<code>sync.success</code>/<code>sync.error</code> events in DevTools.",
+    },
+  ]}
+/>
+
+<Callout type="info" title="Avoiding duplicate sync with syncInProgressRef">
+  <ul>
+    <li>
+      Inside <code>useSyncedModel</code>, a <code>syncInProgressRef</code> is used to track whether a sync is already running. Even if multiple components call <code>sync()</code> at the same time for the same model, only one network request is actually made.
+    </li>
+  </ul>
+</Callout>
+
+---
+
+## 3. Multi‑tab sync & BroadcastChannel
+
+When the same app is open in multiple tabs and data is modified, Local‑First propagates changes through a `ModelBroadcaster`.
+
+- If the browser supports `BroadcastChannel`:
+  - It uses the `firsttx:models` channel and sends messages like <code>model-patched</code>, <code>model-replaced</code>, <code>model-deleted</code>.
+  - When you call `CartModel.patch` in tab A, the snapshot in tab B’s `useModel(CartModel)` updates automatically.
+
+- In environments where `BroadcastChannel` is not available:
+  - A fallback broadcaster is used. It does **not** perform real cross‑tab sync, but it records <code>broadcast.fallback</code> / <code>broadcast.skipped</code> events in DevTools.
+  - In such environments, you may want to rely on page reloads or manual sync to keep data fresh.
+
+<Callout type="info" title="Conflict detection is still TODO">
+  <ul>
+    <li>
+      The current implementation exposes an <code>isConflicted</code> flag, but it always remains <code>false</code>. In other words, multi‑tab contention does not trigger conflict detection yet.
+    </li>
+    <li>If real‑time conflict resolution is important for your domain, you should implement your own business rules on top, such as last‑writer‑wins or timestamp‑based merge strategies.</li>
+  </ul>
+</Callout>
+
+---
+
+## 4. Suspense integration
+
+Local‑First integrates nicely with React Suspense.
+The easiest way is to use the `useSuspenseSyncedModel` hook.
+
+```tsx
+import { Suspense } from "react";
+import { useSuspenseSyncedModel } from "@firsttx/local-first";
+import { CartModel } from "./models/cart";
+
+async function fetchCart() {
+  const res = await fetch("/api/cart");
+  if (!res.ok) throw new Error("Failed to fetch cart");
+  return res.json();
+}
+
+function CartInner() {
+  const { data: cart } = useSuspenseSyncedModel(CartModel, fetchCart);
+
+  return (
+    <ul className="space-y-2 text-sm">
+      {cart.items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+
+export function SuspenseCart() {
+  return (
+    <Suspense fallback={<div>Loading cart…</div>}>
+      <CartInner />
+    </Suspense>
+  );
+}
+```
+
+- Internally, this uses `model.getSyncPromise(fetcher)`. When there is no data and no error yet, it triggers a fetch and throws the Promise.
+- If the cache already has data, it simply returns and does not go through Suspense.
+- If there is an error, it is thrown so that your ErrorBoundary can handle it.
+
+If you need lower‑level control, you can call `getSyncPromise` directly:
+
+```tsx
+function CartInnerLowLevel() {
+  CartModel.getSyncPromise(fetchCart); // If there is no data, this throws a Promise and Suspense shows the fallback
+
+  const [cart] = useModel(CartModel);
+  if (!cart) return null;
+
+  return (
+    <ul className="space-y-2 text-sm">
+      {cart.items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
+## 5. DevTools integration
+
+Local‑First sends rich events to DevTools so you can understand what’s happening:
+
+- Model initialization/load: `init`, `load`
+- Data changes: `patch`, `replace`
+- Revalidation/background sync: `revalidate`, `sync.start`, `sync.success`, `sync.error`
+- Broadcast activity: `broadcast.sent`, `broadcast.received`, `broadcast.fallback`, `broadcast.skipped`
+- Validation/storage errors: `validation.error`, `storage.error`
+
+Each event includes:
+
+- `category: "model"`
+- `type`: one of the event types above
+- `timestamp`: when it occurred
+- `priority`: 0–2 (e.g. `sync.error` / `validation.error` have higher priority)
+
+In the DevTools panel, if you filter by the “model” category, you can quickly see:
+
+- How frequently each model is being synced
+- When ValidationError/StorageError events occurred
+- Whether broadcasts are working (or falling back) as expected
+
+---
+
+## 6. Recommended patterns
+
+Some practical patterns when designing with Local‑First:
+
+- **Separate data state from view state**
+  - Instead of putting both view state and data state into Local‑First models,
+    manage only the server‑backed **data state** as models.
+  - UI concerns like modal open/close or hover state are usually easier as plain React state.
+
+- **Design TTL thoughtfully**
+  - Start from a 5‑minute TTL:
+    - For frequently read, rarely updated data → increase TTL to reduce network calls.
+    - For frequently updated, freshness‑sensitive data → decrease TTL to sync more often.
+
+- **When used together with Tx**
+  - Put `CartModel.patch` (and other model updates) as the first step of a Tx transaction.
+  - Put server sync as the next step.
+  - This way, if anything fails, rollback can cleanly revert Local‑First models as well.
+
+- **Understand the role of merge**
+  - <code>merge</code> is only applied to <code>replace</code> calls, not to <code>patch</code>.
+  - If you need partial merge logic, implement it explicitly inside <code>patch</code>.
+
+- **Plan for environments without BroadcastChannel**
+  - In older browsers/special environments you may not get real‑time cross‑tab sync.
+  - In such cases, design UX around “refresh / manual sync” to keep data up to date.
+
+- **Handle large data carefully**
+  - For large models, consider TTL tuning, server‑side filtering, and splitting models to keep
+    JSON serialization and comparison costs reasonable.
+
+With these patterns in mind, Local‑First becomes a **“drop‑in local persistence layer that just works”** for most apps.

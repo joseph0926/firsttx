@@ -6,39 +6,45 @@ export const metadata = {
 
 Prepaint는 FirstTx의 **렌더 레이어**입니다.
 
-- 사용자 **재방문 시 마지막 화면을 DOM 스냅샷으로 복원**하고
+- 사용자가 **재방문하면 마지막 화면을 DOM 스냅샷으로 복원**하고
 - React 번들과 데이터가 준비되는 동안 “빈 화면”을 없애며
-- ViewTransition이 가능하면 복원 → 실제 렌더 전환을 부드러운 애니메이션으로 감쌉니다.
+- ViewTransition을 쓸 수 있는 환경에선 복원 → 실제 렌더 전환을 부드러운 애니메이션으로 감쌉니다.
 
 <Callout type="info" title="한 줄 요약">
-  “Prepaint = <strong>CSR 재방문에서 SSR 비슷한 경험</strong>을 만들어 주는 레이어”입니다. 새로고침/뒤로 가기/외부 → 내부 도구 재진입 같은 상황에서, 사용자에게 바로 마지막 화면을 보여줍니다.
+  “Prepaint = <strong>CSR 재방문에서 SSR 비슷한 경험</strong>을 만들어 주는 레이어”입니다. 새로고침 / 뒤로 가기 / 외부 → 내부 도구 재진입 같은 상황에서, 사용자가 <strong>마지막으로 보던 화면</strong>을 즉시 보여줍니다.
 </Callout>
 
 ---
 
 ## 1. 설치 & 기본 통합
 
-### 1-1. 패키지 설치
+### 1‑1. 패키지 설치
 
-대부분의 경우에는 세 레이어를 함께 쓰는 것이 권장입니다.
+대부분의 경우 세 레이어를 함께 사용하는 것을 권장합니다.
 
 ```bash
 pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-Prepaint만 먼저 붙여보려면 이렇게 최소 설치도 가능합니다:
+Prepaint만 먼저 붙여 보고 싶다면 이렇게 최소 설치도 가능합니다:
 
 <InstallTabs title="Prepaint만 설치" packages={["@firsttx/prepaint"]} />
 
-<Callout type="info" title="Local-First / Tx와의 조합">
-  - Prepaint만 써도 “재방문 빈 화면 제거”는 해결됩니다. - 여기에 Local-First를 더하면 오프라인/재방문 시 데이터까지 유지되고, - Tx를 더하면 낙관적 UI까지 트랜잭션으로 안전하게 묶을 수 있습니다.
+<Callout type="info" title="Local‑First / Tx와의 조합">
+  <ul>
+    <li>Prepaint만 써도 “재방문 시 빈 화면” 문제는 해결됩니다.</li>
+    <li>
+      여기에 Local‑First를 더하면, 오프라인/재방문 시 <strong>데이터 상태</strong>까지 유지되고,
+    </li>
+    <li>Tx까지 더하면 낙관적 UI를 트랜잭션으로 묶어 실패 시 안전하게 롤백할 수 있습니다.</li>
+  </ul>
 </Callout>
 
 ---
 
-### 1-2. Vite 플러그인 설정
+### 1‑2. Vite 플러그인 설정
 
-Prepaint는 Vite 플러그인으로 **부트 스크립트**를 HTML에 주입합니다. ([GitHub][1])
+Prepaint는 Vite 플러그인을 통해 **부트 스크립트**를 HTML에 주입합니다.
 
 ```ts
 // vite.config.ts
@@ -49,15 +55,29 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(), // Prepaint 부트 스크립트 자동 주입
+    firstTx({
+      // overlay: true,             // 선택: 항상 오버레이 모드 사용
+      // overlayRoutes: ["/admin"], // 선택: 특정 경로 prefix에만 오버레이
+      // inline: true,              // 기본값: 부트 스크립트를 인라인 삽입
+    }),
   ],
 });
 ```
 
-- `firstTx()`는 HTML에 작은 부트 스니펫(~1.7KB)을 주입합니다. ([DEV Community][2])
-- 이 스니펫은 **React가 로드되기 전에** IndexedDB에서 스냅샷을 읽어와 DOM을 복원합니다.
+- `firstTx()`는 HTML에 작은 IIFE 부트 스니펫(~1.7KB)을 인라인으로 주입하거나(기본값), 별도의 `/firsttx-boot.js`로 서빙할 수 있습니다.
+- 이 스니펫이 **React가 로드되기 전에** IndexedDB에서 스냅샷을 읽어와 DOM을 복원합니다.
 
-### 1-3. 엔트리 포인트: `createFirstTxRoot`
+주요 플러그인 옵션(요약):
+
+- `inline` (`boolean`, 기본 `true`): 부트 스크립트를 HTML에 인라인 삽입할지 여부
+- `injectTo` (`"head" | "head-prepend" | "body" | "body-prepend"`, 기본 `"head"`): 스크립트 삽입 위치
+- `overlay` (`boolean`): 모든 경로에서 오버레이 모드 강제 사용
+- `overlayRoutes` (`string[]`): prefix 매칭되는 경로에서만 오버레이 사용
+- `nonce` (`string`): CSP nonce 지정
+
+---
+
+### 1‑3. 엔트리 포인트: `createFirstTxRoot`
 
 ```tsx
 // main.tsx
@@ -67,12 +87,18 @@ import { App } from "./App";
 createFirstTxRoot(
   document.getElementById("root")!,
   <App />,
-  { transition: true },
+  {
+    transition: true,
+    // onCapture(info) { ... },
+    // onHandoff(info) { ... },
+    // onHydrationError(error) { ... },
+  },
 );
 ```
 
-루트 대신 `createRoot` / `hydrateRoot`를 직접 쓰지 않고, `createFirstTxRoot`를 사용합니다.
-이 함수가 Prepaint의 복원 로직 + React 마운트를 모두 담당합니다. ([GitHub][1])
+기존 `createRoot` / `hydrateRoot`를 직접 사용하는 대신,
+**항상 `createFirstTxRoot`를 통해 React 엔트리를 만들도록** 하는 것이 좋습니다.
+이 함수가 Prepaint의 복원 로직 + React 마운트/하이드레이션을 모두 담당합니다.
 
 <ApiTable
   kind="params"
@@ -105,7 +131,29 @@ createFirstTxRoot(
       description: (
         <>
           {" "}
-          <code>document.startViewTransition</code>을 사용할지 여부입니다. 지원 브라우저에서는 복원 → 하이드레이션/재렌더 과정을 자연스러운 크로스페이드로 감싸 줍니다. ([GitHub][1])
+          <code>document.startViewTransition</code>을 사용할지 여부입니다. 지원 브라우저에서는 <strong>스냅샷 복원 → 하이드레이션/재렌더</strong> 과정을 자연스러운 전환 애니메이션으로 감쌉니다. 미지원 브라우저에서는 자동으로 degrade 됩니다.
+        </>
+      ),
+    },
+    {
+      name: "options.onCapture",
+      type: "(info: { route: string; size: number }) => void",
+      defaultValue: "undefined",
+      description: <>Prepaint가 스냅샷을 캡처할 때 호출되는 콜백입니다. DevTools 로그와 별도로 커스텀 로깅을 붙일 때 사용할 수 있습니다.</>,
+    },
+    {
+      name: "options.onHandoff",
+      type: "(info: { hasPrepaint: boolean; canHydrate: boolean }) => void",
+      defaultValue: "undefined",
+      description: <>부트 스크립트 → React로 제어권이 넘어갈 때 호출됩니다. 스냅샷 존재 여부, 하이드레이션 가능 여부 등을 확인할 수 있습니다.</>,
+    },
+    {
+      name: "options.onHydrationError",
+      type: "(error: Error) => void",
+      defaultValue: "undefined",
+      description: (
+        <>
+          하이드레이션 중 <code>onRecoverableError</code>가 호출되거나 Prepaint가 mismatch를 감지했을 때 호출됩니다. Sentry 등으로 전파하기에 좋습니다.
         </>
       ),
     },
@@ -114,123 +162,263 @@ createFirstTxRoot(
 
 ---
 
-## 2. Prepaint 부트 스크립트 & 스냅샷 라이프사이클
+## 2. 부트 스크립트 & 스냅샷 라이프사이클
 
-Prepaint의 핵심은 **부트 스크립트**입니다. ([DEV Community][2])
+Prepaint의 핵심은 **HTML에 주입된 부트 스크립트**입니다.
 
-부트 스크립트는 대략 이런 흐름으로 동작합니다:
+부트 스크립트는 대략 다음 순서로 동작합니다.
 
-1. 현재 라우트를 기준으로 **경로 키(route key)**를 계산합니다. ([DEV Community][2])
-2. IndexedDB에서 해당 경로 키에 대한 스냅샷을 읽습니다.
-3. 스냅샷의 TTL(기본 7일)이 지났는지 확인합니다. ([DEV Community][2])
-4. 유효하면:
-   - `#root` 첫 자식의 HTML을 복원하고
-   - 관련 스타일(CSS)을 다시 주입합니다.
+1. 현재 위치에서 **라우트 키(route key)**를 계산합니다.
+   - 기본값: `location.pathname`
+   - 필요 시 `window.__FIRSTTX_ROUTE_KEY__`를 통해 커스터마이즈 가능
 
-5. 손상된/파싱 불가능한 스냅샷이면:
-   - 해당 스냅샷을 삭제하고, 다음 방문에 문제가 전파되지 않도록 합니다. (부패 방지)
+2. IndexedDB의 `firsttx-prepaint` DB, `snapshots` 스토어에서 해당 route 키에 대한 스냅샷을 읽습니다.
+3. 스냅샷의 만료 여부를 검사합니다.
+   - `MAX_SNAPSHOT_AGE` 기본값은 **7일**입니다.
 
-```ts
-// dev.to 글 기준으로 단순화한 부트 로직 (개념 예시)
-async function boot() {
-  const snapshot = await getSnapshotForRoute();
-  if (!snapshot || isExpired(snapshot)) return;
+4. 스냅샷이 유효하면:
+   - `#root`의 첫 번째 자식에 스냅샷 HTML을 주입하고
+   - 함께 저장해 둔 스타일 정보를 바탕으로 `<style>` / `<link>`를 다시 삽입합니다.
+   - `document.documentElement`에 `data-prepaint`, `data-prepaint-timestamp` 속성을 달아 “Prepaint로 복원된 상태”임을 표시합니다.
 
-  const root = document.getElementById("root");
-  if (!root) return;
-
-  root.innerHTML = snapshot.html;
-  injectStyles(snapshot.styles);
-  markAsPrepainted();
-}
-```
+5. 스냅샷이 손상되었거나 필수 필드가 없으면:
+   - 해당 스냅샷을 삭제하고 cold start로 폴백합니다.
+   - DevTools에는 `storage.error` / `restore(strategy: 'cold-start')` 이벤트가 기록됩니다.
 
 <Callout type="info" title="Overlay 모드">
-  Prepaint는 상황에 따라 **Shadow DOM 기반 오버레이 모드**를 사용할 수 있습니다. 이 경우 복원된 HTML/CSS를 Shadow DOM 안에 렌더해 라우터 초기 렌더와의 충돌을 피하고,
-  <code>pointer-events</code>를 적절히 제어해 클릭 블로킹을 최소화합니다.
+  Prepaint는 상황에 따라 **오버레이 모드**를 사용할 수 있습니다.
+  <ul>
+    <li>
+      오버레이 모드에서는 <code>#root</code>를 건드리지 않고, <code>body</code>에 Shadow DOM 호스트를 만들어 그 안에 HTML/CSS를 렌더합니다.
+    </li>
+    <li>라우터 초기 렌더와 섞이지 않아, 구조가 복잡한 앱에서 더 안전합니다.</li>
+    <li>
+      <code>pointer-events</code>를 조절해, React가 준비되는 동안에만 클릭을 막고 이후에는 즉시 제거합니다.
+    </li>
+  </ul>
+  오버레이 활성화 조건은 전역 <code>window.__FIRSTTX_OVERLAY__</code>, <code>localStorage</code> 플래그, Vite 플러그인 옵션(<code>overlay</code>, <code>overlayRoutes</code>)의 조합으로 결정됩니다.
 </Callout>
 
 ---
 
-## 3. 캡처 시점: 어떤 DOM이 저장되나요?
+## 3. 캡처 파이프라인: 어떤 DOM이 저장되나요?
 
-사용자가 페이지를 떠나기 직전에, Prepaint는 **`#root`의 첫 번째 자식**을 직렬화해서 IndexedDB에 저장합니다. ([DEV Community][2])
+사용자가 페이지를 떠나기 직전에 Prepaint는 **`#root`의 첫 번째 자식**을 직렬화해서 IndexedDB에 저장합니다.
 
-캡처 과정에서는 다음과 같은 정리가 함께 이루어집니다:
+### 3‑1. 캡처 트리거
 
-- 모든 `on*` 속성(onClick, onChange 등)을 제거해 **XSS 위험을 최소화**하고
-- `data-firsttx-volatile`이 붙은 요소의 텍스트는 비워서,
-  타임스탬프/랜덤 ID 등 “매번 달라지는 값”이 스냅샷에 남지 않도록 합니다.
-- `scrubSensitiveFields` 설정에 따라 비밀번호/민감 입력 필드는 값이 제거됩니다.
-- 동일 출처 CSS는 실제 CSS 본문을 저장해서 FOUC(깜빡임)을 줄이고,
-  외부 도메인 CSS는 href만 저장해서 보안/용량을 트레이드오프합니다. ([DEV Community][2])
+`setupCapture`는 다음 이벤트에서 캡처를 예약합니다.
+
+- `visibilitychange` (숨김 상태로 전환될 때)
+- `pagehide`
+- `beforeunload`
+
+이 이벤트가 발생하면 `queueMicrotask`로 캡처 작업을 한 번만 예약하여, 연속 이벤트에도 중복 캡처를 막습니다.
+
+### 3‑2. 직렬화 & 민감 데이터 처리
+
+캡처 과정은 대략 다음과 같습니다.
+
+1. **루트 직렬화**
+   - 대상: `#root`의 첫 번째 자식만 복사하여 HTML 문자열로 직렬화합니다.
+
+2. **민감/변동 데이터 스크럽**
+   - `data-firsttx-volatile`이 달린 노드의 텍스트/내용은 제거합니다.
+     - 예: 실시간 타임스탬프, 랜덤 ID, 애니메이션 카운터 등
+
+   - 기본 민감 셀렉터:
+     - `input[type="password"]`
+     - `[data-firsttx-sensitive]`
+
+   - 전역 셀렉터:
+     - `window.__FIRSTTX_SENSITIVE_SELECTORS__`에 배열로 추가하면, 해당 셀렉터들에 대해 값/텍스트가 제거됩니다.
+
+3. **인라인 이벤트 핸들러 제거**
+   - 모든 `on*` 속성(onClick, onChange, onMouseOver 등)을 제거해 **XSS 위험을 최소화**합니다.
+
+4. **스타일 수집**
+   - `<style>` 태그: CSS 텍스트를 그대로 저장합니다.
+   - `<link rel="stylesheet">`:
+     - 동일 오리진 + fetch 가능 시 CSS 내용을 함께 저장해 오프라인 복원 품질을 높입니다.
+     - 그 외에는 href만 저장합니다(보안/용량 트레이드오프).
+
+5. **스냅샷 저장**
+   - `{ route, body, timestamp, styles }` 형태로 IndexedDB에 `put`합니다.
+   - 성공 시 DevTools에 `capture` 이벤트(HTML 길이, 스타일 개수, volatile 사용 여부, 소요 시간 등)를 보냅니다.
 
 <Callout type="danger" title="민감 데이터 스냅샷 보존 주의">
-  - 민감 데이터 스크러빙은 셀렉터 기반이기 때문에, <strong>직접 지정하지 않은 입력 필드</strong>는 그대로 DOM 스냅샷에 남을 수 있습니다. - 스냅샷은 기본적으로 **최대 7일 동안 IndexedDB에 저장**됩니다. 커스텀 스크럽 셀렉터를 설정하거나, 해당 DOM을 Prepaint 대상에서 제외하는 것을 권장합니다.
+  <ul>
+    <li>
+      민감 데이터 스크럽은 <strong>셀렉터 기반</strong>이기 때문에, 직접 지정하지 않은 입력 필드는 스냅샷에 그대로 남을 수 있습니다.
+    </li>
+    <li>
+      스냅샷은 기본적으로 최대 <strong>7일 동안 IndexedDB에 저장</strong>됩니다.
+    </li>
+    <li>
+      로그인/결제/개인정보 폼에는 <code>data-firsttx-sensitive</code>나 전역 셀렉터로 스크럽을 추가하거나, 해당 화면을 Prepaint 대상에서 제외하는 것을 권장합니다.
+    </li>
+  </ul>
 </Callout>
 
 ---
 
 ## 4. React 하이드레이션 & 루트 가드
 
-Prepaint가 스냅샷을 복원한 뒤에는 React가 마운트되면서 하이드레이션을 시도합니다.
-하지만 **CSS-in-JS, 랜덤 ID, 타임스탬프** 등 때문에 하이드레이션이 항상 성공하는 것은 아닙니다. ([DEV Community][2])
+Prepaint가 스냅샷을 복원한 뒤에는, React가 하이드레이션을 시도합니다.
+하지만 **CSS‑in‑JS, 랜덤 ID, 타임스탬프, 비결정적 렌더링** 등으로 인해 mismatch가 발생할 수 있습니다.
 
-이때 `createFirstTxRoot`는 다음과 같이 동작합니다:
+`createFirstTxRoot`는 이 과정을 안전하게 감싸 줍니다.
 
-1. 가능하면 `hydrateRoot`로 기존 DOM을 재사용합니다.
-2. 하이드레이션 도중 `onRecoverableError`가 불리면:
-   - ViewTransition이 지원되면,
-     - 스냅샷 DOM을 정리하고
-     - `createRoot`로 새로 렌더링합니다.
+### 4‑1. 하이드레이션 경로
 
-   - 지원되지 않으면,
-     - 조용히 클린 렌더로 폴백합니다. ([DEV Community][2])
+1. `handoff()`에서 `data-prepaint` 마커를 확인해 “Prepaint로 복원된 상태인지”를 판별합니다.
+2. 조건이 맞으면 (`hasPrepaint === true` && `container.children.length === 1`) `hydrateRoot`로 하이드레이션을 시도합니다.
+3. React의 `onRecoverableError`가 호출되면:
+   - `HydrationError`로 감싸 DevTools에 `hydration.error` 이벤트를 보냅니다.
+   - 이후 **클린 클라이언트 렌더**로 폴백합니다.
+   - `transition: true`이고 ViewTransition이 지원되면, 이 폴백 과정을 `document.startViewTransition`으로 감쌉니다.
 
-3. `MutationObserver`를 설치해 `#root` 아래 자식 수를 감시합니다.
-   - 일부 라우터가 `#root` 아래에 형제 노드를 더하는 경우,
-     - 하이드레이션 전제가 깨지므로
-     - `container.innerHTML = ""` 후 다시 렌더링해 깨끗한 상태로 복구합니다. ([DEV Community][2])
+4. 하이드레이션 또는 클린 렌더가 끝나면:
+   - `data-prepaint*` 마커와 Prepaint 전용 스타일, 오버레이를 제거합니다.
+   - `installRootGuard`를 설치해 루트 DOM 구조를 감시합니다.
+
+### 4‑2. 루트 가드: DOM 구조 보호
+
+`installRootGuard`는 `MutationObserver`로 `container` 아래 자식 수를 감시합니다.
+
+- 일부 라우터/프레임워크가 `#root` 바로 아래에 형제 노드를 추가하는 경우,
+  하이드레이션 전제가 깨질 수 있습니다.
+- 이런 상황이 감지되면:
+  - 기존 React 트리를 unmount 하고
+  - `container.innerHTML = ""` 후 다시 렌더해 깨끗한 상태를 강제합니다.
 
 <Callout type="info" title="멀티 루트 앱 주의">
-  Prepaint는 기본적으로 <code>#root</code>의 첫 번째 자식만 스냅샷에 저장합니다. 멀티 루트 구조(여러 React 루트를 동시에 사용하는 아키텍처)에서는 복원이 제대로 되지 않을 수 있으니, 가능하면 하나의 루트에 집중하거나 해당 페이지에서 Prepaint를 비활성화하는 전략을 고려해야 합니다.
+  Prepaint는 기본적으로 <strong>
+    <code>#root</code>의 첫 번째 자식만
+  </strong> 스냅샷에 저장합니다. 여러 React 루트를 동시에 사용하는 멀티 루트 구조에서는 복원이 깔끔하게 이루어지지 않을 수 있으니, 가능하면 루트를 하나로 통합하거나, 해당 페이지에서는 Prepaint를 비활성화하는 전략을 고려하는 것이 좋습니다.
 </Callout>
 
 ---
 
-## 5. DevTools 연동
+## 5. 오버레이 렌더링
 
-Prepaint는 실행 중 여러 이벤트를 DevTools로 보냅니다. ([GitHub][1])
+오버레이 모드에서는 스냅샷이 `#root`가 아니라 **Shadow DOM 오버레이**에 렌더링됩니다.
 
-대표적인 이벤트 카테고리는:
+- `mountOverlay(html, styles?)`
+  - 이미 오버레이가 있으면 재생성하지 않습니다.
+  - `body`에 `position: fixed` 호스트를 만들고, 그 안에 Shadow DOM을 생성합니다.
+  - 스타일은 `style-utils`로 정규화되어 `<style>` / `<link>`로 삽입됩니다.
+  - HTML은 래퍼 div에 `innerHTML`로 주입됩니다.
 
-- `prepaint.capture` – 스냅샷 캡처 완료
-- `prepaint.restore` – 스냅샷 복원
-- `prepaint.handoff` – Prepaint에서 React로 제어권 전달
-- `prepaint.storage.error` – IndexedDB 관련 오류
-- `prepaint.hydration.error` – 하이드레이션 실패 감지
+- `removeOverlay()`
+  - 오버레이 호스트 DOM을 제거합니다.
 
-각 이벤트에는 우선순위(priority)와 에러의 회복 가능 여부(recoverable)가 포함되어,
-DevTools 패널에서 “치명적인 문제만 보기” 같은 필터링이 가능합니다.
+오버레이는 다음 상황에서 유용합니다.
+
+- 라우터가 초기 렌더에서 DOM 구조를 크게 바꾸는 경우
+- 화면 전체를 덮는 초기 로딩/스켈레톤을 많이 사용하는 경우
+- 기존 DOM 위에 “복원된 화면”을 잠깐 얹어두고 싶을 때
+
+---
+
+## 6. DevTools & 에러 모델
+
+### 6‑1. DevTools 이벤트
+
+Prepaint는 내부 상태를 DevTools에 `category: "prepaint"` 이벤트로 전송합니다.
+
+대표 타입:
+
+- `capture` – 스냅샷 캡처 완료 (body 길이, 스타일 개수, 소요 시간 등)
+- `restore` – 스냅샷 복원 (전략: `has-prepaint` / `cold-start`, snapshot 나이 등)
+- `handoff` – Prepaint → React 제어권 전달 (`canHydrate`, `hasPrepaint`)
+- `hydration.error` – 하이드레이션/복구 중 오류
+- `storage.error` – IndexedDB 읽기/쓰기 실패
+
+공통 필드:
+
+- `id`: UUID
+- `category`: `"prepaint"`
+- `timestamp`: 발생 시각
+- `priority`: 0~2 (capture=0, restore/handoff=1, error류=2)
 
 <Callout type="info" title="어디서 확인하나요?">
-  - Chrome 확장 프로그램 <strong>FirstTx DevTools</strong> 설치 후 - DevTools → “FirstTx” 패널을 열고 - Category에서 <code>prepaint</code>만 필터링해 보시면, 캡처/복원/하이드레이션 흐름을 타임라인으로 확인할 수 있습니다.
+  <ul>
+    <li>
+      Chrome 확장 프로그램 <strong>FirstTx DevTools</strong>를 설치합니다.
+    </li>
+    <li>
+      DevTools → “FirstTx” 패널을 열고, Category에서 <code>prepaint</code>만 필터링합니다.
+    </li>
+    <li>그러면 캡처/복원/하이드레이션 에러/스토리지 에러가 타임라인으로 표시되어, “재방문 0ms” 경로를 추적하기 쉽습니다.</li>
+  </ul>
 </Callout>
+
+### 6‑2. 에러 계층
+
+Prepaint는 다음과 같은 에러 계층을 사용합니다.
+
+- `PrepaintError` (추상)
+  - `getUserMessage()`
+  - `getDebugInfo()`
+  - `isRecoverable()`
+
+- `BootError`
+  - DB 오픈 실패, 스냅샷 읽기 실패, DOM 복원 실패, 스타일 주입 실패 등
+  - 대부분 재시도 가능하다고 보고 `isRecoverable() === true`입니다.
+
+- `CaptureError`
+  - DOM 직렬화 실패, 스타일 수집 실패, DB 쓰기 실패 등
+
+- `HydrationError`
+  - React 하이드레이션 중 mismatch/오류 발생 시 래핑되는 에러
+
+- `PrepaintStorageError`
+  - IndexedDB 관련 DOMException을 `quota/permission/corrupted/unknown` 코드로 변환해 표현
+  - `PERMISSION_DENIED`만 비복구로 간주하고 나머지는 재시도 가능
+
+앱에서 직접 이 에러들을 잡을 일은 많지 않지만,
+필요하다면 `onHydrationError` 콜백이나 전역 에러 경로에서 `instanceof PrepaintError`로 분기해 사용할 수 있습니다.
 
 ---
 
-## 6. Local-First / Tx와의 시너지
+## 7. 권장 패턴 & 실전 팁
 
-Prepaint는 혼자서도 쓸 수 있지만, **다른 두 레이어와 함께 쓸 때 경험이 완성**됩니다. ([DEV Community][2])
+마지막으로, Prepaint를 실제 앱에 붙일 때 도움이 되는 패턴들입니다.
 
-예: 재방문 시퀀스
+- **엔트리는 항상 `createFirstTxRoot`**
+  - 기존 `createRoot` / `hydrateRoot` 대신, 엔트리 포인트를 전부 `createFirstTxRoot`로 통일하면
+    캡처/복원/하이드레이션/루트 가드를 일관되게 적용할 수 있습니다.
 
-1. 사용자가 어제 보던 대시보드로 다시 방문
-2. **Prepaint**: 어제 DOM 스냅샷을 0ms 수준으로 복원
-3. React + **Local-First**: IndexedDB에서 최신 데이터를 불러와 상태를 채움
-4. TTL이 지났다면 `useSyncedModel`이 서버 동기화를 백그라운드로 실행
-5. **Tx**: 사용자 액션(예: 필터 변경/폼 제출)을 낙관적 트랜잭션으로 처리하고, 실패 시 ViewTransition으로 깔끔하게 롤백
+- **민감 요소는 반드시 스크럽**
+  - 비밀번호/토큰/개인정보 필드는
+    - `data-firsttx-sensitive` 속성
+    - 또는 전역 `window.__FIRSTTX_SENSITIVE_SELECTORS__ = ['.secret', '#card-number']`
+      로 지정해 스냅샷에서 값을 지우는 것이 안전합니다.
 
-<Callout type="success" title="한 문장으로 정리하면">
-  - Prepaint: “보이는 화면”의 재방문 경험 - Local-First: “데이터 상태”의 내구성 - Tx: “변경 경로”의 안전성 이 세 가지를 조합해, CSR 앱에서도 “다시 왔을 때 항상 준비된 화면”을 만들 수 있습니다.
-</Callout>
+- **자주 바뀌는 텍스트는 `data-firsttx-volatile`**
+  - 시계, 카운터, 랜덤 문구 등은 스냅샷에 그대로 남으면 하이드레이션 mismatch를 유발하기 쉽습니다.
+  - 해당 엘리먼트에 `data-firsttx-volatile`만 달아 두면 캡처 시 텍스트가 제거되어 mismatch 가능성이 크게 줄어듭니다.
+
+- **ViewTransition은 기본 ON, 필요하면 끄기**
+  - 대부분의 경우 `transition: true`가 자연스럽지만,
+    특정 페이지에서 ViewTransition 애니메이션이 UX를 해친다면
+    해당 엔트리에서만 <code>transition: false</code>로 끄는 것도 가능합니다.
+
+- **오버레이는 “힘든 페이지”에만 부분적으로**
+  - 라우터가 크게 DOM을 갈아엎는 페이지, 하이드레이션 mismatch가 자주 나는 페이지에만
+    `overlayRoutes: ['/admin', '/lab']`처럼 부분적으로 적용하는 것이 현실적인 전략입니다.
+
+- **스타일 용량 고려**
+  - 동일 오리진 CSS를 내용까지 저장하는 옵션은 재방문 품질을 매우 높여주지만,
+    앱 규모가 크면 IndexedDB 용량을 꽤 사용할 수 있습니다.
+  - 스타일이 지나치게 많다면, 일부 페이지는 오버레이/스타일 저장을 제한하거나,
+    스타일 구조를 분리해서 “스냅샷에 꼭 필요한 부분”만 포함하는 것이 좋습니다.
+
+이 정도만 설정해 두면, Prepaint를 통해
+**“다시 왔을 때 항상 준비된 화면이 먼저 나온다”**는 경험을 손쉽게 만들 수 있습니다.
+
+---
+
+[1]: https://github.com/joseph0926/firsttx
+[2]: https://dev.to
