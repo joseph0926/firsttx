@@ -1,36 +1,56 @@
 export type DocsNavItem = {
   id: string;
-  href: string;
+  href?: string;
   children?: DocsNavItem[];
 };
 
 export const docsNav: DocsNavItem[] = [
   {
-    id: "overview",
-    href: "/docs",
+    id: "sectionIntro",
+    children: [
+      {
+        id: "overview",
+        href: "/docs",
+      },
+      {
+        id: "gettingStarted",
+        href: "/docs/getting-started",
+      },
+    ],
   },
   {
-    id: "gettingStarted",
-    href: "/docs/getting-started",
+    id: "sectionLayers",
+    children: [
+      {
+        id: "prepaint",
+        href: "/docs/prepaint",
+      },
+      {
+        id: "localFirst",
+        href: "/docs/local-first",
+      },
+      {
+        id: "tx",
+        href: "/docs/tx",
+      },
+    ],
   },
   {
-    id: "prepaint",
-    href: "/docs/prepaint",
+    id: "sectionDevtools",
+    children: [
+      {
+        id: "devtools",
+        href: "/docs/devtools",
+      },
+    ],
   },
   {
-    id: "localFirst",
-    href: "/docs/local-first",
-  },
-  {
-    id: "tx",
-    href: "/docs/tx",
-  },
-  {
-    id: "devtools",
-    href: "/docs/devtools",
-  },
-  {
-    id: "patterns",
-    href: "/docs/patterns",
+    id: "sectionGuides",
+    children: [
+      {
+        id: "patterns",
+        href: "/docs/patterns",
+      },
+    ],
   },
 ];

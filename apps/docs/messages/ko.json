@@ -153,12 +153,16 @@
   },
   "DocsNav": {
     "title": "문서",
-    "overview": "Overview",
+    "sectionIntro": "시작하기",
+    "sectionLayers": "레이어",
+    "sectionDevtools": "DevTools",
+    "sectionGuides": "패턴 & 가이드",
+    "overview": "개요",
     "gettingStarted": "빠른 시작",
     "prepaint": "Prepaint",
     "localFirst": "Local-First",
     "tx": "Tx",
     "devtools": "DevTools",
-    "patterns": "패턴 & 레시피"
+    "patterns": "패턴"
   }
 }

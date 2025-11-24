@@ -153,12 +153,16 @@
   },
   "DocsNav": {
     "title": "Docs",
+    "sectionIntro": "Getting started",
+    "sectionLayers": "Layers",
+    "sectionDevtools": "DevTools",
+    "sectionGuides": "Patterns & guides",
     "overview": "Overview",
     "gettingStarted": "Getting started",
     "prepaint": "Prepaint",
     "localFirst": "Local-First",
     "tx": "Tx",
     "devtools": "DevTools",
-    "patterns": "Patterns & Recipes"
+    "patterns": "Patterns"
   }
 }
