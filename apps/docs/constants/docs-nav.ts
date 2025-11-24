@@ -10,7 +10,7 @@ export const docsNav: DocsNavItem[] = [
     children: [
       {
         id: "overview",
-        href: "/docs",
+        href: "/docs/overview",
       },
       {
         id: "gettingStarted",

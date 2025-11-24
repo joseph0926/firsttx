@@ -6,7 +6,7 @@ type NavItemType = {
 export const navItems: NavItemType[] = [
   {
     name: "Overview",
-    link: "/docs",
+    link: "/docs/overview",
   },
   {
     name: "Quickstart",
