@@ -37,9 +37,9 @@ export function Hero() {
           </a>
         </motion.div>
         <motion.div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground lg:justify-start" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.5 }}>
-          <Badge className="bg-secondary/60 text-[11px] font-medium text-black">{t("tagInternal")}</Badge>
-          <Badge className="bg-secondary/60 text-[11px] font-medium text-black">{t("tagOffline")}</Badge>
-          <Badge className="bg-secondary/60 text-[11px] font-medium text-black">{t("tagLargeCsr")}</Badge>
+          <Badge className="bg-secondary/60 text-[11px] font-medium text-foreground">{t("tagInternal")}</Badge>
+          <Badge className="bg-secondary/60 text-[11px] font-medium text-foreground">{t("tagOffline")}</Badge>
+          <Badge className="bg-secondary/60 text-[11px] font-medium text-foreground">{t("tagLargeCsr")}</Badge>
         </motion.div>
       </div>
       <motion.div className="relative mx-auto w-full max-w-md lg:max-w-none" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7 }}>

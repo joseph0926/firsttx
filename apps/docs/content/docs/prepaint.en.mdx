@@ -10,29 +10,29 @@ Prepaint is the **render layer** of FirstTx.
 - Hides the “blank screen” while the React bundle and data are loading
 - And when ViewTransition is available, it wraps the restore → real render handoff in a smooth animation.
 
-<Callout type="info" title="One‑line summary">
-  “Prepaint = the layer that gives you a <strong>SSR‑like revisit experience in CSR apps</strong>.” On refresh, back navigation, or re‑entering an internal tool from outside, it immediately shows the last screen the user saw.
+<Callout type="info" title="One-line summary">
+  “Prepaint = the layer that gives you a <strong>SSR-like revisit experience in CSR apps</strong>.” On refresh, back navigation, or re-entering an internal tool from outside, it immediately shows the last screen the user saw.
 </Callout>
 
 ---
 
 ## 1. Installation & basic integration
 
-### 1‑1. Install packages
+### 1-1. Install packages
 
-In most cases, you’ll want to use all three layers together:
+In most cases, you’ll want to use all three layers together,
 
 <InstallTabs title="Install the full FirstTx stack" packages={["@firsttx/prepaint", "@firsttx/local-first", "@firsttx/tx"]} />
 
-If you want to try Prepaint first, you can install it alone:
+If you want to try Prepaint first, you can install it alone,
 
 <InstallTabs title="Install only Prepaint" packages={["@firsttx/prepaint"]} />
 
-<Callout type="info" title="Combining with Local‑First / Tx">
+<Callout type="info" title="Combining with Local-First / Tx">
   <ul>
     <li>Prepaint alone fixes most “blank screen on revisit” problems.</li>
     <li>
-      Adding Local‑First keeps <strong>data state</strong> around across offline / revisits.
+      Adding Local-First keeps <strong>data state</strong> around across offline / revisits.
     </li>
     <li>Adding Tx lets you wrap optimistic UI updates in safe transactions, with rollback.</li>
   </ul>
@@ -40,7 +40,7 @@ If you want to try Prepaint first, you can install it alone:
 
 ---
 
-### 1‑2. Vite plugin setup
+### 1-2. Vite plugin setup
 
 Prepaint ships a Vite plugin that injects a **boot script** into your HTML.
 
@@ -59,23 +59,23 @@ export default defineConfig({
 ```
 
 - `firstTx()` bundles the boot script with esbuild and injects it as an IIFE into your HTML.
-- Default behavior:
-  - `inline: true` – bundle is inlined into the HTML (no extra network request)
+- Default behavior,
+  - `inline: true` - bundle is inlined into the HTML (no extra network request)
   - `minify` is enabled only in production
 
 - If you prefer a separate file, you can set `inline: false` and load it via `<script src="/firsttx-boot.js">`.
 
-<Callout type="info" title="Overlay‑related plugin options">
-  The plugin supports several overlay‑related options:
+<Callout type="info" title="Overlay-related plugin options">
+  The plugin supports several overlay-related options,
   <ul>
     <li>
-      <code>overlay: boolean</code> – force overlay mode globally
+      <code>overlay: boolean</code> - force overlay mode globally
     </li>
     <li>
-      <code>overlayRoutes: string[]</code> – enable overlay mode only for specific route prefixes
+      <code>overlayRoutes: string[]</code> - enable overlay mode only for specific route prefixes
     </li>
     <li>
-      <code>nonce: string</code> – CSP nonce for the injected scripts
+      <code>nonce: string</code> - CSP nonce for the injected scripts
     </li>
   </ul>
   The defaults are usually enough, but for complex router/layout setups, overlay mode can make things safer.
@@ -83,7 +83,7 @@ export default defineConfig({
 
 ---
 
-### 1‑3. Entry point: `createFirstTxRoot`
+### 1-3. Entry point: `createFirstTxRoot`
 
 ```tsx
 // main.tsx
@@ -130,7 +130,7 @@ This function wires Prepaint’s restore logic and the React mount together.
       defaultValue: "true",
       description: (
         <>
-          Whether to use <code>document.startViewTransition</code>. In supported browsers, the “restore DOM → hydrate / re‑render” handoff is wrapped in a smooth, cross‑fade‑style transition. In unsupported browsers it gracefully degrades.
+          Whether to use <code>document.startViewTransition</code>. In supported browsers, the “restore DOM → hydrate / re-render” handoff is wrapped in a smooth, cross-fade-style transition. In unsupported browsers it gracefully degrades.
         </>
       ),
     },
@@ -143,12 +143,12 @@ This function wires Prepaint’s restore logic and the React mount together.
 
 The core of Prepaint is the **boot script** injected into your HTML.
 
-### 2‑1. Snapshot storage spec
+### 2-1. Snapshot storage spec
 
 - IndexedDB DB name: `firsttx-prepaint`
 - Object store: `snapshots`
 - Key: `route` (route key)
-- Snapshot format:
+- Snapshot format,
 
 ```ts
 type Snapshot = {
@@ -164,9 +164,9 @@ type Snapshot = {
 
 - Default max age: `MAX_SNAPSHOT_AGE = 7 days`
 
-### 2‑2. Boot flow
+### 2-2. Boot flow
 
-Roughly, the boot script does:
+Roughly, the boot script does,
 
 1. **Compute route key**
    - If <code>window.**FIRSTTX_ROUTE_KEY**</code> is set, use that.
@@ -180,16 +180,16 @@ Roughly, the boot script does:
    - If the snapshot age exceeds 7 days, treat it as expired and do a cold start.
 
 5. **Choose restore strategy**
-   - Decide whether to use overlay mode:
+   - Decide whether to use overlay mode,
      - Priority: <code>window.**FIRSTTX_OVERLAY**</code> → <code>localStorage("firsttx:overlay")</code> → <code>localStorage("firsttx:overlayRoutes")</code> (prefix matching).
 
-   - If overlay mode:
+   - If overlay mode,
      - Render HTML/styles into a Shadow DOM overlay.
      - Set <code>data-prepaint</code>, <code>data-prepaint-overlay</code>, <code>data-prepaint-timestamp</code> on the <code>html</code> root.
 
-   - If not overlay:
+   - If not overlay,
      - Inject HTML into the <strong>first child</strong> of <code>#root</code>.
-     - Re‑inject styles as <code>`<style data-firsttx-prepaint/>`</code> or <code>`<link/>`</code>.
+     - Re-inject styles as <code>`<style data-firsttx-prepaint/>`</code> or <code>`<link/>`</code>.
      - Set <code>data-prepaint</code> and <code>data-prepaint-timestamp</code> on the <code>html</code> root.
 
 6. Emit a <code>prepaint.restore</code> event to DevTools,
@@ -219,7 +219,7 @@ async function boot() {
 ```
 
 <Callout type="info" title="Overlay mode">
-  In overlay mode, Prepaint uses a <strong>Shadow DOM‑based overlay</strong>
+  In overlay mode, Prepaint uses a <strong>Shadow DOM-based overlay</strong>
   <ul>
     <li>
       It does not touch <code>#root</code>, but instead creates a host under <code>&lt;body&gt;</code> and renders HTML/CSS inside a Shadow DOM.
@@ -235,9 +235,9 @@ async function boot() {
 
 Right before the user leaves the page, Prepaint stores a snapshot of the **first child of `#root`**.
 
-### 3‑1. Capture triggers
+### 3-1. Capture triggers
 
-`setupCapture` schedules a capture when the following events fire:
+`setupCapture` schedules a capture when the following events fire,
 
 - `visibilitychange` (when `document.visibilityState === "hidden"`)
 - `pagehide`
@@ -246,39 +246,39 @@ Right before the user leaves the page, Prepaint stores a snapshot of the **first
 When these events occur, it queues the capture using `queueMicrotask`.
 To avoid capturing too frequently, it ignores redundant calls in a short time window in the same tab.
 
-### 3‑2. DOM serialization & scrubbing
+### 3-2. DOM serialization & scrubbing
 
-During capture, Prepaint performs several cleanup steps:
+During capture, Prepaint performs several cleanup steps,
 
 - Target: only the **first child** node under <code>#root</code> is serialized.
-- Security:
+- Security,
   - Remove all inline event handlers (`onClick`, `onChange`, etc.) to minimize XSS risk.
 
-- Volatile values:
+- Volatile values,
   - For elements with <code>data-firsttx-volatile</code>, clear their text/value.
-  - This prevents always‑changing values (timestamps, random IDs, counters) from being baked into the snapshot and causing hydration mismatches.
+  - This prevents always-changing values (timestamps, random IDs, counters) from being baked into the snapshot and causing hydration mismatches.
 
-- Sensitive data scrubbing:
+- Sensitive data scrubbing,
   - Default selectors include <code>input[type="password"]</code>, <code>[data-firsttx-sensitive]</code>, etc.
   - You can provide additional selectors via <code>window.**FIRSTTX_SENSITIVE_SELECTORS**</code>.
   - For matching elements, values/text are removed from the snapshot.
 
-### 3‑3. Style collection
+### 3-3. Style collection
 
-Styles are collected as:
+Styles are collected as,
 
 - `<style>` tags
   - Their CSS text is stored inline.
 
 - `<link rel="stylesheet">`
-  - Same‑origin + `fetch`able: CSS text is fetched and stored along with the href, for better offline restores.
-  - Otherwise: only the href is stored (for a security/size trade‑off).
+  - Same-origin + `fetch`able: CSS text is fetched and stored along with the href, for better offline restores.
+  - Otherwise: only the href is stored (for a security/size trade-off).
 
 This information becomes `Snapshot.styles`. On restore, `style-utils` turns them back into `<style>` / `<link>` elements.
 
 <Callout type="danger" title="Be careful with sensitive data in snapshots">
   <ul>
-    <li>Scrubbing is selector‑based, so any field you don&apos;t explicitly mark may remain in the DOM snapshot.</li>
+    <li>Scrubbing is selector-based, so any field you don&apos;t explicitly mark may remain in the DOM snapshot.</li>
     <li>
       By default, snapshots are stored in IndexedDB for up to <strong>7 days</strong>.
     </li>
@@ -293,43 +293,43 @@ This information becomes `Snapshot.styles`. On restore, `style-utils` turns them
 ## 4. React hydration & root guard
 
 After Prepaint restores a snapshot, React mounts and attempts hydration.
-Because of **CSS‑in‑JS, random IDs, timestamps, non‑deterministic rendering**, hydration mismatches can occur.
+Because of **CSS-in-JS, random IDs, timestamps, non-deterministic rendering**, hydration mismatches can occur.
 
-### 4‑1. Hydration → clean render fallback
+### 4-1. Hydration → clean render fallback
 
-`createFirstTxRoot` wraps this process safely:
+`createFirstTxRoot` wraps this process safely,
 
 1. It checks the <code>data-prepaint</code> marker to see whether Prepaint restoration happened, and whether hydration is allowed.
-2. If a restored DOM is present and <code>container.children.length === 1</code>:
+2. If a restored DOM is present and <code>container.children.length === 1</code>,
    - It tries to hydrate using <code>hydrateRoot</code>.
 
-3. If React’s <code>onRecoverableError</code> fires:
+3. If React’s <code>onRecoverableError</code> fires,
    - Wrap the error in a <code>HydrationError</code> and emit a <code>prepaint.hydration.error</code> event to DevTools.
-   - If <code>transition: true</code> and ViewTransition is supported:
+   - If <code>transition: true</code> and ViewTransition is supported,
      - Use <code>document.startViewTransition</code> to switch to a clean client render.
 
    - Otherwise, silently fall back to a clean client render.
 
-4. After hydration or client render:
+4. After hydration or client render,
    - Clean up Prepaint markers (<code>data-prepaint\*</code>), Prepaint styles, and overlays.
    - Install a root guard via <code>installRootGuard</code> to watch for structural changes under <code>#root</code>.
 
-### 4‑2. Root guard behavior
+### 4-2. Root guard behavior
 
-`installRootGuard` ensures that:
+`installRootGuard` ensures that,
 
 - If the number of children under <code>#root</code> becomes anything other than 1
   (e.g., some code adds sibling nodes directly under <code>#root</code>),
   - It unmounts the current React tree.
   - Clears <code>container.innerHTML</code>.
-  - Re‑renders the app cleanly.
+  - Re-renders the app cleanly.
 
 - It may also react to `popstate` / `pageshow` navigation events to restore a clean root in unexpected situations.
 
-<Callout type="info" title="Multi‑root apps warning">
+<Callout type="info" title="Multi-root apps warning">
   Prepaint assumes there is a single React root and only snapshots the <strong>
     first child of <code>#root</code>
-  </strong>. In multi‑root architectures, restoration may not behave as expected. If possible:
+  </strong>. In multi-root architectures, restoration may not behave as expected. If possible,
   <ul>
     <li>Consolidate to a single root, or</li>
     <li>Disable Prepaint on pages that intentionally use multiple roots.</li>
@@ -340,28 +340,28 @@ Because of **CSS‑in‑JS, random IDs, timestamps, non‑deterministic renderin
 
 ## 5. DevTools & error model
 
-### 5‑1. DevTools events
+### 5-1. DevTools events
 
-Prepaint emits the following events to the DevTools bridge:
+Prepaint emits the following events to the DevTools bridge,
 
-- `capture` – snapshot capture completed
-- `restore` – snapshot restore completed (or cold start decided)
-- `handoff` – control handed from Prepaint to React
-- `hydration.error` – hydration error detected
-- `storage.error` – IndexedDB read/write error
+- `capture` - snapshot capture completed
+- `restore` - snapshot restore completed (or cold start decided)
+- `handoff` - control handed from Prepaint to React
+- `hydration.error` - hydration error detected
+- `storage.error` - IndexedDB read/write error
 
-Each event has:
+Each event has,
 
 - `category: "prepaint"`
 - `id`: a UUID
 - `timestamp`: when it occurred
-- `priority`: 0–2 (smooth flow / important events / errors)
+- `priority`: 0-2 (smooth flow / important events / errors)
 
 Events are only emitted if `window.__FIRSTTX_DEVTOOLS__?.emit` is present.
 
-### 5‑2. Error hierarchy (overview)
+### 5-2. Error hierarchy (overview)
 
-Internally, Prepaint uses a small error hierarchy:
+Internally, Prepaint uses a small error hierarchy,
 
 - `PrepaintError` (abstract)
   - `getUserMessage()`
@@ -381,21 +381,21 @@ Internally, Prepaint uses a small error hierarchy:
 
 - `PrepaintStorageError`
   - For IndexedDB issues like quota/permission/corruption.
-  - `PERMISSION_DENIED` is treated as non‑recoverable, others as recoverable.
+  - `PERMISSION_DENIED` is treated as non-recoverable, others as recoverable.
 
 You rarely need to catch these in app code directly, but they are useful when analyzing issues in DevTools or logs.
 
 ---
 
-## 6. Synergy with Local‑First / Tx
+## 6. Synergy with Local-First / Tx
 
 Prepaint works fine on its own, but the experience is best when combined with the other two layers.
 
-Example revisit flow:
+Example revisit flow,
 
 1. The user opens the same dashboard they were looking at yesterday.
 2. **Prepaint** restores yesterday’s DOM snapshot in ~0ms.
-3. React + **Local‑First** hydrate state from IndexedDB and fill in the data.
+3. React + **Local-First** hydrate state from IndexedDB and fill in the data.
 4. If the TTL has expired, `useSyncedModel` runs a background server sync.
 5. User actions (filter changes, form submissions, etc.) are handled by **Tx** as optimistic transactions, and rolled back cleanly—with ViewTransition—if needed.
 
@@ -405,7 +405,7 @@ Example revisit flow:
       Prepaint: revisit experience for the <strong>visible screen</strong>
     </li>
     <li>
-      Local‑First: durability for the <strong>data state</strong>
+      Local-First: durability for the <strong>data state</strong>
     </li>
     <li>
       Tx: safety for the <strong>change path</strong>
@@ -418,7 +418,7 @@ Example revisit flow:
 
 ## 7. Recommended settings & caveats
 
-Based on the internal design and reference docs, here are some practical tips:
+Based on the internal design and reference docs, here are some practical tips,
 
 - **Sensitive data**
   - For passwords, tokens, personal information fields, mark them with <code>data-firsttx-sensitive</code> or register selectors in <code>window.**FIRSTTX_SENSITIVE_SELECTORS**</code> so their values are scrubbed.
@@ -427,10 +427,10 @@ Based on the internal design and reference docs, here are some practical tips:
   - Clocks, counters, random badges, A/B test placements, etc. should be wrapped with <code>data-firsttx-volatile</code> so their text is removed on capture. This greatly reduces hydration mismatch risk.
 
 - **Style size**
-  - Storing same‑origin CSS content improves offline restores, but in large apps it can consume noticeable IndexedDB space. If needed, structure your CSS so “critical styles” are same‑origin (and stored), and heavy styles are externalized.
+  - Storing same-origin CSS content improves offline restores, but in large apps it can consume noticeable IndexedDB space. If needed, structure your CSS so “critical styles” are same-origin (and stored), and heavy styles are externalized.
 
 - **Root structure**
-  - Avoid attaching non‑React DOM nodes directly under <code>#root</code>. If you must, use a dedicated container or disable Prepaint for that page.
+  - Avoid attaching non-React DOM nodes directly under <code>#root</code>. If you must, use a dedicated container or disable Prepaint for that page.
 
 - **Overlay routes**
   - <code>overlayRoutes</code> matches by prefix. For more complex patterns (e.g. parameterized routes or regex), handle logic in your app (e.g. set <code>window.**FIRSTTX_OVERLAY**</code>) and let Prepaint read that flag.

@@ -4,12 +4,12 @@ export const metadata = {
 
 # FirstTx Overview
 
-FirstTx is a 3‑layer toolkit designed to solve **revisit speed, offline durability and optimistic UI**  
-in React 19–based CSR apps.
+FirstTx is a 3-layer toolkit designed to solve **revisit speed, offline durability and optimistic UI**  
+in React 19-based CSR apps.
 
-- **Prepaint** – a **render layer** that stores the “last screen” as a DOM snapshot and restores it before React on the next visit
-- **Local‑First** – a **data layer** that treats IndexedDB as the single source of truth, defines models via Zod schemas, and provides TTL + multi‑tab sync
-- **Tx** – an **execution layer** that wraps UI updates and server requests into a single transaction, with safe rollback, retry and timeouts
+- **Prepaint** - a **render layer** that stores the “last screen” as a DOM snapshot and restores it before React on the next visit
+- **Local-First** - a **data layer** that treats IndexedDB as the single source of truth, defines models via Zod schemas, and provides TTL + multi-tab sync
+- **Tx** - an **execution layer** that wraps UI updates and server requests into a single transaction, with safe rollback, retry and timeouts
 
 <Callout type="info" title="What you’ll get from this page">
   <ul>
@@ -17,41 +17,41 @@ in React 19–based CSR apps.
       Which <strong>problems</strong> FirstTx is trying to solve
     </li>
     <li>
-      Where Prepaint / Local‑First / Tx each <strong>fit in your stack</strong>
+      Where Prepaint / Local-First / Tx each <strong>fit in your stack</strong>
     </li>
     <li>
       Whether it makes sense for “apps like mine” and a rough <strong>adoption path</strong>
     </li>
   </ul>
-  Installation and code examples are covered step‑by‑step on the <code>Getting Started</code> page.
+  Installation and code examples are covered step-by-step on the <code>Getting Started</code> page.
 </Callout>
 
 ---
 
 ## 1. Why does FirstTx exist?
 
-Here are some very common issues in CSR apps:
+Here are some very common issues in CSR apps,
 
 - The first visit is reasonably fast thanks to SSR/SPA skeletons, but…
-  - on **revisit / tab switch / back navigation**, the user often sees a white screen or a spinner for 1–2 seconds again.
+  - on **revisit / tab switch / back navigation**, the user often sees a white screen or a spinner for 1-2 seconds again.
 - When users edit lists or submit forms with optimistic UI,
   - we “update first, then send the request”,
-  - and if the network fails, the screen ends up in a **half‑rolled‑back** state.
+  - and if the network fails, the screen ends up in a **half-rolled-back** state.
 - In offline / slow networks,
   - even the “last seen state” is not restored,
   - so every time the user opens the page, they start from a blank view and wait for loading.
 
-FirstTx splits these pain points into three layers:
+FirstTx splits these pain points into three layers,
 
 1. Use **Prepaint** to remember the “last screen”.
-2. Use **Local‑First** to keep local models always available.
+2. Use **Local-First** to keep local models always available.
 3. Use **Tx** to wrap UI changes in transactions.
 
 ---
 
 ## 2. The three layers at a glance
 
-### Prepaint – “0ms revisit screen restore”
+### Prepaint - “0ms revisit screen restore”
 
 - Stores the last screen as a DOM + style snapshot.
 - On the next visit, restores that snapshot **before** the React bundle is even loaded.
@@ -60,42 +60,42 @@ FirstTx splits these pain points into three layers:
 
 **Great fit when…**
 
-- You build dashboards, internal tools, document viewers – CSR apps where users
+- You build dashboards, internal tools, document viewers - CSR apps where users
   frequently go back to the **same** screen.
 - You’re tired of “always seeing a blank screen” after refresh/back and want to improve that UX.
 
 ---
 
-### Local‑First – “IndexedDB‑backed synchronous store”
+### Local-First - “IndexedDB-backed synchronous store”
 
-- Define a model with `defineModel`, and that structure is stored in IndexedDB as‑is.
+- Define a model with `defineModel`, and that structure is stored in IndexedDB as-is.
 - Zod schemas validate the data so that **corrupted entries are cleaned up automatically**.
-- `useModel` / `useSyncedModel` hooks:
+- `useModel` / `useSyncedModel` hooks,
   - read the local cache synchronously
-  - auto‑sync with the server when TTL expires.
+  - auto-sync with the server when TTL expires.
 - When the same model is open in multiple tabs, BroadcastChannel keeps them **in sync across tabs**.
 
 **Great fit when…**
 
 - You need to show “the last known state” even when offline.
 - You want list/form state to survive reloads in internal tools.
-- You need a **durable client‑side data layer** but don’t want to manage IndexedDB by hand.
+- You need a **durable client-side data layer** but don’t want to manage IndexedDB by hand.
 
 ---
 
-### Tx – “transactional optimistic UI executor”
+### Tx - “transactional optimistic UI executor”
 
-- Wraps multi‑step operations (local updates + server requests + side effects)
+- Wraps multi-step operations (local updates + server requests + side effects)
   into a single transaction.
 - If something fails in the middle,
   it runs previously successful steps’ `compensate` functions **in reverse order**.
-- Handles step‑level retry (linear/exponential backoff), global timeouts, and ViewTransition.
+- Handles step-level retry (linear/exponential backoff), global timeouts, and ViewTransition.
 - With the `useTx` React hook, you define
   `optimistic` / `rollback` / `request` in one place.
 
 **Great fit when…**
 
-- You have multi‑step flows combining several API calls and state updates
+- You have multi-step flows combining several API calls and state updates
   and want them to behave atomically.
 - You already use optimistic UI, but failure cases sometimes leave the UI in a broken state.
 - You want to trace failure/retry/rollback as a single timeline in DevTools.
@@ -106,7 +106,7 @@ FirstTx splits these pain points into three layers:
       You can use Prepaint alone to focus on <strong>“no blank screen on revisit”</strong>.
     </li>
     <li>
-      You can use Local‑First alone to get an <strong>IndexedDB‑backed data layer</strong>.
+      You can use Local-First alone to get an <strong>IndexedDB-backed data layer</strong>.
     </li>
     <li>
       You can use Tx alone on top of existing state management (React Query, Redux, etc.) as a <strong>transaction runner</strong>.
@@ -122,7 +122,7 @@ FirstTx splits these pain points into three layers:
 **Especially good fit for**
 
 - SaaS dashboards, admin panels, analytics/BI tools
-- Document/knowledge tools (Notion‑like apps) where **revisiting the same screen** is common
+- Document/knowledge tools (Notion-like apps) where **revisiting the same screen** is common
 - Field tools where you must show the last state even when offline or on slow networks
 - Projects already using React 19, with CSR as the default rendering model
 
@@ -137,18 +137,18 @@ FirstTx splits these pain points into three layers:
 ## 4. How should I adopt it?
 
 You don’t have to adopt everything at once.  
-A common path looks like this:
+A common path looks like this,
 
-1. **Step 1 – Add Prepaint only (5–10 minutes)**
+1. **Step 1 - Add Prepaint only (5-10 minutes)**
    - Wire the Prepaint plugin into your bundler (Vite/Next/etc.).
    - Replace your root entry with `createFirstTxRoot`.
    - You already get “restore the last screen immediately on revisit”.
 
-2. **Step 2 – Add Local‑First for durable data**
+2. **Step 2 - Add Local-First for durable data**
    - Start with a single model (e.g. `CartModel`, `UserSettingsModel`) via `defineModel`.
    - Connect it to the server using `useSyncedModel`.
 
-3. **Step 3 – Add Tx to transactionalize optimistic UI**
+3. **Step 3 - Add Tx to transactionalize optimistic UI**
    - Wrap existing “optimistic UI + fetch” flows in Tx transactions.
    - Handle rollback/retry/timeout in a single place.
 
@@ -158,8 +158,5 @@ A common path looks like this:
 
 - **If you want to try it immediately** → [`Getting Started`](/docs/getting-started)
 - **If you’re curious how Prepaint captures/restores DOM** → [`Prepaint`](/docs/prepaint)
-- **If you want TTL/version/multi‑tab details of Local‑First** → [`Local‑First`](/docs/local-first)
+- **If you want TTL/version/multi-tab details of Local-First** → [`Local-First`](/docs/local-first)
 - **If you want to understand Tx’s retry/timeout/error hierarchy** → [`Tx`](/docs/tx)
-
-These four pages are enough to understand the big picture and decide  
-how far to adopt FirstTx in your own app.

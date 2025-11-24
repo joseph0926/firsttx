@@ -26,13 +26,13 @@ Tx는 **낙관적 UI 업데이트와 서버 요청을 하나의 트랜잭션으�
 
 ## 1. 설치 & 가장 단순한 사용: `startTransaction`
 
-먼저 Tx를 설치합니다. 이 문서의 예제는 Local‑First 모델을 사용하므로 함께 설치하는 형태로 보여줍니다.
+먼저 Tx를 설치합니다. 이 문서의 예제는 Local-First 모델을 사용하므로 함께 설치하는 형태로 보여줍니다.
 
-<InstallTabs title="Tx + Local‑First 설치" packages={["@firsttx/tx", "@firsttx/local-first"]} />
+<InstallTabs title="Tx + Local-First 설치" packages={["@firsttx/tx", "@firsttx/local-first"]} />
 
 > `@firsttx/tx` 자체는 어느 상태 관리 레이어에도 **런타임 의존**이 없습니다.  
 > React 훅(`useTx`)을 위해 `react`가 `peerDependency`로 요구되며,  
-> 이 문서의 예제에서는 Local‑First 모델을 함께 사용하는 방식으로 설명합니다. ([GitHub][1])
+> 이 문서의 예제에서는 Local-First 모델을 함께 사용하는 방식으로 설명합니다. ([GitHub][1])
 
 이제 **단일 트랜잭션으로 Cart에 아이템을 추가하는 예제**입니다.
 
@@ -75,7 +75,7 @@ async function addToCart(item: { id: string; name: string; qty: number }) {
 }
 ```
 
-여기서 중요한 포인트:
+여기서 중요한 포인트,
 
 - `startTransaction(options?)`
   - 트랜잭션의 **ID, ViewTransition 사용 여부, 전역 타임아웃** 등을 설정합니다.
@@ -118,13 +118,13 @@ async function addToCart(item: { id: string; name: string; qty: number }) {
 
 ## 2. 트랜잭션 수명주기 & 상태
 
-내부 트랜잭션 엔진은 대략 아래 상태를 가집니다:
+내부 트랜잭션 엔진은 대략 아래 상태를 가집니다,
 
-- `pending` – 아직 아무 단계도 실행하지 않은 상태
-- `running` – 하나 이상의 단계를 실행 중인 상태
-- `committed` – 모든 단계 실행 + commit 완료
-- `rolled-back` – 실패 후 compensate가 모두 성공적으로 끝난 상태
-- `failed` – 롤백(compensate) 과정에서조차 문제가 생긴 상태 (아래 `CompensationFailedError` 참고)
+- `pending` - 아직 아무 단계도 실행하지 않은 상태
+- `running` - 하나 이상의 단계를 실행 중인 상태
+- `committed` - 모든 단계 실행 + commit 완료
+- `rolled-back` - 실패 후 compensate가 모두 성공적으로 끝난 상태
+- `failed` - 롤백(compensate) 과정에서조차 문제가 생긴 상태 (아래 `CompensationFailedError` 참고)
 
 **롤백 대상 스텝**
 
@@ -332,7 +332,7 @@ export function AddToCartButton({
 }
 ```
 
-`useTx`는 제네릭으로 `variables(V)`, `result(R)`, `snapshot(S)`을 다룹니다:
+`useTx`는 제네릭으로 `variables(V)`, `result(R)`, `snapshot(S)`을 다룹니다,
 
 - `optimistic(variables) => snapshot`
 - `rollback(variables, snapshot)`
@@ -348,7 +348,7 @@ export function AddToCartButton({
       name: "config.optimistic",
       type: "(variables: V) => S | Promise<S>",
       required: true,
-      description: "낙관적 UI 단계입니다. Local‑First 모델 patch, React 상태 업데이트 등 트랜잭션 시작 시 가장 먼저 실행됩니다. 반환값 <code>S</code>는 snapshot으로 보관되어 <code>rollback</code>, <code>request</code>, <code>onSuccess</code>, <code>onError</code>에 전달됩니다. 값을 반환하지 않으면 snapshot 타입은 <code>void</code>가 됩니다.",
+      description: "낙관적 UI 단계입니다. Local-First 모델 patch, React 상태 업데이트 등 트랜잭션 시작 시 가장 먼저 실행됩니다. 반환값 <code>S</code>는 snapshot으로 보관되어 <code>rollback</code>, <code>request</code>, <code>onSuccess</code>, <code>onError</code>에 전달됩니다. 값을 반환하지 않으면 snapshot 타입은 <code>void</code>가 됩니다.",
     },
     {
       name: "config.rollback",
@@ -401,7 +401,7 @@ export function AddToCartButton({
       name: "mutate",
       type: "(variables: V) => void",
       required: true,
-      description: "트랜잭션을 실행하는 함수입니다. fire‑and‑forget 스타일로, Promise를 반환하지 않습니다. 에러는 내부적으로 처리되며, 상태 플래그(<code>isError</code> 등)와 <code>onError</code>를 통해 관찰합니다.",
+      description: "트랜잭션을 실행하는 함수입니다. fire-and-forget 스타일로, Promise를 반환하지 않습니다. 에러는 내부적으로 처리되며, 상태 플래그(<code>isError</code> 등)와 <code>onError</code>를 통해 관찰합니다.",
     },
     {
       name: "mutateAsync",
@@ -459,9 +459,9 @@ Tx는 공통 오류 계층 `TxError`를 기반으로 여러 에러 타입을 제
 ### 5.1 에러 계층
 
 - `TxError` (추상 클래스)
-  - `getUserMessage(): string` – 사용자에게 보여줄 메시지
-  - `getDebugInfo(): string` – 로깅/디버깅용 상세 문자열
-  - `isRecoverable(): boolean` – 재시도/재시도 UX가 의미 있는지 여부
+  - `getUserMessage(): string` - 사용자에게 보여줄 메시지
+  - `getDebugInfo(): string` - 로깅/디버깅용 상세 문자열
+  - `isRecoverable(): boolean` - 재시도/재시도 UX가 의미 있는지 여부
 
 - `TransactionTimeoutError`
   - 전역 타임아웃(또는 남은 시간이 0인 상황)으로 인해 트랜잭션이 중단되었을 때 발생합니다.
@@ -480,7 +480,7 @@ Tx는 공통 오류 계층 `TxError`를 기반으로 여러 에러 타입을 제
   - 이미 `committed` 되거나 `rolled-back` / `failed` 상태인 트랜잭션에 `run`/`commit`을 호출했을 때 발생합니다.
   - 코드 버그에 가깝기 때문에 **복구 불가능(false)** 으로 간주됩니다.
 
-UI 레이어에서는 대략 이런 식으로 사용할 수 있습니다:
+UI 레이어에서는 대략 이런 식으로 사용할 수 있습니다,
 
 ```ts
 import { TxError } from "@firsttx/tx";
@@ -523,11 +523,11 @@ window.__FIRSTTX_DEVTOOLS__?.emit({
 
 대표적인 `type` 값은 다음과 같습니다.
 
-- `start` – 트랜잭션 시작
-- `step.start` / `step.success` / `step.retry` / `step.fail` – 스텝 단위 실행/성공/재시도/실패
-- `commit` – 커밋 완료
-- `rollback.start` / `rollback.success` / `rollback.fail` – 롤백 시작/완료/실패
-- `timeout` – 전역 타임아웃 발생
+- `start` - 트랜잭션 시작
+- `step.start` / `step.success` / `step.retry` / `step.fail` - 스텝 단위 실행/성공/재시도/실패
+- `commit` - 커밋 완료
+- `rollback.start` / `rollback.success` / `rollback.fail` - 롤백 시작/완료/실패
+- `timeout` - 전역 타임아웃 발생
 
 `priority` 필드는 DevTools에서 이벤트 중요도를 구분하는 용도로 사용됩니다.
 
@@ -541,19 +541,19 @@ window.__FIRSTTX_DEVTOOLS__?.emit({
 
 ---
 
-## 6. Local‑First / Prepaint와 함께 쓰기
+## 6. Local-First / Prepaint와 함께 쓰기
 
 마지막으로, Tx는 단독으로도 쓸 수 있지만,
-**Local‑First + Prepaint와 함께 썼을 때** 진가가 드러납니다:
+**Local-First + Prepaint와 함께 썼을 때** 진가가 드러납니다,
 
-- **Prepaint** – 재방문 시 마지막 화면을 바로 복원해 빈 화면 노출을 없애고, ([GitHub][1])
-- **Local‑First** – IndexedDB를 단일 소스로 두어 작업 중 새로고침/오프라인에도 상태를 유지하며, ([GitHub][1])
-- **Tx** – 이 위에서 낙관적 업데이트를 원자적으로 묶어 실패 시 자연스럽게 롤백합니다. ([GitHub][1])
+- **Prepaint** - 재방문 시 마지막 화면을 바로 복원해 빈 화면 노출을 없애고, ([GitHub][1])
+- **Local-First** - IndexedDB를 단일 소스로 두어 작업 중 새로고침/오프라인에도 상태를 유지하며, ([GitHub][1])
+- **Tx** - 이 위에서 낙관적 업데이트를 원자적으로 묶어 실패 시 자연스럽게 롤백합니다. ([GitHub][1])
 
 각 레이어는 서로 독립적인 패키지이지만,
 
 - Prepaint: 렌더/초기화 레이어
-- Local‑First: 데이터/동기화 레이어
+- Local-First: 데이터/동기화 레이어
 - Tx: 실행/트랜잭션 레이어
 
 로 분리되어 있어서, 필요에 따라 조합해서 사용할 수 있습니다.

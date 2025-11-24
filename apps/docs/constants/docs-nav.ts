@@ -44,13 +44,13 @@ export const docsNav: DocsNavItem[] = [
       },
     ],
   },
-  {
-    id: "sectionGuides",
-    children: [
-      {
-        id: "patterns",
-        href: "/docs/patterns",
-      },
-    ],
-  },
+  // {
+  //   id: "sectionGuides",
+  //   children: [
+  //     {
+  //       id: "patterns",
+  //       href: "/docs/patterns",
+  //     },
+  //   ],
+  // },
 ];

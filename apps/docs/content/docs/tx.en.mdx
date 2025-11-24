@@ -13,12 +13,12 @@ Tx is an **execution layer that bundles optimistic UI updates and server request
 <Callout type="info" title="When Tx is a good fit">
   <ul>
     <li>
-      When you want optimistic UI but keep ending up in <strong>half‑rolled‑back states</strong>
+      When you want optimistic UI but keep ending up in <strong>half-rolled-back states</strong>
     </li>
     <li>
       When you want to treat multiple API calls/local model updates as a single <strong>atomic unit</strong>
     </li>
-    <li>When you want to inspect failure cases end‑to‑end in DevTools</li>
+    <li>When you want to inspect failure cases end-to-end in DevTools</li>
   </ul>
 </Callout>
 
@@ -26,13 +26,13 @@ Tx is an **execution layer that bundles optimistic UI updates and server request
 
 ## 1. Installation & the simplest usage: `startTransaction`
 
-First, install Tx. The examples in this document use the Local‑First model, so we show them installed together.
+First, install Tx. The examples in this document use the Local-First model, so we show them installed together.
 
-<InstallTabs title="Install Tx + Local‑First" packages={["@firsttx/tx", "@firsttx/local-first"]} />
+<InstallTabs title="Install Tx + Local-First" packages={["@firsttx/tx", "@firsttx/local-first"]} />
 
 > `@firsttx/tx` itself has **no runtime dependency** on any particular state management layer.  
 > It only requires `react` as a `peerDependency` for the `useTx` hook.  
-> In this document we choose to use the Local‑First model in the examples. ([GitHub][1])
+> In this document we choose to use the Local-First model in the examples. ([GitHub][1])
 
 Here is an example of **adding an item to the cart as a single transaction**.
 
@@ -75,7 +75,7 @@ async function addToCart(item: { id: string; name: string; qty: number }) {
 }
 ```
 
-Key points here:
+Key points here,
 
 - `startTransaction(options?)`
   - Configures the transaction **ID, whether to use ViewTransition, and the global timeout**.
@@ -87,7 +87,7 @@ Key points here:
 - `tx.commit()`
   - Signals that all steps have finished successfully.
   - If an error occurs before commit, Tx automatically goes into the rollback path.
-  - If the transaction is already `committed`, calling `commit()` again is a no‑op (idempotent).
+  - If the transaction is already `committed`, calling `commit()` again is a no-op (idempotent).
 
 <ApiTable
   kind="options"
@@ -118,13 +118,13 @@ Key points here:
 
 ## 2. Transaction lifecycle & states
 
-Internally, the transaction engine roughly has the following states:
+Internally, the transaction engine roughly has the following states,
 
-- `pending` – No steps have been executed yet
-- `running` – One or more steps are currently being executed
-- `committed` – All steps finished and `commit` has been called
-- `rolled-back` – A failure occurred and all compensations have completed successfully
-- `failed` – An error occurred even while running compensation (see `CompensationFailedError` below)
+- `pending` - No steps have been executed yet
+- `running` - One or more steps are currently being executed
+- `committed` - All steps finished and `commit` has been called
+- `rolled-back` - A failure occurred and all compensations have completed successfully
+- `failed` - An error occurred even while running compensation (see `CompensationFailedError` below)
 
 **Which steps get rolled back**
 
@@ -140,9 +140,9 @@ Internally, the transaction engine roughly has the following states:
 
 **Global timeout & Abort**
 
-- By default, a 30‑second global timeout (`timeout: 30000`) is applied to the entire transaction.
+- By default, a 30-second global timeout (`timeout: 30000`) is applied to the entire transaction.
 - For each step, Tx creates an internal `AbortController`, and the step function passed to `tx.run` can **optionally accept an `AbortSignal` argument**.
-- When the remaining time is exhausted, that step’s `AbortSignal` is aborted:
+- When the remaining time is exhausted, that step’s `AbortSignal` is aborted,
   - APIs like `fetch(url, { signal })`,
   - `abortableSleep(ms, signal)`
     can react immediately to the signal and stop execution.
@@ -235,7 +235,7 @@ await tx.run(
   ]}
 />
 
-The library also exports `DEFAULT_RETRY_CONFIG` and `RETRY_PRESETS`:
+The library also exports `DEFAULT_RETRY_CONFIG` and `RETRY_PRESETS`,
 
 ```ts
 import { DEFAULT_RETRY_CONFIG, RETRY_PRESETS } from "@firsttx/tx";
@@ -330,7 +330,7 @@ export function AddToCartButton({
 }
 ```
 
-`useTx` is generic over `variables (V)`, `result (R)`, and `snapshot (S)`:
+`useTx` is generic over `variables (V)`, `result (R)`, and `snapshot (S)`,
 
 - `optimistic(variables) => snapshot`
 - `rollback(variables, snapshot)`
@@ -346,7 +346,7 @@ export function AddToCartButton({
       name: "config.optimistic",
       type: "(variables: V) => S | Promise<S>",
       required: true,
-      description: "Optimistic UI step. This is executed first when the transaction starts, and is where you patch Local‑First models or React state. The return value <code>S</code> is stored as a snapshot and passed to <code>rollback</code>, <code>request</code>, <code>onSuccess</code>, and <code>onError</code>. If you return nothing, the snapshot type is <code>void</code>.",
+      description: "Optimistic UI step. This is executed first when the transaction starts, and is where you patch Local-First models or React state. The return value <code>S</code> is stored as a snapshot and passed to <code>rollback</code>, <code>request</code>, <code>onSuccess</code>, and <code>onError</code>. If you return nothing, the snapshot type is <code>void</code>.",
     },
     {
       name: "config.rollback",
@@ -386,7 +386,7 @@ export function AddToCartButton({
       name: "config.cancelOnUnmount",
       type: "boolean",
       defaultValue: "false",
-      description: "Whether to automatically call <code>cancel()</code> when the component unmounts. In the current implementation this does <strong>logical cancellation only</strong>: it does not stop in‑flight network requests, but prevents subsequent state updates and callbacks for this transaction.",
+      description: "Whether to automatically call <code>cancel()</code> when the component unmounts. In the current implementation this does <strong>logical cancellation only</strong>: it does not stop in-flight network requests, but prevents subsequent state updates and callbacks for this transaction.",
     },
   ]}
 />
@@ -399,17 +399,17 @@ export function AddToCartButton({
       name: "mutate",
       type: "(variables: V) => void",
       required: true,
-      description: "Starts the transaction. Fire‑and‑forget: it does not return a Promise. Errors are handled internally and surfaced via state flags (like <code>isError</code>) and <code>onError</code>.",
+      description: "Starts the transaction. Fire-and-forget: it does not return a Promise. Errors are handled internally and surfaced via state flags (like <code>isError</code>) and <code>onError</code>.",
     },
     {
       name: "mutateAsync",
       type: "(variables: V) => Promise<R>",
-      description: "Promise‑based version of <code>mutate</code>. Use this when you need <code>await</code> / <code>try‑catch</code> in the caller.",
+      description: "Promise-based version of <code>mutate</code>. Use this when you need <code>await</code> / <code>try-catch</code> in the caller.",
     },
     {
       name: "cancel",
       type: "() => void",
-      description: "Logically cancels the current transaction so its result is not reflected in the UI. In‑flight network/timer work continues to run, but once it completes, state updates and callbacks are ignored.",
+      description: "Logically cancels the current transaction so its result is not reflected in the UI. In-flight network/timer work continues to run, but once it completes, state updates and callbacks are ignored.",
     },
     {
       name: "isPending",
@@ -440,7 +440,7 @@ export function AddToCartButton({
       <code>useTx</code> creates a new underlying <code>startTransaction</code> for each call, and uses it to group the optimistic, request, and rollback steps.
     </li>
     <li>
-      When <code>cancelOnUnmount</code> is <code>true</code>, unmounting the component automatically calls <code>cancel()</code>, preventing further state updates and callbacks for that transaction. In‑flight network requests themselves are <strong>not</strong> aborted.
+      When <code>cancelOnUnmount</code> is <code>true</code>, unmounting the component automatically calls <code>cancel()</code>, preventing further state updates and callbacks for that transaction. In-flight network requests themselves are <strong>not</strong> aborted.
     </li>
     <li>
       When <code>transition: true</code> and the browser supports <code>document.startViewTransition</code>, the rollback path is wrapped in a ViewTransition, providing a smooth “undo” animation. (Successful commit paths do not use ViewTransition.)
@@ -457,9 +457,9 @@ Tx uses a shared error hierarchy `TxError` and several concrete subclasses.
 ### 5.1 Error hierarchy
 
 - `TxError` (abstract base class)
-  - `getUserMessage(): string` – Message safe to show to end users
-  - `getDebugInfo(): string` – Detailed string for logging/diagnostics
-  - `isRecoverable(): boolean` – Whether retry/“try again” UX makes sense
+  - `getUserMessage(): string` - Message safe to show to end users
+  - `getDebugInfo(): string` - Detailed string for logging/diagnostics
+  - `isRecoverable(): boolean` - Whether retry/“try again” UX makes sense
 
 - `TransactionTimeoutError`
   - Thrown when the transaction is interrupted due to the global timeout (or when there’s effectively no time left).
@@ -472,13 +472,13 @@ Tx uses a shared error hierarchy `TxError` and several concrete subclasses.
 - `CompensationFailedError`
   - Thrown when one or more `compensate` calls fail during rollback.
   - Contains the original error plus all compensation errors in an internal array.
-  - Indicates data inconsistency or a case needing manual intervention, and is treated as **non‑recoverable (false)**.
+  - Indicates data inconsistency or a case needing manual intervention, and is treated as **non-recoverable (false)**.
 
 - `TransactionStateError`
   - Thrown when `run`/`commit` is called on a transaction that is already `committed` or is in `rolled-back` / `failed`.
-  - Signals a programming error and is treated as **non‑recoverable (false)**.
+  - Signals a programming error and is treated as **non-recoverable (false)**.
 
-In the UI layer you can handle them like this:
+In the UI layer you can handle them like this,
 
 ```ts
 import { TxError } from "@firsttx/tx";
@@ -505,7 +505,7 @@ try {
 
 ### 5.2 DevTools events
 
-If `window.__FIRSTTX_DEVTOOLS__` exists, Tx emits events describing transaction activity:
+If `window.__FIRSTTX_DEVTOOLS__` exists, Tx emits events describing transaction activity,
 
 ```ts
 window.__FIRSTTX_DEVTOOLS__?.emit({
@@ -518,15 +518,15 @@ window.__FIRSTTX_DEVTOOLS__?.emit({
 });
 ```
 
-Typical `type` values include:
+Typical `type` values include,
 
-- `start` – Transaction started
-- `step.start` / `step.success` / `step.retry` / `step.fail` – Per‑step start/success/retry/failure
-- `commit` – Commit completed
-- `rollback.start` / `rollback.success` / `rollback.fail` – Rollback began/completed/failed
-- `timeout` – Global timeout occurred
+- `start` - Transaction started
+- `step.start` / `step.success` / `step.retry` / `step.fail` - Per-step start/success/retry/failure
+- `commit` - Commit completed
+- `rollback.start` / `rollback.success` / `rollback.fail` - Rollback began/completed/failed
+- `timeout` - Global timeout occurred
 
-The `priority` field controls importance in DevTools:
+The `priority` field controls importance in DevTools,
 
 - 0 : Normal flow (`step.success`, etc.)
 - 1 : Key events (`start`, `commit`, `step.retry`, etc.)
@@ -538,18 +538,18 @@ The `priority` field controls importance in DevTools:
 
 ---
 
-## 6. Using Tx with Local‑First / Prepaint
+## 6. Using Tx with Local-First / Prepaint
 
-Finally, Tx can be used on its own, but it really shines when combined with **Local‑First + Prepaint**:
+Finally, Tx can be used on its own, but it really shines when combined with **Local-First + Prepaint**,
 
-- **Prepaint** – Restores the last screen immediately on revisit to avoid blank screens. ([GitHub][1])
-- **Local‑First** – Uses IndexedDB as the single source of truth so state survives reloads and offline usage. ([GitHub][1])
-- **Tx** – Sits on top to group optimistic updates into atomic transactions and roll them back cleanly on failure. ([GitHub][1])
+- **Prepaint** - Restores the last screen immediately on revisit to avoid blank screens. ([GitHub][1])
+- **Local-First** - Uses IndexedDB as the single source of truth so state survives reloads and offline usage. ([GitHub][1])
+- **Tx** - Sits on top to group optimistic updates into atomic transactions and roll them back cleanly on failure. ([GitHub][1])
 
-These layers are separate packages:
+These layers are separate packages,
 
 - Prepaint: render/initialization layer
-- Local‑First: data/synchronization layer
+- Local-First: data/synchronization layer
 - Tx: execution/transaction layer
 
 You can mix and match as needed.

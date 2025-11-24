@@ -2,16 +2,16 @@ export const metadata = {
   title: "Local-First",
 };
 
-# Local‑First
+# Local-First
 
-Local‑First는 **IndexedDB + React 동기 스토어 + Zod 스키마**로  
+Local-First는 **IndexedDB + React 동기 스토어 + Zod 스키마**로  
 “오프라인 내구성 있는 데이터 레이어”를 만드는 패키지입니다.
 
 - IndexedDB를 단일 소스로 두고
 - Zod 스키마로 타입·무결성을 보장하며
 - TTL/버전/멀티 탭 동기화, 서버 동기화 훅, Suspense 연동까지 기본 내장합니다.
 
-<Callout type="info" title="언제 Local‑First를 쓰면 좋을까요?">
+<Callout type="info" title="언제 Local-First를 쓰면 좋을까요?">
   <ul>
     <li>새로고침·재방문 시에도 목록/폼 상태를 그대로 유지하고 싶을 때</li>
     <li>
@@ -27,7 +27,7 @@ Local‑First는 **IndexedDB + React 동기 스토어 + Zod 스키마**로
 
 ### 모델 (Model)
 
-Local‑First의 모든 것은 **모델** 단위로 움직입니다.
+Local-First의 모든 것은 **모델** 단위로 움직입니다.
 
 ```ts
 // models/cart.ts
@@ -160,14 +160,14 @@ export const CartModel = defineModel("cart", {
 
 ## 2. React 훅: `useModel` vs `useSyncedModel`
 
-Local‑First는 크게 두 가지 훅을 제공합니다.
+Local-First는 크게 두 가지 훅을 제공합니다.
 
-- `useModel(model)` – 로컬 모델 스냅샷만 구독 (서버 동기화 없음)
-- `useSyncedModel(model, fetcher, options?)` – 로컬 모델 + 서버 동기화
+- `useModel(model)` - 로컬 모델 스냅샷만 구독 (서버 동기화 없음)
+- `useSyncedModel(model, fetcher, options?)` - 로컬 모델 + 서버 동기화
 
 두 훅 모두 내부적으로 `useSyncExternalStore`를 사용하므로, React 18/19 환경에서 안정적으로 작동합니다.
 
-### 2‑1. `useModel`: 로컬 데이터만 사용할 때
+### 2-1. `useModel`: 로컬 데이터만 사용할 때
 
 ```tsx
 import { useModel } from "@firsttx/local-first";
@@ -238,7 +238,7 @@ export function CartSidebar() {
   ]}
 />
 
-### 2‑2. `useSyncedModel`: 서버 동기화 포함
+### 2-2. `useSyncedModel`: 서버 동기화 포함
 
 ```tsx
 import { useSyncedModel } from "@firsttx/local-first";
@@ -417,7 +417,7 @@ export function CartPage() {
 
 ## 3. 멀티 탭 동기화 & BroadcastChannel
 
-여러 탭에서 같은 앱을 열고 데이터를 수정하면, Local‑First는
+여러 탭에서 같은 앱을 열고 데이터를 수정하면, Local-First는
 `ModelBroadcaster`를 통해 변경 사항을 전파합니다.
 
 - 브라우저가 `BroadcastChannel`을 지원하면:
@@ -441,7 +441,7 @@ export function CartPage() {
 
 ## 4. Suspense 통합
 
-Local‑First는 React Suspense와도 맞물립니다.
+Local-First는 React Suspense와도 맞물립니다.
 가장 간편한 방법은 `useSuspenseSyncedModel` 훅을 사용하는 것입니다.
 
 ```tsx
@@ -503,7 +503,7 @@ function CartInnerLowLevel() {
 
 ## 5. DevTools 연동
 
-Local‑First는 DevTools와의 연동을 통해 다음 정보를 전파합니다.
+Local-First는 DevTools와의 연동을 통해 다음 정보를 전파합니다.
 
 - 모델 초기화/로드: `init`, `load`
 - 데이터 변경: `patch`, `replace`
@@ -530,10 +530,10 @@ Local‑First는 DevTools와의 연동을 통해 다음 정보를 전파합니�
 
 ## 6. 권장 패턴 요약
 
-마지막으로 Local‑First를 설계할 때 도움이 되는 패턴들입니다.
+마지막으로 Local-First를 설계할 때 도움이 되는 패턴들입니다.
 
 - **데이터 상태 vs 뷰 상태 분리**
-  - “뷰 상태 + 데이터 상태”를 모두 Local‑First에 넣기보다는,
+  - “뷰 상태 + 데이터 상태”를 모두 Local-First에 넣기보다는,
     서버와 동기화되는 **데이터 상태만 모델로 관리**하는 것이 유지 보수에 좋습니다.
   - 모달 열림/닫힘, hover 상태 등은 일반 React state로 두는 편이 쉽습니다.
 
@@ -543,9 +543,9 @@ Local‑First는 DevTools와의 연동을 통해 다음 정보를 전파합니�
     - 변경이 잦고 최신성이 중요한 데이터 → TTL을 줄여 자주 재동기화하도록 설정합니다.
 
 - **Tx와 함께 사용할 때**
-  - 낙관적 업데이트를 `CartModel.patch` 등 Local‑First 모델로 먼저 반영하고,
+  - 낙관적 업데이트를 `CartModel.patch` 등 Local-First 모델로 먼저 반영하고,
   - `@firsttx/tx` 트랜잭션의 다음 스텝으로 서버 동기화를 두면,
-    실패 시 보상(rollback)으로 Local‑First 모델까지 깔끔하게 되돌릴 수 있습니다.
+    실패 시 보상(rollback)으로 Local-First 모델까지 깔끔하게 되돌릴 수 있습니다.
 
 - **merge의 역할**
   - <code>merge</code>는 <code>replace</code>에만 적용되고 <code>patch</code>에는 적용되지 않습니다.
@@ -558,5 +558,3 @@ Local‑First는 DevTools와의 연동을 통해 다음 정보를 전파합니�
 - **대용량 데이터**
   - 대용량 모델의 경우 TTL, 서버 필터링, 부분 모델 분리 등을 함께 고민해
     JSON 직렬화/비교 비용을 줄이는 것이 좋습니다.
-
-이 정도만 지켜도, Local‑First를 **“그냥 쓰면 잘 돌아가는 로컬 퍼시스턴스 계층”**으로 안정적으로 활용할 수 있습니다.

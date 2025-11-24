@@ -5,11 +5,11 @@ export const metadata = {
 # FirstTx Overview
 
 FirstTx는 React 19 기반 CSR 앱에서 **재방문 속도 · 오프라인 내구성 · 낙관적 UI**를  
-한 번에 다루기 위한 3‑레이어 툴킷입니다.
+한 번에 다루기 위한 3-레이어 툴킷입니다.
 
-- **Prepaint** – “마지막 화면”을 DOM 스냅샷으로 저장해 두었다가, 다음 방문 시 React보다 먼저 복원하는 **렌더 레이어**
-- **Local‑First** – IndexedDB를 단일 소스로 두고, Zod 스키마로 모델을 정의하며, TTL·멀티탭 동기화까지 제공하는 **데이터 레이어**
-- **Tx** – UI 업데이트와 서버 요청을 하나의 트랜잭션으로 묶어, 실패 시 안전하게 롤백·재시도·타임아웃을 처리하는 **실행 레이어**
+- **Prepaint** - “마지막 화면”을 DOM 스냅샷으로 저장해 두었다가, 다음 방문 시 React보다 먼저 복원하는 **렌더 레이어**
+- **Local-First** - IndexedDB를 단일 소스로 두고, Zod 스키마로 모델을 정의하며, TTL·멀티탭 동기화까지 제공하는 **데이터 레이어**
+- **Tx** - UI 업데이트와 서버 요청을 하나의 트랜잭션으로 묶어, 실패 시 안전하게 롤백·재시도·타임아웃을 처리하는 **실행 레이어**
 
 <Callout type="info" title="이 페이지에서 알 수 있는 것">
   <ul>
@@ -17,7 +17,7 @@ FirstTx는 React 19 기반 CSR 앱에서 **재방문 속도 · 오프라인 내�
       FirstTx가 <strong>어떤 문제</strong>를 해결하려는지
     </li>
     <li>
-      Prepaint / Local‑First / Tx가 각각 <strong>어디에 꽂히는지</strong>
+      Prepaint / Local-First / Tx가 각각 <strong>어디에 꽂히는지</strong>
     </li>
     <li>
       “나 같은 앱”에 쓸 수 있는지, <strong>대략적인 도입 경로</strong>가 무엇인지
@@ -33,7 +33,7 @@ FirstTx는 React 19 기반 CSR 앱에서 **재방문 속도 · 오프라인 내�
 일반적인 CSR 앱에서 자주 겪는 상황들입니다.
 
 - 첫 진입은 SSR/SPA 스켈레톤 덕분에 나름 빠른데,
-  - **재방문 / 탭 이동 / 뒤로 가기**만 하면 다시 1–2초 동안 흰 화면이나 로딩 스피너가 뜹니다.
+  - **재방문 / 탭 이동 / 뒤로 가기**만 하면 다시 1-2초 동안 흰 화면이나 로딩 스피너가 뜹니다.
 - 사용자가 리스트를 편집하거나 폼을 제출할 때,
   - 낙관적 UI로 “먼저 반영 후 서버 요청”을 하다가
   - 네트워크 에러가 나면 화면 상태가 **반쯤만 롤백**되어 버립니다.
@@ -44,14 +44,14 @@ FirstTx는 React 19 기반 CSR 앱에서 **재방문 속도 · 오프라인 내�
 FirstTx는 이런 문제를 세 레이어로 나눠서 다룹니다.
 
 1. **Prepaint**로 “마지막 화면”을 기억하고,
-2. **Local‑First**로 로컬 모델을 항상 유지하고,
+2. **Local-First**로 로컬 모델을 항상 유지하고,
 3. **Tx**로 UI 변경 과정을 트랜잭션으로 감쌉니다.
 
 ---
 
 ## 2. 세 레이어 한눈에 보기
 
-### Prepaint – “재방문 0ms 화면 복원”
+### Prepaint - “재방문 0ms 화면 복원”
 
 - 마지막 화면을 DOM + 스타일 스냅샷으로 저장해 두었다가
 - 다음 방문 시 **React 번들보다 먼저** 해당 화면을 복원합니다.
@@ -66,7 +66,7 @@ FirstTx는 이런 문제를 세 레이어로 나눠서 다룹니다.
 
 ---
 
-### Local‑First – “IndexedDB 기반 동기 스토어”
+### Local-First - “IndexedDB 기반 동기 스토어”
 
 - `defineModel`로 모델을 정의하면, 그 구조 그대로 IndexedDB에 저장됩니다.
 - Zod 스키마로 타입/무결성을 검증해서 **깨진 데이터는 자동 정리**합니다.
@@ -83,7 +83,7 @@ FirstTx는 이런 문제를 세 레이어로 나눠서 다룹니다.
 
 ---
 
-### Tx – “트랜잭션 기반 낙관적 UI 실행기”
+### Tx - “트랜잭션 기반 낙관적 UI 실행기”
 
 - 여러 단계를 가진 작업(로컬 업데이트 + 서버 요청 + 후처리)을
   - 하나의 트랜잭션으로 묶고,
@@ -104,7 +104,7 @@ FirstTx는 이런 문제를 세 레이어로 나눠서 다룹니다.
       Prepaint만 붙여 <strong>“재방문 빈 화면 제거”</strong>에 집중할 수도 있고,
     </li>
     <li>
-      Local‑First만 써서 <strong>IndexedDB 기반 데이터 레이어</strong>만 가져갈 수도 있으며,
+      Local-First만 써서 <strong>IndexedDB 기반 데이터 레이어</strong>만 가져갈 수도 있으며,
     </li>
     <li>
       Tx만 써서 기존 상태 관리(예: React Query, Redux 등)에 <strong>트랜잭션 실행기</strong>만 더할 수도 있습니다.
@@ -139,16 +139,16 @@ FirstTx는 이런 문제를 세 레이어로 나눠서 다룹니다.
 FirstTx는 한 번에 모든 것을 도입하지 않아도 됩니다.  
 일반적인 추천 순서는 다음과 같습니다.
 
-1. **1단계 – Prepaint만 도입 (5–10분)**
+1. **1단계 - Prepaint만 도입 (5-10분)**
    - Vite/Next 등 번들러에 Prepaint 플러그인을 연결하고
    - 엔트리 포인트를 `createFirstTxRoot`로 교체합니다.
    - 이 단계만으로도 재방문 시 “마지막 화면을 바로 보여주는” 효과를 얻을 수 있습니다.
 
-2. **2단계 – Local‑First로 데이터 내구성 추가**
+2. **2단계 - Local-First로 데이터 내구성 추가**
    - 자주 쓰는 모델 하나(예: `CartModel`, `UserSettingsModel`)부터 `defineModel`로 등록합니다.
    - `useSyncedModel`로 서버와 동기화하는 훅을 연결합니다.
 
-3. **3단계 – Tx로 낙관적 UI를 트랜잭션화**
+3. **3단계 - Tx로 낙관적 UI를 트랜잭션화**
    - 기존 “낙관적 UI + fetch” 로직을 Tx의 트랜잭션으로 감싸고,
    - 실패 시 롤백/재시도/타임아웃을 한 번에 다룰 수 있도록 정리합니다.
 
@@ -158,8 +158,5 @@ FirstTx는 한 번에 모든 것을 도입하지 않아도 됩니다.
 
 - **바로 손으로 써보고 싶다면** → [`Getting Started`](/docs/getting-started)
 - **Prepaint가 정확히 어떻게 DOM을 캡처/복원하는지 궁금하다면** → [`Prepaint`](/docs/prepaint)
-- **Local‑First의 TTL/버전/멀티 탭 동기화가 궁금하다면** → [`Local‑First`](/docs/local-first)
+- **Local-First의 TTL/버전/멀티 탭 동기화가 궁금하다면** → [`Local-First`](/docs/local-first)
 - **Tx의 재시도/타임아웃/에러 계층이 궁금하다면** → [`Tx`](/docs/tx)
-
-이 네 문서만 읽어도 FirstTx의 전체 그림을 이해하고,  
-“내 앱에 어디까지 도입할지”를 결정할 수 있을 것입니다.

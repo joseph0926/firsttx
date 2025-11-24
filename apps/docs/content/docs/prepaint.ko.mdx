@@ -26,7 +26,7 @@ Prepaint는 FirstTx의 **렌더 레이어**입니다.
 pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 ```
 
-Prepaint만 먼저 붙여 보고 싶다면 이렇게 최소 설치도 가능합니다:
+Prepaint만 먼저 붙여 보고 싶다면 이렇게 최소 설치도 가능합니다,
 
 <InstallTabs title="Prepaint만 설치" packages={["@firsttx/prepaint"]} />
 
@@ -67,7 +67,7 @@ export default defineConfig({
 - `firstTx()`는 HTML에 작은 IIFE 부트 스니펫(~1.7KB)을 인라인으로 주입하거나(기본값), 별도의 `/firsttx-boot.js`로 서빙할 수 있습니다.
 - 이 스니펫이 **React가 로드되기 전에** IndexedDB에서 스냅샷을 읽어와 DOM을 복원합니다.
 
-주요 플러그인 옵션(요약):
+주요 플러그인 옵션(요약),
 
 - `inline` (`boolean`, 기본 `true`): 부트 스크립트를 HTML에 인라인 삽입할지 여부
 - `injectTo` (`"head" | "head-prepend" | "body" | "body-prepend"`, 기본 `"head"`): 스크립트 삽입 위치
@@ -176,12 +176,12 @@ Prepaint의 핵심은 **HTML에 주입된 부트 스크립트**입니다.
 3. 스냅샷의 만료 여부를 검사합니다.
    - `MAX_SNAPSHOT_AGE` 기본값은 **7일**입니다.
 
-4. 스냅샷이 유효하면:
+4. 스냅샷이 유효하면,
    - `#root`의 첫 번째 자식에 스냅샷 HTML을 주입하고
    - 함께 저장해 둔 스타일 정보를 바탕으로 `<style>` / `<link>`를 다시 삽입합니다.
    - `document.documentElement`에 `data-prepaint`, `data-prepaint-timestamp` 속성을 달아 “Prepaint로 복원된 상태”임을 표시합니다.
 
-5. 스냅샷이 손상되었거나 필수 필드가 없으면:
+5. 스냅샷이 손상되었거나 필수 필드가 없으면,
    - 해당 스냅샷을 삭제하고 cold start로 폴백합니다.
    - DevTools에는 `storage.error` / `restore(strategy: 'cold-start')` 이벤트가 기록됩니다.
 
@@ -226,11 +226,11 @@ Prepaint의 핵심은 **HTML에 주입된 부트 스크립트**입니다.
    - `data-firsttx-volatile`이 달린 노드의 텍스트/내용은 제거합니다.
      - 예: 실시간 타임스탬프, 랜덤 ID, 애니메이션 카운터 등
 
-   - 기본 민감 셀렉터:
+   - 기본 민감 셀렉터,
      - `input[type="password"]`
      - `[data-firsttx-sensitive]`
 
-   - 전역 셀렉터:
+   - 전역 셀렉터,
      - `window.__FIRSTTX_SENSITIVE_SELECTORS__`에 배열로 추가하면, 해당 셀렉터들에 대해 값/텍스트가 제거됩니다.
 
 3. **인라인 이벤트 핸들러 제거**
@@ -238,7 +238,7 @@ Prepaint의 핵심은 **HTML에 주입된 부트 스크립트**입니다.
 
 4. **스타일 수집**
    - `<style>` 태그: CSS 텍스트를 그대로 저장합니다.
-   - `<link rel="stylesheet">`:
+   - `<link rel="stylesheet">`,
      - 동일 오리진 + fetch 가능 시 CSS 내용을 함께 저장해 오프라인 복원 품질을 높입니다.
      - 그 외에는 href만 저장합니다(보안/용량 트레이드오프).
 
@@ -273,12 +273,12 @@ Prepaint가 스냅샷을 복원한 뒤에는, React가 하이드레이션을 시
 
 1. `handoff()`에서 `data-prepaint` 마커를 확인해 “Prepaint로 복원된 상태인지”를 판별합니다.
 2. 조건이 맞으면 (`hasPrepaint === true` && `container.children.length === 1`) `hydrateRoot`로 하이드레이션을 시도합니다.
-3. React의 `onRecoverableError`가 호출되면:
+3. React의 `onRecoverableError`가 호출되면,
    - `HydrationError`로 감싸 DevTools에 `hydration.error` 이벤트를 보냅니다.
    - 이후 **클린 클라이언트 렌더**로 폴백합니다.
    - `transition: true`이고 ViewTransition이 지원되면, 이 폴백 과정을 `document.startViewTransition`으로 감쌉니다.
 
-4. 하이드레이션 또는 클린 렌더가 끝나면:
+4. 하이드레이션 또는 클린 렌더가 끝나면,
    - `data-prepaint*` 마커와 Prepaint 전용 스타일, 오버레이를 제거합니다.
    - `installRootGuard`를 설치해 루트 DOM 구조를 감시합니다.
 
@@ -288,7 +288,7 @@ Prepaint가 스냅샷을 복원한 뒤에는, React가 하이드레이션을 시
 
 - 일부 라우터/프레임워크가 `#root` 바로 아래에 형제 노드를 추가하는 경우,
   하이드레이션 전제가 깨질 수 있습니다.
-- 이런 상황이 감지되면:
+- 이런 상황이 감지되면,
   - 기존 React 트리를 unmount 하고
   - `container.innerHTML = ""` 후 다시 렌더해 깨끗한 상태를 강제합니다.
 
@@ -327,7 +327,7 @@ Prepaint가 스냅샷을 복원한 뒤에는, React가 하이드레이션을 시
 
 Prepaint는 내부 상태를 DevTools에 `category: "prepaint"` 이벤트로 전송합니다.
 
-대표 타입:
+대표 타입,
 
 - `capture` – 스냅샷 캡처 완료 (body 길이, 스타일 개수, 소요 시간 등)
 - `restore` – 스냅샷 복원 (전략: `has-prepaint` / `cold-start`, snapshot 나이 등)
@@ -335,7 +335,7 @@ Prepaint는 내부 상태를 DevTools에 `category: "prepaint"` 이벤트로 전
 - `hydration.error` – 하이드레이션/복구 중 오류
 - `storage.error` – IndexedDB 읽기/쓰기 실패
 
-공통 필드:
+공통 필드,
 
 - `id`: UUID
 - `category`: `"prepaint"`
