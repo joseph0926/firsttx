@@ -23,32 +23,32 @@ export function generateStaticParams() {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://firsttx-docs.vercel.app"),
+  metadataBase: new URL("https://firsttx.shop"),
   title: {
-    default: "Firsttx",
-    template: "%s | Firsttx",
+    default: "FirstTx Docs",
+    template: "%s | FirstTx Docs",
   },
-  description: "Firsttx Docs",
+  description: "Documentation for FirstTx, a three-layer toolkit for React: Prepaint, Local-First and Tx.",
   openGraph: {
-    title: "Firsttx",
-    description: "Firsttx Docs",
-    url: "https://firsttx-playground.vercel.app",
-    siteName: "Firsttx",
+    title: "FirstTx Docs",
+    description: "Documentation for FirstTx, a three-layer toolkit for React: Prepaint, Local-First and Tx.",
+    url: "/",
+    siteName: "FirstTx Docs",
     type: "website",
     images: [
       {
-        url: "https://firsttx-playground.vercel.app/og-default.png",
+        url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "Firsttx",
+        alt: "FirstTx Docs - Prepaint, Local-First & Tx",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Firsttx",
-    description: "Firsttx Docs",
-    images: ["https://firsttx-playground.vercel.app/og-default.png"],
+    title: "FirstTx Docs",
+    description: "Documentation for FirstTx, a three-layer toolkit for React 19: Prepaint, Local-First and Tx.",
+    images: ["/opengraph-image.png"],
   },
   robots: {
     index: true,
