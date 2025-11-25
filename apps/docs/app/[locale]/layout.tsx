@@ -24,7 +24,7 @@ export function generateStaticParams() {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://firsttx.shop"),
+  metadataBase: new URL("https://firsttx.store"),
   title: {
     default: "FirstTx Docs",
     template: "%s | FirstTx Docs",

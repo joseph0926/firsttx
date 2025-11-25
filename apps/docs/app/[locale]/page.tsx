@@ -13,7 +13,7 @@ type LandingPageProps = {
   }>;
 };
 
-const SITE_URL = "https://firsttx.shop";
+const SITE_URL = "https://firsttx.store";
 const OG_IMAGE = `${SITE_URL}/opengraph-image.png`;
 
 export async function generateMetadata({ params }: LandingPageProps): Promise<Metadata> {

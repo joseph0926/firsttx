@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
 
-const SITE_URL = "https://firsttx.shop";
+const SITE_URL = "https://firsttx.store";
 
 const DOC_PATHS = ["", "/docs/overview", "/docs/getting-started", "/docs/prepaint", "/docs/local-first", "/docs/tx", "/docs/devtools"];
 
