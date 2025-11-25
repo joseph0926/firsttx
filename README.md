@@ -4,6 +4,8 @@
 
 # FirstTx
 
+[Docs](https://www.firsttx.store)
+
 > 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.
 
 **Eliminate blank screens on revisits - Restore last state instantly**
