@@ -384,6 +384,11 @@ export function CartPage() {
       description: "현재 모델 데이터입니다. 아직 아무 값도 없으면 <code>null</code>입니다.",
     },
     {
+      name: "status",
+      type: "'loading' | 'success' | 'error'",
+      description: "내부 모델의 현재 로딩 상태입니다. 로딩, 성공, 에러 상태를 구분하는 데 사용합니다.",
+    },
+    {
       name: "history",
       type: "{ updatedAt: number | null; age: number; isStale: boolean }",
       description: "마지막 업데이트 시각과 TTL 기준 신선도 정보입니다.",

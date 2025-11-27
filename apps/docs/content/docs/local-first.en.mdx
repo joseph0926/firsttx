@@ -384,6 +384,11 @@ export function CartPage() {
       description: "Current model data. <code>null</code> if there is no value yet.",
     },
     {
+      name: "status",
+      type: "'loading' | 'success' | 'error'",
+      description: "Current loading status from the underlying model. Use this to distinguish between loading, success, and error states.",
+    },
+    {
       name: "history",
       type: "{ updatedAt: number | null; age: number; isStale: boolean }",
       description: "Last update time and freshness information based on TTL.",
