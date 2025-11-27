@@ -322,11 +322,15 @@ const CartModel = defineModel('cart', {
 모델과 서버를 자동 동기화합니다.
 
 ```tsx
-const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartModel, fetchCart, {
-  syncOnMount: 'stale',
-  onSuccess: (data) => console.log('Synced'),
-  onError: (err) => console.error(err),
-});
+const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
+  CartModel,
+  fetchCart,
+  {
+    syncOnMount: 'stale',
+    onSuccess: (data) => console.log('Synced'),
+    onError: (err) => console.error(err),
+  },
+);
 ```
 
 **Parameters**
@@ -347,10 +351,11 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 **Returns**
 
 - `data: T | null` - 현재 데이터
+- `status: 'loading' | 'success' | 'error'` - 현재 로딩 상태
 - `patch: (fn: (draft: T) => void) => Promise<void>` - 기존 데이터를 draft 뮤테이션으로 업데이트
 - `replace: (data: T) => Promise<void>` - 전체 데이터 교체
 - `sync: () => Promise<void>` - 수동 동기화
-- `isSyncing: boolean` - 동기화 중 여부
+- `isSyncing: boolean` - 서버 동기화 중 여부
 - `error: Error | null` - 동기화 에러
 - `history: ModelHistory` - 메타데이터
   - `age: number` - 마지막 업데이트로부터 경과 시간 (ms)

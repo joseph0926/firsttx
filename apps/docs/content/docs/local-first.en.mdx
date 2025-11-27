@@ -173,12 +173,16 @@ import { useModel } from "@firsttx/local-first";
 import { CartModel } from "./models/cart";
 
 export function CartSidebar() {
-  const [cart, patch, history, error] = useModel(CartModel);
+  const { data: cart, patch, history, error, status } = useModel(CartModel);
 
-  if (error) {
+  if (status === "loading") {
+    return <div className="text-xs text-muted-foreground">Loading...</div>;
+  }
+
+  if (status === "error") {
     return (
       <div className="text-xs text-destructive">
-        Failed to load cart: {error.getUserMessage?.() ?? String(error)}
+        Failed to load cart: {error?.getUserMessage?.() ?? String(error)}
       </div>
     );
   }
@@ -215,22 +219,27 @@ export function CartSidebar() {
   title="useModel(model) return value"
   items={[
     {
-      name: "[0] data",
+      name: "data",
       type: "T | null",
       description: "Current model data. <code>null</code> if there is no value yet.",
     },
     {
-      name: "[1] patch",
+      name: "status",
+      type: "'loading' | 'success' | 'error'",
+      description: "Current loading status. Use this to distinguish between loading, success, and error states.",
+    },
+    {
+      name: "patch",
       type: "(mutator: (draft: T) => void) => Promise<void>",
       description: "Function to update local data. It validates with Zod, persists to IndexedDB, and emits broadcast/DevTools events.",
     },
     {
-      name: "[2] history",
+      name: "history",
       type: "{ updatedAt: number | null; age: number; isStale: boolean }",
       description: "Last update time and freshness information based on TTL. When there is no data, <code>updatedAt = null</code>, <code>age = Infinity</code>, <code>isStale = true</code>.",
     },
     {
-      name: "[3] error",
+      name: "error",
       type: "FirstTxError | null",
       description: "Error object when a storage or validation error occurred. <code>null</code> otherwise.",
     },
@@ -482,7 +491,7 @@ If you need lower-level control, you can call `getSyncPromise` directly:
 function CartInnerLowLevel() {
   CartModel.getSyncPromise(fetchCart); // If there is no data, this throws a Promise and Suspense shows the fallback
 
-  const [cart] = useModel(CartModel);
+  const { data: cart } = useModel(CartModel);
   if (!cart) return null;
 
   return (

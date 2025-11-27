@@ -324,11 +324,15 @@ const CartModel = defineModel('cart', {
 Automatically syncs model with server.
 
 ```tsx
-const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartModel, fetchCart, {
-  syncOnMount: 'stale',
-  onSuccess: (data) => console.log('Synced'),
-  onError: (err) => console.error(err),
-});
+const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
+  CartModel,
+  fetchCart,
+  {
+    syncOnMount: 'stale',
+    onSuccess: (data) => console.log('Synced'),
+    onError: (err) => console.error(err),
+  },
+);
 ```
 
 **Parameters**
@@ -349,10 +353,11 @@ const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartMode
 **Returns**
 
 - `data: T | null` - Current data
+- `status: 'loading' | 'success' | 'error'` - Current loading status
 - `patch: (fn: (draft: T) => void) => Promise<void>` - Update existing data via draft mutation
 - `replace: (data: T) => Promise<void>` - Replace entire data
 - `sync: () => Promise<void>` - Manual sync
-- `isSyncing: boolean` - Whether syncing
+- `isSyncing: boolean` - Whether syncing with server
 - `error: Error | null` - Sync error
 - `history: ModelHistory` - Metadata
   - `age: number` - Time elapsed since last update (ms)

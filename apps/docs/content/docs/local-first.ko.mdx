@@ -174,18 +174,22 @@ import { useModel } from "@firsttx/local-first";
 import { CartModel } from "./models/cart";
 
 export function CartSidebar() {
-  const [cart, patch, history, error] = useModel(CartModel);
+  const { data: cart, patch, history, error, status } = useModel(CartModel);
 
-  if (error) {
+  if (status === "loading") {
+    return <div className="text-xs text-muted-foreground">로딩 중...</div>;
+  }
+
+  if (status === "error") {
     return (
       <div className="text-xs text-destructive">
-        Failed to load cart: {error.getUserMessage?.() ?? String(error)}
+        카트 로드 실패: {error?.getUserMessage?.() ?? String(error)}
       </div>
     );
   }
 
   if (!cart) {
-    return <div className="text-xs text-muted-foreground">No cart yet.</div>;
+    return <div className="text-xs text-muted-foreground">카트가 비어있습니다.</div>;
   }
 
   return (
@@ -216,22 +220,27 @@ export function CartSidebar() {
   title="useModel(model) 반환값"
   items={[
     {
-      name: "[0] data",
+      name: "data",
       type: "T | null",
       description: "현재 모델 데이터입니다. 아직 아무 값도 없으면 <code>null</code>입니다.",
     },
     {
-      name: "[1] patch",
+      name: "status",
+      type: "'loading' | 'success' | 'error'",
+      description: "현재 로딩 상태입니다. 로딩, 성공, 에러 상태를 구분하는 데 사용합니다.",
+    },
+    {
+      name: "patch",
       type: "(mutator: (draft: T) => void) => Promise<void>",
       description: "로컬 데이터를 변경하는 함수입니다. 내부에서 Zod 검증 후 IndexedDB에 저장하고, 브로드캐스트·DevTools 이벤트를 전파합니다.",
     },
     {
-      name: "[2] history",
+      name: "history",
       type: "{ updatedAt: number | null; age: number; isStale: boolean }",
       description: "마지막 업데이트 시각과 TTL 기준 신선도 정보입니다. 데이터가 없으면 <code>updatedAt = null</code>, <code>age = Infinity</code>, <code>isStale = true</code>입니다.",
     },
     {
-      name: "[3] error",
+      name: "error",
       type: "FirstTxError | null",
       description: "스토리지 오류나 검증 오류가 발생했을 때의 에러 객체입니다. 없으면 <code>null</code>입니다.",
     },
@@ -486,7 +495,7 @@ export function SuspenseCart() {
 function CartInnerLowLevel() {
   CartModel.getSyncPromise(fetchCart); // 데이터가 없으면 이 Promise가 throw되며 Suspense fallback으로 이동
 
-  const [cart] = useModel(CartModel);
+  const { data: cart } = useModel(CartModel);
   if (!cart) return null;
 
   return (

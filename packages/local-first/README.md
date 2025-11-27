@@ -46,9 +46,11 @@ export const CartModel = defineModel('cart', {
 import { useModel } from '@firsttx/local-first';
 
 function CartPage() {
-  const [cart, patch, history] = useModel(CartModel);
+  const { data: cart, patch, history, status } = useModel(CartModel);
 
-  if (!cart) return <Skeleton />;
+  if (status === 'loading') return <Skeleton />;
+  if (status === 'error') return <ErrorMessage />;
+  if (!cart) return <EmptyCart />;
 
   return (
     <div>
@@ -185,16 +187,17 @@ await Model.replace(null);
 React hook for local-only model usage (no server sync).
 
 ```tsx
-const [data, patch, history, error] = useModel(CartModel);
+const { data, status, patch, history, error } = useModel(CartModel);
 ```
 
 **Parameters**
 
 - `model: Model<T>` - Model created with `defineModel`
 
-**Returns** `[data, patch, history, error]`
+**Returns** `{ data, status, patch, history, error }`
 
-- `data: T | null` - Current data (null while loading)
+- `data: T | null` - Current data (null while loading or empty)
+- `status: 'loading' | 'success' | 'error'` - Current loading status
 - `patch: (mutator: (draft: T) => void) => Promise<void>` - Update function (Immer-style)
   ```ts
   await patch((draft) => {
@@ -211,9 +214,11 @@ const [data, patch, history, error] = useModel(CartModel);
 **Example**
 
 ```tsx
-const [cart, patch, history] = useModel(CartModel);
+const { data: cart, status, patch, history } = useModel(CartModel);
 
-if (!cart) return <Skeleton />;
+if (status === 'loading') return <Skeleton />;
+if (status === 'error') return <ErrorMessage />;
+if (!cart) return <EmptyCart />;
 
 return (
   <div>
@@ -230,11 +235,15 @@ return (
 React hook for model with automatic server synchronization.
 
 ```tsx
-const { data, patch, sync, isSyncing, error, history } = useSyncedModel(CartModel, fetchCart, {
-  syncOnMount: 'stale',
-  onSuccess: (data) => console.log('Synced', data),
-  onError: (err) => console.error(err),
-});
+const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
+  CartModel,
+  fetchCart,
+  {
+    syncOnMount: 'stale',
+    onSuccess: (data) => console.log('Synced', data),
+    onError: (err) => console.error(err),
+  },
+);
 ```
 
 ---
