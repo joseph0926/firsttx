@@ -60,6 +60,8 @@ export interface ModelHistory {
   isConflicted: boolean; // TODO: Phase 1 - implement conflict detection
 }
 
+export type CacheStatus = 'loading' | 'success' | 'error';
+
 export type SyncOptions<T> = {
   /**
    * When to sync on component mount
@@ -76,6 +78,7 @@ export type SyncOptions<T> = {
 
 export type SyncedModelResult<T> = {
   data: T | null;
+  status: CacheStatus;
   patch: (mutator: (draft: T) => void) => Promise<void>;
   sync: () => Promise<void>;
   isSyncing: boolean;

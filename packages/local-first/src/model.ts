@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { ModelHistory, ModelOptions } from './types';
+import type { CacheStatus, ModelHistory, ModelOptions } from './types';
 import { Storage } from './storage';
 import { FirstTxError, StorageError, ValidationError } from './errors';
 import { ModelBroadcaster } from './broadcast';
@@ -18,6 +18,7 @@ export type CacheState<T> =
  */
 export type CombinedSnapshot<T> = {
   data: T | null;
+  status: CacheStatus;
   error: FirstTxError | null;
   history: ModelHistory;
 };
@@ -86,6 +87,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
   let cachedSnapshot: CombinedSnapshot<T> = {
     data: null,
+    status: 'loading',
     error: null,
     history: cachedHistory,
   };
@@ -117,9 +119,11 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   const updateSnapshot = () => {
     const newData = cacheState.status === 'success' ? cacheState.data : null;
     const newError = cacheState.status === 'error' ? cacheState.error : null;
+    const newStatus = cacheState.status;
 
     if (
       cachedSnapshot.data === newData &&
+      cachedSnapshot.status === newStatus &&
       cachedSnapshot.error === newError &&
       cachedSnapshot.history === cachedHistory
     ) {
@@ -128,6 +132,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
     cachedSnapshot = {
       data: newData,
+      status: newStatus,
       error: newError,
       history: cachedHistory,
     };

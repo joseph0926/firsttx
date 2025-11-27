@@ -21,7 +21,13 @@ export function useModel<T>(model: Model<T>) {
     [model],
   );
 
-  return [snapshot.data, patch, snapshot.history, snapshot.error] as const;
+  return {
+    data: snapshot.data,
+    status: snapshot.status,
+    error: snapshot.error,
+    history: snapshot.history,
+    patch,
+  };
 }
 
 /**
@@ -33,7 +39,7 @@ export function useSyncedModel<T>(
   fetcher: Fetcher<T>,
   options?: SyncOptions<T>,
 ): SyncedModelResult<T> {
-  const [state, patch, history, error] = useModel(model);
+  const { data, status, patch, history, error } = useModel(model);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<Error | null>(null);
 
@@ -154,7 +160,8 @@ export function useSyncedModel<T>(
   }, [model, sync]);
 
   return {
-    data: state,
+    data,
+    status,
     patch,
     sync,
     isSyncing,
