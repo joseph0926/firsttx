@@ -1,5 +1,33 @@
 # @firsttx/local-first
 
+## 0.8.0
+
+### Minor Changes
+
+**Breaking Changes**
+useModel now returns an object instead of an array. Migration required
+
+```ts
+// Before
+const [data, patch, history, error] = useModel(Model);
+
+// After
+const { data, status, patch, history, error } = useModel(Model);
+```
+
+**Features**
+Add status field to useModel and useSyncedModel. The new status field ('loading' | 'success' | 'error') allows explicit state handling instead of relying on !data checks
+
+```ts
+const { data, status } = useModel(CartModel);
+
+if (status === 'loading') return <Skeleton />;
+if (status === 'error') return <ErrorMessage />;
+if (!data) return <EmptyState />;
+```
+
+Add CacheStatus type. New exported type for type-safe status handling.
+
 ## 0.7.0
 
 ### Minor Changes
