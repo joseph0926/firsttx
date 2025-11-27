@@ -55,7 +55,7 @@ function formatTimestamp(value: number | null): string {
 }
 
 export function DevtoolsPanel({ scenarioMetrics }: DevtoolsPanelProps) {
-  const [prepaintMetrics] = useModel(PrepaintMetricsModel);
+  const { data: prepaintMetrics } = useModel(PrepaintMetricsModel);
   const handoffStrategy = useHandoffStrategy() ?? prepaintMetrics?.lastHandoffStrategy ?? null;
   const localSummary = useLocalFirstSummary();
 

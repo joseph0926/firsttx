@@ -35,7 +35,7 @@ function formatValue(value: unknown, format: MetricFormat): string | null {
 }
 
 export default function HomePage() {
-  const [metrics] = useModel(PlaygroundMetricsModel);
+  const { data: metrics } = useModel(PlaygroundMetricsModel);
   const scenarioMetrics = metrics?.scenarios ?? {};
   const liveBenchmarks = [
     {
