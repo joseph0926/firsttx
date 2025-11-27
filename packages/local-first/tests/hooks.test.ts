@@ -23,7 +23,7 @@ describe('useModel', () => {
     const { result } = renderHook(() => useModel(TestModel));
 
     await waitFor(() => {
-      const [state] = result.current;
+      const { data: state } = result.current;
       expect(state).toEqual({ count: 42 });
     });
   });
@@ -37,7 +37,7 @@ describe('useModel', () => {
     const { result } = renderHook(() => useModel(TestModel));
 
     await waitFor(() => {
-      const [state, , history] = result.current;
+      const { data: state, history } = result.current;
       expect(state).toBeNull();
       expect(history).toStrictEqual({
         updatedAt: 0,
@@ -61,7 +61,7 @@ describe('useModel', () => {
     const { result } = renderHook(() => useModel(TestModel));
 
     await waitFor(() => {
-      const [, , history] = result.current;
+      const { history } = result.current;
       expect(history).toEqual({
         updatedAt: 0,
         age: Infinity,
@@ -85,28 +85,28 @@ describe('useModel', () => {
     const { result } = renderHook(() => useModel(TestModel));
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ count: 0 });
+      expect(result.current.data).toEqual({ count: 0 });
     });
 
     await act(async () => {
       await Promise.all([
-        result.current[1]((draft) => {
+        result.current.patch((draft) => {
           draft.count = 1;
         }),
-        result.current[1]((draft) => {
+        result.current.patch((draft) => {
           draft.count = 2;
         }),
-        result.current[1]((draft) => {
+        result.current.patch((draft) => {
           draft.count = 3;
         }),
       ]);
     });
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ count: 3 });
+      expect(result.current.data).toEqual({ count: 3 });
     });
 
-    const [, , history] = result.current;
+    const { history } = result.current;
     expect(history.updatedAt).toBeGreaterThan(0);
     expect(history.isStale).toBe(false);
   });
@@ -120,16 +120,16 @@ describe('useModel', () => {
     });
 
     const { result } = renderHook(() => useModel(TestModel));
-    expect(result.current[0]).toBeNull();
+    expect(result.current.data).toBeNull();
 
     await act(async () => {
-      await result.current[1]((draft) => {
+      await result.current.patch((draft) => {
         draft.items.push('first');
       });
     });
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ items: ['first'] });
+      expect(result.current.data).toEqual({ items: ['first'] });
     });
   });
 
@@ -153,7 +153,7 @@ describe('useModel', () => {
     const { result } = renderHook(() => useModel(TestModelV2));
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ value: 'v2' });
+      expect(result.current.data).toEqual({ value: 'v2' });
     });
   });
 
@@ -168,10 +168,10 @@ describe('useModel', () => {
     const { result, unmount } = renderHook(() => useModel(TestModel));
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ count: 0 });
+      expect(result.current.data).toEqual({ count: 0 });
     });
 
-    const patchPromise = result.current[1]((draft) => {
+    const patchPromise = result.current.patch((draft) => {
       draft.count = 99;
     });
 

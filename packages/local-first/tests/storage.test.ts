@@ -179,7 +179,7 @@ describe('Storage', () => {
       const { result } = renderHook(() => useModel(TestModel));
 
       await waitFor(() => {
-        const [state, , , error] = result.current;
+        const { data: state, error } = result.current;
         expect(state).toBeNull();
         expect(error).toBeInstanceOf(ValidationError);
       });
@@ -196,7 +196,7 @@ describe('Storage', () => {
       const { result } = renderHook(() => useModel(TestModel));
 
       await waitFor(() => {
-        const [state, , , error] = result.current;
+        const { data: state, error } = result.current;
         expect(state).toEqual({ value: 'test' });
         expect(error).toBeNull();
       });
@@ -221,7 +221,7 @@ describe('Storage', () => {
       const { result } = renderHook(() => useModel(TestModel));
 
       await waitFor(() => {
-        const [, , , error] = result.current;
+        const { error } = result.current;
         if (error instanceof ValidationError) {
           expect(error.modelName).toBe('test-hook-validation-detail');
           expect(error.getUserMessage()).toContain('validation failed');
