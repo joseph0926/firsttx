@@ -336,7 +336,10 @@ const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
 **Parameters**
 
 - `model: Model<T>` - defineModel로 생성한 모델
-- `fetcher: () => Promise<T>` - 서버 데이터를 가져오는 함수
+- `fetcher: (current: T | null) => Promise<T>` - 서버 데이터를 가져오는 함수. `current`는 현재 로컬에 저장된 데이터 (없으면 `null`)
+  - 증분 업데이트: 마지막 업데이트 이후 변경분만 요청
+  - 조건부 요청: 로컬 데이터가 유효하면 서버 요청 생략
+  - 병합: 로컬 상태와 서버 상태 결합
 - `options?: SyncOptions`
 
 **SyncOptions**

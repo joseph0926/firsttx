@@ -338,7 +338,10 @@ const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
 **Parameters**
 
 - `model: Model<T>` - Model created with defineModel
-- `fetcher: () => Promise<T>` - Function to fetch server data
+- `fetcher: (current: T | null) => Promise<T>` - Function to fetch server data. `current` is the locally stored data (or `null` if none)
+  - Incremental updates: Request only changes since last update
+  - Conditional requests: Skip server request if local data is valid
+  - Merging: Combine local and server state
 - `options?: SyncOptions`
 
 **SyncOptions**
