@@ -4,6 +4,7 @@ import { chunkMarkdown, getMarkdownFiles, readMarkdownFile } from "./chunk-md";
 import type { Chunk, ChunkWithEmbedding } from "./types";
 import { embed } from "./embed";
 import { resetIndex, upsertChunks } from "./vector";
+import { clearEmbeddingCache } from "./cache";
 import { fileURLToPath } from "node:url";
 
 async function main() {
@@ -62,6 +63,11 @@ async function main() {
 
   console.log("");
   console.log("Embedding complete");
+  console.log("");
+
+  console.log("Clearing embedding cache (Redis)...");
+  const deletedKeys = await clearEmbeddingCache();
+  console.log(`Deleted ${deletedKeys} cached embeddings`);
   console.log("");
 
   await resetIndex();

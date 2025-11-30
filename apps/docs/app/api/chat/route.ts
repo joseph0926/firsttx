@@ -1,5 +1,5 @@
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
-import { chatModel } from "@/lib/ai/ollama";
+import { chatModel } from "@/lib/ai/openai";
 import { retrieveContext, buildSystemPrompt } from "@/lib/ai/rag";
 
 export const maxDuration = 60;
@@ -26,19 +26,6 @@ export async function POST(req: Request) {
 
   try {
     const { contextText, results } = await retrieveContext(userQuery);
-
-    console.log("[RAG Debug]", {
-      query: userQuery,
-      resultsCount: results.length,
-      results: results.map((r) => ({
-        id: r.id,
-        score: r.score.toFixed(3),
-        title: r.metadata.title,
-        section: r.metadata.section,
-        metadataContent: r.metadata.content,
-      })),
-      contextLength: contextText.length,
-    });
 
     const systemPrompt = buildSystemPrompt(contextText);
 

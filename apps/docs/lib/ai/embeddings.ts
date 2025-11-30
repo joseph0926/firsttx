@@ -1,5 +1,5 @@
 import { embed } from "ai";
-import { embeddingModel } from "./ollama";
+import { embeddingModel } from "./openai";
 import { getCachedEmbedding, setCachedEmbedding } from "../cache/embedding-cache";
 
 export async function getEmbedding(text: string): Promise<number[]> {
