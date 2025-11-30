@@ -22,6 +22,7 @@ coverage/
 storybook-static/
 .vite/
 apps/**/.vite/
+docs/temp.*
 
 # Env & secrets
 .env
