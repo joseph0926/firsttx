@@ -1,15 +1,14 @@
-import { config } from "dotenv";
+import "./env";
 import path from "node:path";
 import { chunkMarkdown, getMarkdownFiles, readMarkdownFile } from "./chunk-md";
 import type { Chunk, ChunkWithEmbedding } from "./types";
 import { embed } from "./embed";
-import { upsertChunks } from "./vector";
-
-const scriptDir = path.dirname(new URL(import.meta.url).pathname);
-config({ path: path.join(scriptDir, "../.env.local") });
+import { resetIndex, upsertChunks } from "./vector";
+import { fileURLToPath } from "node:url";
 
 async function main() {
-  const scriptDir = path.dirname(new URL(import.meta.url).pathname);
+  const __filename = fileURLToPath(import.meta.url);
+  const scriptDir = path.dirname(__filename);
   const contentDir = path.join(scriptDir, "../content/ai");
 
   console.log("Content directory:", contentDir);
@@ -25,13 +24,16 @@ async function main() {
   for (const file of files) {
     const filePath = path.join(contentDir, file);
     const content = readMarkdownFile(filePath);
-
-    const docId = file.replace(".md", "");
+    const docId = file.replace(/\.md$/, "");
 
     const chunks = chunkMarkdown(content, docId, file);
     allChunks.push(...chunks);
 
     console.log(`${file}: ${chunks.length} chunks`);
+    chunks.forEach((c) => {
+      const preview = c.content.slice(0, 60).replace(/\n/g, " ");
+      console.log(`   - [${c.id}] ${c.section}: "${preview}..."`);
+    });
   }
 
   console.log("");
@@ -39,19 +41,30 @@ async function main() {
   console.log("");
 
   console.log("Embedding chunks...");
+  const CONCURRENCY = 4;
   const chunksWithEmbeddings: ChunkWithEmbedding[] = [];
 
-  for (let i = 0; i < allChunks.length; i++) {
-    const chunk = allChunks[i];
-    const textToEmbed = `${chunk.title} - ${chunk.section}\n\n${chunk.content}`;
-    const embedding = await embed(textToEmbed);
+  for (let i = 0; i < allChunks.length; i += CONCURRENCY) {
+    const batch = allChunks.slice(i, i + CONCURRENCY);
 
-    chunksWithEmbeddings.push({ ...chunk, embedding });
-    console.log(`  [${i + 1}/${allChunks.length}] ${chunk.id} (${embedding.length} dims)`);
+    const results = await Promise.all(
+      batch.map(async (chunk, idx) => {
+        const textToEmbed = `${chunk.title} - ${chunk.section}\n\n${chunk.content}`;
+        const embedding = await embed(textToEmbed);
+        const index = i + idx + 1;
+        console.log(`  [${index}/${allChunks.length}] ${chunk.id} (${embedding.length} dims)`);
+        return { ...chunk, embedding };
+      }),
+    );
+
+    chunksWithEmbeddings.push(...results);
   }
 
   console.log("");
   console.log("Embedding complete");
+  console.log("");
+
+  await resetIndex();
   console.log("");
 
   console.log("Upserting to Upstash Vector...");
@@ -61,4 +74,7 @@ async function main() {
   return chunksWithEmbeddings;
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

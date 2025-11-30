@@ -25,7 +25,20 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { contextText } = await retrieveContext(userQuery);
+    const { contextText, results } = await retrieveContext(userQuery);
+
+    console.log("[RAG Debug]", {
+      query: userQuery,
+      resultsCount: results.length,
+      results: results.map((r) => ({
+        id: r.id,
+        score: r.score.toFixed(3),
+        title: r.metadata.title,
+        section: r.metadata.section,
+        metadataContent: r.metadata.content,
+      })),
+      contextLength: contextText.length,
+    });
 
     const systemPrompt = buildSystemPrompt(contextText);
 
@@ -33,6 +46,7 @@ export async function POST(req: Request) {
       model: chatModel,
       system: systemPrompt,
       messages: convertToModelMessages(messages),
+      temperature: 0.1,
     });
 
     return result.toUIMessageStreamResponse();
