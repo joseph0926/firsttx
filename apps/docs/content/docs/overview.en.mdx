@@ -5,7 +5,7 @@ export const metadata = {
 # FirstTx Overview
 
 FirstTx is a 3-layer toolkit designed to solve **revisit speed, offline durability and optimistic UI**  
-in React 19-based CSR apps.
+in React-based CSR apps.
 
 - **Prepaint** - a **render layer** that stores the “last screen” as a DOM snapshot and restores it before React on the next visit
 - **Local-First** - a **data layer** that treats IndexedDB as the single source of truth, defines models via Zod schemas, and provides TTL + multi-tab sync
@@ -124,7 +124,7 @@ FirstTx splits these pain points into three layers,
 - SaaS dashboards, admin panels, analytics/BI tools
 - Document/knowledge tools (Notion-like apps) where **revisiting the same screen** is common
 - Field tools where you must show the last state even when offline or on slow networks
-- Projects already using React 19, with CSR as the default rendering model
+- Projects using React 18.2+, with CSR as the default rendering model
 
 **Might be overkill for**
 

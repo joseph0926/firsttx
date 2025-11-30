@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<DocsGetting
 
   const title = isKo ? "Getting Started - 빠른 시작 가이드" : "Getting Started - Quick start guide";
 
-  const description = isKo ? "Vite + React 19 기반 CSR 앱에 Prepaint, Local-First, Tx를 단계적으로 연결하는 빠른 시작 가이드입니다." : "Quick start guide for wiring Prepaint, Local-First and Tx into a Vite + React 19 CSR app step by step.";
+  const description = isKo ? "Vite + React 기반 CSR 앱에 Prepaint, Local-First, Tx를 단계적으로 연결하는 빠른 시작 가이드입니다." : "Quick start guide for wiring Prepaint, Local-First and Tx into a Vite + React CSR app step by step.";
 
   const canonical = `/${locale}${DOCS_PATH}`;
   const languages: Record<string, string> = Object.fromEntries(routing.locales.map((loc) => [loc, `/${loc}${DOCS_PATH}`]));

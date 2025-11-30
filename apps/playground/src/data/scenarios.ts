@@ -183,7 +183,7 @@ export const levels: LevelData[] = [
       {
         id: 'suspense',
         title: 'Suspense Integration',
-        description: 'React 19+ Suspense with useSuspenseSyncedModel',
+        description: 'Suspense with useSuspenseSyncedModel',
         path: '/sync/suspense',
         type: 'interact',
         difficulty: 2,

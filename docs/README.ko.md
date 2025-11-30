@@ -367,7 +367,7 @@ const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
 
 #### `useSuspenseSyncedModel(model, fetcher)`
 
-**React 19+ 전용.** 선언적 데이터 페칭을 위한 Suspense 통합 훅입니다.
+**React 18.2+ 지원.** 선언적 데이터 페칭을 위한 Suspense 통합 훅입니다.
 
 ```tsx
 import { useSuspenseSyncedModel } from '@firsttx/local-first';
@@ -406,7 +406,6 @@ function App() {
 - ✅ 수동 로딩 체크 불필요 - Suspense 자동 통합
 - ✅ Non-nullable 반환 타입으로 타입 안정성 향상
 - ✅ Error Boundary 자동 통합
-- ❌ React 19+ 필수 (`use()` 훅 사용)
 - ❌ `<Suspense>` 경계로 감싸야 함
 - ❌ 읽기 전용 (mutations는 `useSyncedModel` 사용)
 

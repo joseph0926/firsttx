@@ -113,7 +113,7 @@ export default function SuspenseDemo() {
       title="Suspense Integration"
       badge={{
         icon: <Zap className="h-3 w-3" />,
-        label: 'React 19+',
+        label: 'Suspense',
       }}
     >
       <MetricsGrid>

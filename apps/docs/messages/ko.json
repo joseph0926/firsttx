@@ -46,7 +46,7 @@
     "eyebrow": "THREE LAYERS · ONE TOOLKIT",
     "title": "Prepaint · Local-First · Tx",
     "description": "필요한 레이어만 골라 도입하세요. 재방문 속도는 Prepaint로, 동기화·낙관적 UI는 Local‑First와 Tx로 해결합니다.",
-    "chipReact": "React 19 + CSR 환경",
+    "chipReact": "React 18.2+ CSR 환경",
     "chipVite": "Vite / SPA / 내부 도구",
     "chipOptional": "레이어별 선택 도입"
   },

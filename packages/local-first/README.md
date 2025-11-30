@@ -250,7 +250,7 @@ const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
 
 ### `useSuspenseSyncedModel(model, fetcher)`
 
-**React 19+ only.** Suspense-enabled hook for declarative data fetching with automatic IndexedDB cache.
+**React 18.2+ supported.** Suspense-enabled hook for declarative data fetching with automatic IndexedDB cache.
 
 ```tsx
 import { useSuspenseSyncedModel } from '@firsttx/local-first';
@@ -307,12 +307,12 @@ This eliminates blank screens on page refresh, providing SSR-level UX without SS
 | Loading state  | Manual `if (isSyncing)`    | Automatic Suspense        |
 | Error handling | Manual `if (error)`        | Automatic Error Boundary  |
 | Type safety    | Nullable data              | Non-nullable data         |
-| React version  | 18+                        | 19+                       |
+| React version  | 18.2+                      | 18.2+                     |
 | Use case       | Full control, mutations    | Simple read-only fetching |
 
 **Requirements**
 
-- React 19+ (requires `use()` hook)
+- React 18.2+
 - Must be wrapped in `<Suspense>` boundary
 - Recommended: wrap in `<ErrorBoundary>`
 
@@ -363,14 +363,12 @@ function StatsCards() {
 
 - Simple read-only data display
 - Want declarative loading/error states
-- Building with React 19+
 - Prefer less boilerplate
 
 ❌ Use `useSyncedModel` when:
 
 - Need mutations (`patch()`, manual `sync()`)
 - Want granular control over loading UI
-- Supporting React 18
 - Building SSR apps
 
 ---

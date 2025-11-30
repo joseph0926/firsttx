@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "FirstTx Docs",
-    description: "Documentation for FirstTx, a three-layer toolkit for React 19: Prepaint, Local-First and Tx.",
+    description: "Documentation for FirstTx, a three-layer toolkit for React: Prepaint, Local-First and Tx.",
     images: ["/opengraph-image.png"],
   },
   robots: {

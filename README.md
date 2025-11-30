@@ -369,7 +369,7 @@ const { data, status, patch, sync, isSyncing, error, history } = useSyncedModel(
 
 #### `useSuspenseSyncedModel(model, fetcher)`
 
-**React 19+ only.** Suspense-enabled hook for declarative data fetching.
+**React 18.2+ supported.** Suspense-enabled hook for declarative data fetching.
 
 ```tsx
 import { useSuspenseSyncedModel } from '@firsttx/local-first';
@@ -408,7 +408,6 @@ function App() {
 - ✅ No manual loading checks - automatic Suspense integration
 - ✅ Non-nullable return type for better type safety
 - ✅ Automatic Error Boundary integration
-- ❌ React 19+ required (uses `use()` hook)
 - ❌ Must wrap in `<Suspense>` boundary
 - ❌ Read-only (use `useSyncedModel` for mutations)
 

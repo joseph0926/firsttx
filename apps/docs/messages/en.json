@@ -46,7 +46,7 @@
     "eyebrow": "THREE LAYERS · ONE TOOLKIT",
     "title": "Prepaint · Local-First · Tx",
     "description": "Pick the layers you need. Use Prepaint for revisit speed, and add Local-First and Tx for sync and optimistic UI.",
-    "chipReact": "Built for React 19 + CSR",
+    "chipReact": "Built for React 18.2+ CSR",
     "chipVite": "Vite / SPA / internal tools",
     "chipOptional": "Adopt each layer independently"
   },
