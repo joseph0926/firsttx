@@ -13,7 +13,8 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "ai": "tsx scripts/main.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",
@@ -27,6 +28,7 @@
     "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.2.3",
     "lucide-react": "^0.545.0",
     "motion": "^12.23.24",
     "next": "16.0.3",

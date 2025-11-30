@@ -1,11 +1,7 @@
-interface Chunk {
-  id: string;
-  title: string;
-  section: string;
-  content: string;
-}
+import fs from "node:fs";
+import type { Chunk } from "./types";
 
-function chunkMdx(content: string, docId: string): Chunk[] {
+export function chunkMarkdown(content: string, docId: string, source: string): Chunk[] {
   const lines = content.split("\n");
   const chunks: Chunk[] = [];
 
@@ -23,6 +19,7 @@ function chunkMdx(content: string, docId: string): Chunk[] {
         title: currentH1,
         section: currentH3 || currentH2 || currentH1,
         content: trimmedContent,
+        source,
       });
     }
     currentContent = [];
@@ -51,26 +48,11 @@ function chunkMdx(content: string, docId: string): Chunk[] {
   return chunks;
 }
 
-const testContent = `
-# Prepaint
+export function getMarkdownFiles(dirPath: string): string[] {
+  const files = fs.readdirSync(dirPath);
+  return files.filter((file) => file.endsWith(".md"));
+}
 
-소개 문단입니다.
-
-## 1. 설치
-
-설치 방법입니다.
-
-### 1-1. npm
-
-npm으로 설치합니다.
-
-### 1-2. yarn
-
-yarn으로 설치합니다.
-
-## 2. 사용법
-
-사용법입니다.
-`;
-
-console.log(chunkMdx(testContent, "prepaint-ko"));
+export function readMarkdownFile(filePath: string): string {
+  return fs.readFileSync(filePath, "utf-8");
+}
