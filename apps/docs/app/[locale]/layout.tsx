@@ -7,6 +7,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { ChatWidget } from "@/components/chat";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -79,6 +80,7 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <AppShell>{children}</AppShell>
+            <ChatWidget />
             <Analytics />
           </ThemeProvider>
         </NextIntlClientProvider>
