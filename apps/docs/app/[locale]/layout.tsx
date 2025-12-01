@@ -80,7 +80,7 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <AppShell>{children}</AppShell>
-            <ChatWidget />
+            <ChatWidget locale={locale as "ko" | "en"} />
             <Analytics />
           </ThemeProvider>
         </NextIntlClientProvider>

@@ -1,14 +1,21 @@
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { chatModel } from "@/lib/ai/openai";
-import { retrieveContext, buildSystemPrompt } from "@/lib/ai/rag";
+import { retrieveContext, buildSystemPrompt, type Locale } from "@/lib/ai/rag";
 
 export const maxDuration = 60;
 
+function isValidLocale(locale: unknown): locale is Locale {
+  return locale === "ko" || locale === "en";
+}
+
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { messages, locale: rawLocale }: { messages: UIMessage[]; locale?: string } = await req.json();
+
   if (!messages || messages.length === 0) {
     return new Response("No messages provided", { status: 400 });
   }
+
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "ko";
 
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMessage) {
@@ -25,9 +32,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { contextText, results } = await retrieveContext(userQuery);
+    const { contextText } = await retrieveContext(userQuery, 8, locale);
 
-    const systemPrompt = buildSystemPrompt(contextText);
+    const systemPrompt = buildSystemPrompt(contextText, locale);
 
     const result = streamText({
       model: chatModel,

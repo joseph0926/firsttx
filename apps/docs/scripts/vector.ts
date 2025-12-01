@@ -1,5 +1,5 @@
 import { Index } from "@upstash/vector";
-import type { ChunkWithEmbedding } from "./types";
+import type { ChunkWithEmbedding, Locale } from "./types";
 
 let indexInstance: Index | null = null;
 
@@ -16,14 +16,14 @@ function getIndex() {
   return indexInstance;
 }
 
-export async function resetIndex(): Promise<void> {
+export async function resetNamespace(namespace: Locale): Promise<void> {
   const index = getIndex();
-  console.log("Resetting index (deleting all vectors)...");
-  await index.reset();
-  console.log("Index reset complete");
+  console.log(`Resetting namespace "${namespace}"...`);
+  await index.namespace(namespace).reset();
+  console.log(`Namespace "${namespace}" reset complete`);
 }
 
-export async function upsertChunks(chunks: ChunkWithEmbedding[]): Promise<void> {
+export async function upsertChunks(chunks: ChunkWithEmbedding[], namespace: Locale): Promise<void> {
   const index = getIndex();
   const BATCH_SIZE = 500;
 
@@ -40,14 +40,14 @@ export async function upsertChunks(chunks: ChunkWithEmbedding[]): Promise<void> 
       },
     }));
 
-    console.log(`Upserting batch ${i / BATCH_SIZE + 1} (${vectors.length} vectors)`);
-    await index.upsert(vectors);
+    console.log(`Upserting batch ${i / BATCH_SIZE + 1} to namespace "${namespace}" (${vectors.length} vectors)`);
+    await index.namespace(namespace).upsert(vectors);
   }
 }
 
-export async function queryVector(embedding: number[], topK = 3) {
+export async function queryVector(embedding: number[], topK = 3, namespace: Locale = "ko") {
   const index = getIndex();
-  return index.query({
+  return index.namespace(namespace).query({
     vector: embedding,
     topK,
     includeMetadata: true,

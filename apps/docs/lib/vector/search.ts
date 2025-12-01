@@ -1,5 +1,7 @@
 import { Index } from "@upstash/vector";
 
+export type Locale = "ko" | "en";
+
 export interface SearchResult {
   id: string;
   score: number;
@@ -29,10 +31,10 @@ function getIndex() {
   return indexInstance;
 }
 
-export async function searchDocs(embedding: number[], topK = 5, minScore = 0.5): Promise<SearchResult[]> {
+export async function searchDocs(embedding: number[], topK = 5, minScore = 0.5, locale: Locale = "ko"): Promise<SearchResult[]> {
   const index = getIndex();
 
-  const results = await index.query({
+  const results = await index.namespace(locale).query({
     vector: embedding,
     topK,
     includeMetadata: true,

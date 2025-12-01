@@ -1,14 +1,16 @@
 import { getEmbedding } from "./embeddings";
-import { searchDocs, type SearchResult } from "../vector/search";
+import { searchDocs, type SearchResult, type Locale } from "../vector/search";
+
+export type { Locale };
 
 export interface RAGContext {
   results: SearchResult[];
   contextText: string;
 }
 
-export async function retrieveContext(query: string, topK = 8): Promise<RAGContext> {
+export async function retrieveContext(query: string, topK = 8, locale: Locale = "ko"): Promise<RAGContext> {
   const embedding = await getEmbedding(query);
-  const results = await searchDocs(embedding, topK);
+  const results = await searchDocs(embedding, topK, 0.5, locale);
 
   const MAX_CONTEXT_CHARS = 4000;
   let used = 0;
@@ -27,11 +29,8 @@ export async function retrieveContext(query: string, topK = 8): Promise<RAGConte
   return { results, contextText };
 }
 
-export function buildSystemPrompt(contextText: string): string {
-  const hasContext = contextText.trim().length > 0;
-  const contextDescription = hasContext ? contextText : "(관련 문서가 검색되지 않았습니다. 이 경우 UNKNOWN 규칙을 반드시 따르세요.)";
-
-  return `당신은 FirstTx 공식 문서 도우미입니다. 사용자의 질문에 정확하게 답변하세요.
+const SYSTEM_PROMPTS = {
+  ko: (contextDescription: string) => `당신은 FirstTx 공식 문서 도우미입니다. 사용자의 질문에 정확하게 답변하세요.
 
 ## FirstTx 소개
 
@@ -64,10 +63,54 @@ FirstTx는 CSR React 앱을 위한 최적화 라이브러리입니다:
 
 ## CONTEXT
 
-${contextDescription}`;
+${contextDescription}`,
+
+  en: (contextDescription: string) => `You are the FirstTx official documentation assistant. Answer user questions accurately.
+
+## About FirstTx
+
+FirstTx is an optimization library for CSR React apps:
+- **Prepaint**: Saves DOM snapshots to IndexedDB when leaving a page, restores them before React loads on revisit to prevent blank screens
+- **Local-First**: Offline-first data layer based on IndexedDB
+- **Tx**: Optimistic update transaction management
+
+## Core Rules (Must Follow)
+
+### CONTEXT-Based Answers
+- Answer using **only** the content in the CONTEXT section below
+- Quote or summarize the content from CONTEXT directly
+- Use code examples from CONTEXT if available
+
+### Strictly Forbidden
+- Do NOT invent function names, component names, hook names, option names, or type names not in CONTEXT
+- Do NOT guess API usage not in CONTEXT
+- Do NOT create non-existent components (e.g., <Prepaint />, <FirstTx />)
+- Do NOT guess import paths not in the documentation
+
+### UNKNOWN Rule
+If the answer to a question is not in CONTEXT, you must respond:
+"This information cannot be found in the current documentation. Please ask on GitHub Issues: https://github.com/joseph0926/firsttx/issues/new"
+
+### Answer Format
+- Answer in English
+- Only use code examples from CONTEXT
+- For uncertain content, state "This needs verification in the documentation"
+
+## CONTEXT
+
+${contextDescription}`,
+};
+
+export function buildSystemPrompt(contextText: string, locale: Locale = "ko"): string {
+  const hasContext = contextText.trim().length > 0;
+  const noContextMessage = locale === "ko" ? "(관련 문서가 검색되지 않았습니다. 이 경우 UNKNOWN 규칙을 반드시 따르세요.)" : "(No relevant documents were found. In this case, you must follow the UNKNOWN rule.)";
+
+  const contextDescription = hasContext ? contextText : noContextMessage;
+
+  return SYSTEM_PROMPTS[locale](contextDescription);
 }
 
-export function formatCitations(results: SearchResult[]): string {
+export function formatCitations(results: SearchResult[], locale: Locale = "ko"): string {
   if (results.length === 0) return "";
 
   const citations = results
@@ -75,5 +118,7 @@ export function formatCitations(results: SearchResult[]): string {
     .map((r) => `- ${r.metadata.title} > ${r.metadata.section}`)
     .join("\n");
 
-  return `\n\n---\n**참고 문서:**\n${citations}`;
+  const header = locale === "ko" ? "**참고 문서:**" : "**References:**";
+
+  return `\n\n---\n${header}\n${citations}`;
 }

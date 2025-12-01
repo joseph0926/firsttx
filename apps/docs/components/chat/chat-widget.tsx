@@ -8,9 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+type Locale = "ko" | "en";
+
 const ENABLE_CHAT = process.env.NEXT_PUBLIC_ENABLE_CHAT === "true";
 
-export function ChatWidget() {
+interface ChatWidgetProps {
+  locale: Locale;
+}
+
+export function ChatWidget({ locale }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   if (!ENABLE_CHAT) return null;
@@ -34,7 +40,7 @@ export function ChatWidget() {
                 <X className="size-4" />
               </Button>
             </div>
-            <ChatPanel />
+            <ChatPanel locale={locale} />
           </motion.div>
         )}
       </AnimatePresence>

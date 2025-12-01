@@ -1,21 +1,29 @@
 import "./env";
 import path from "node:path";
+import fs from "node:fs";
 import { chunkMarkdown, getMarkdownFiles, readMarkdownFile } from "./chunk-md";
-import type { Chunk, ChunkWithEmbedding } from "./types";
+import type { Chunk, ChunkWithEmbedding, Locale } from "./types";
 import { embed } from "./embed";
-import { resetIndex, upsertChunks } from "./vector";
+import { resetNamespace, upsertChunks } from "./vector";
 import { clearEmbeddingCache } from "./cache";
 import { fileURLToPath } from "node:url";
 
-async function main() {
-  const __filename = fileURLToPath(import.meta.url);
-  const scriptDir = path.dirname(__filename);
-  const contentDir = path.join(scriptDir, "../content/ai");
+const LOCALES: Locale[] = ["ko", "en"];
 
-  console.log("Content directory:", contentDir);
-  console.log("");
+async function indexLocale(locale: Locale, contentDir: string): Promise<ChunkWithEmbedding[]> {
+  const localeDir = path.join(contentDir, locale);
 
-  const files = getMarkdownFiles(contentDir);
+  if (!fs.existsSync(localeDir)) {
+    console.log(`Skipping locale "${locale}" - directory not found: ${localeDir}`);
+    return [];
+  }
+
+  console.log(`\n${"=".repeat(50)}`);
+  console.log(`Indexing locale: ${locale.toUpperCase()}`);
+  console.log(`Directory: ${localeDir}`);
+  console.log(`${"=".repeat(50)}\n`);
+
+  const files = getMarkdownFiles(localeDir);
   console.log(`Found ${files.length} file(s)`);
   files.forEach((f) => console.log(`   - ${f}`));
   console.log("");
@@ -23,11 +31,11 @@ async function main() {
   const allChunks: Chunk[] = [];
 
   for (const file of files) {
-    const filePath = path.join(contentDir, file);
+    const filePath = path.join(localeDir, file);
     const content = readMarkdownFile(filePath);
     const docId = file.replace(/\.md$/, "");
 
-    const chunks = chunkMarkdown(content, docId, file);
+    const chunks = chunkMarkdown(content, docId, file, locale);
     allChunks.push(...chunks);
 
     console.log(`${file}: ${chunks.length} chunks`);
@@ -38,10 +46,10 @@ async function main() {
   }
 
   console.log("");
-  console.log(`Total chunks: ${allChunks.length}`);
+  console.log(`Total chunks for ${locale}: ${allChunks.length}`);
   console.log("");
 
-  console.log("Embedding chunks...");
+  console.log(`Embedding chunks for ${locale}...`);
   const CONCURRENCY = 4;
   const chunksWithEmbeddings: ChunkWithEmbedding[] = [];
 
@@ -62,22 +70,45 @@ async function main() {
   }
 
   console.log("");
-  console.log("Embedding complete");
-  console.log("");
+  console.log(`Embedding complete for ${locale}`);
 
-  console.log("Clearing embedding cache (Redis)...");
-  const deletedKeys = await clearEmbeddingCache();
-  console.log(`Deleted ${deletedKeys} cached embeddings`);
-  console.log("");
+  await resetNamespace(locale);
 
-  await resetIndex();
-  console.log("");
-
-  console.log("Upserting to Upstash Vector...");
-  await upsertChunks(chunksWithEmbeddings);
-  console.log(`Upserted ${chunksWithEmbeddings.length} vectors`);
+  console.log(`Upserting to namespace "${locale}"...`);
+  await upsertChunks(chunksWithEmbeddings, locale);
+  console.log(`Upserted ${chunksWithEmbeddings.length} vectors to namespace "${locale}"`);
 
   return chunksWithEmbeddings;
+}
+
+async function main() {
+  const __filename = fileURLToPath(import.meta.url);
+  const scriptDir = path.dirname(__filename);
+  const contentDir = path.join(scriptDir, "../content/ai");
+
+  console.log("Content directory:", contentDir);
+
+  console.log("\nClearing embedding cache (Redis)...");
+  const deletedKeys = await clearEmbeddingCache();
+  console.log(`Deleted ${deletedKeys} cached embeddings`);
+
+  const allChunks: ChunkWithEmbedding[] = [];
+
+  for (const locale of LOCALES) {
+    const chunks = await indexLocale(locale, contentDir);
+    allChunks.push(...chunks);
+  }
+
+  console.log(`\n${"=".repeat(50)}`);
+  console.log("INDEXING COMPLETE");
+  console.log(`${"=".repeat(50)}`);
+  console.log(`Total vectors indexed: ${allChunks.length}`);
+  LOCALES.forEach((locale) => {
+    const count = allChunks.filter((c) => c.locale === locale).length;
+    console.log(`  - ${locale}: ${count} vectors`);
+  });
+
+  return allChunks;
 }
 
 main().catch((err) => {

@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import type { Chunk } from "./types";
+import type { Chunk, Locale } from "./types";
 
 interface RawChunk {
   title: string;
@@ -7,7 +7,7 @@ interface RawChunk {
   content: string;
 }
 
-export function chunkMarkdown(content: string, docId: string, source: string): Chunk[] {
+export function chunkMarkdown(content: string, docId: string, source: string, locale: Locale): Chunk[] {
   const lines = content.split("\n");
   const rawChunks: RawChunk[] = [];
 
@@ -82,11 +82,12 @@ export function chunkMarkdown(content: string, docId: string, source: string): C
     for (let i = 0; i < raw.content.length; i += MAX_CHARS) {
       const slice = raw.content.slice(i, i + MAX_CHARS);
       chunks.push({
-        id: `${docId}-${chunks.length + 1}`,
+        id: `${locale}-${docId}-${chunks.length + 1}`,
         title: raw.title,
         section: raw.section,
         content: slice,
         source,
+        locale,
       });
     }
   }
