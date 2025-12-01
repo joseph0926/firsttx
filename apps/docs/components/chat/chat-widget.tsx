@@ -23,9 +23,10 @@ export function ChatWidget({ locale }: ChatWidgetProps) {
 
   return (
     <>
+      <AnimatePresence>{isOpen ? <div className="fixed top-0 left-0 z-10 h-screen w-screen bg-black/70" /> : null}</AnimatePresence>
       <AnimatePresence>
         {isOpen && (
-          <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="fixed right-4 bottom-20 z-50 flex h-[600px] max-h-[80vh] w-[400px] flex-col overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-2xl backdrop-blur-xl">
+          <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="fixed right-0 bottom-20 z-50 flex h-[600px] max-h-[80vh] w-full flex-col overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-2xl backdrop-blur-xl sm:right-4 sm:w-[400px]">
             <div className="flex items-center justify-between border-b border-border/50 bg-linear-to-r from-primary/5 via-transparent to-chart-2/5 px-4 py-3">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-7 items-center justify-center rounded-full bg-linear-to-br from-primary to-chart-2 shadow-lg shadow-primary/25">
