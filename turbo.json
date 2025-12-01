@@ -6,7 +6,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": [
+        "NEXT_PUBLIC_ENABLE_CHAT",
+        "OPENAI_API_KEY",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_VECTOR_REST_TOKEN",
+        "UPSTASH_VECTOR_REST_URL"
+      ]
     },
     "dev": {
       "cache": false,
