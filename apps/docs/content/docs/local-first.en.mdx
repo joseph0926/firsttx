@@ -103,7 +103,7 @@ export const CartModel = defineModel("cart", {
       defaultValue: '"1"',
       description: (
         <>
-          Version to bump when you make schema/shape changes that can break existing data. If the stored version differs, Local-First discards the old data and resets it to <code>initialData</code> or an empty state. When you use <code>version</code>, it’s strongly recommended to define <code>initialData</code> as well.
+          Version to bump when you make schema/shape changes that can break existing data. If the stored version differs, existing data is deleted. If <code>initialData</code> is provided, it will be used for initialization; otherwise, <code>null</code> is returned, allowing you to fetch fresh data from the server.
         </>
       ),
     },
@@ -140,7 +140,7 @@ export const CartModel = defineModel("cart", {
       <code>ValidationError</code> to help you catch it early. In production, corrupted data is quietly removed and treated as <code>null</code>.
     </li>
     <li>
-      When you bump <code>version</code>, defining <code>initialData</code> together allows a smooth transition from “broken data → new initial state”.
+      When you bump <code>version</code>, defining <code>initialData</code> allows a smooth transition from "broken data → new initial state". Without it, <code>null</code> is returned, allowing you to fetch fresh data from the server.
     </li>
   </ul>
 </Callout>

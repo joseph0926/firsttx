@@ -52,19 +52,9 @@ export type Model<T> = {
 export function defineModel<T>(
   name: string,
   options: {
-    version: number;
-    initialData: T;
     schema: z.ZodType<T>;
-    ttl?: number;
-    merge?: (current: T, incoming: T) => T;
-  },
-): Model<T>;
-export function defineModel<T>(
-  name: string,
-  options: {
-    version?: never;
+    version?: number;
     initialData?: T;
-    schema: z.ZodType<T>;
     ttl?: number;
     merge?: (current: T, incoming: T) => T;
   },
@@ -191,20 +181,19 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
     if (options.version && stored._v !== options.version) {
       await storage.delete(storageKey);
 
-      if (!options.initialData) {
-        throw new Error('[FirstTx] Unreachable: version set but no initialData');
+      if (options.initialData) {
+        await model.replace(options.initialData);
+        return {
+          data: options.initialData,
+          history: {
+            updatedAt: Date.now(),
+            age: 0,
+            isStale: false,
+            isConflicted: false,
+          },
+        };
       }
-      await model.replace(options.initialData);
-
-      return {
-        data: options.initialData,
-        history: {
-          updatedAt: Date.now(),
-          age: 0,
-          isStale: false,
-          isConflicted: false,
-        },
-      };
+      return null;
     }
 
     const parseResult = options.schema.safeParse(stored.data);
@@ -304,11 +293,11 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       if (options.version && stored._v !== options.version) {
         await storage.delete(storageKey);
 
-        if (!options.initialData) {
-          throw new Error('[FirstTx] Unreachable: version set but no initialData');
+        if (options.initialData) {
+          await model.replace(options.initialData);
+          return options.initialData;
         }
-        await model.replace(options.initialData);
-        return options.initialData;
+        return null;
       }
 
       const parseResult = options.schema.safeParse(stored.data);
@@ -401,14 +390,9 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         if (stored) {
           if (options.version && stored._v !== options.version) {
             await storage.delete(storageKey);
-
-            if (!options.initialData) {
-              throw new Error(
-                `[FirstTx] Cannot replace model "${name}" - stored data is outdated and no initialData provided`,
-              );
+            if (options.initialData) {
+              base = structuredClone(options.initialData);
             }
-
-            base = structuredClone(options.initialData);
           } else {
             const parseStored = options.schema.safeParse(stored.data);
 
@@ -470,20 +454,15 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
 
         let draft: T;
 
-        if (!stored) {
+        const isVersionMismatch = stored && options.version && stored._v !== options.version;
+        if (isVersionMismatch) {
+          await storage.delete(storageKey);
+        }
+
+        if (!stored || isVersionMismatch) {
           if (!options.initialData) {
             throw new Error(
               `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
-            );
-          }
-
-          draft = structuredClone(options.initialData);
-        } else if (options.version && stored._v !== options.version) {
-          await storage.delete(storageKey);
-
-          if (!options.initialData) {
-            throw new Error(
-              `[FirstTx] Cannot patch model "${name}" - stored data is outdated and no initialData provided`,
             );
           }
 

@@ -36,13 +36,13 @@ const UserModel = defineModel('user', {
 
 ### Options
 
-| Option        | Type                             | Required                      | Default              | Description                                                                                 |
-| ------------- | -------------------------------- | ----------------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
-| `schema`      | `z.ZodType<T>`                   | Yes                           | -                    | Zod schema used for data validation                                                         |
-| `initialData` | `T`                              | Required when using `version` | -                    | Initial data used when no stored data exists or when the version has changed                |
-| `version`     | `number`                         | No                            | -                    | Schema version. When changed, existing data is deleted and reinitialized with `initialData` |
-| `ttl`         | `number`                         | No                            | `300000` (5 minutes) | Cache expiration time (ms). After this time, the data becomes stale                         |
-| `merge`       | `(current: T, incoming: T) => T` | No                            | `(_, next) => next`  | Function that merges server data with local data                                            |
+| Option        | Type                             | Required | Default              | Description                                                                                                 |
+| ------------- | -------------------------------- | -------- | -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `schema`      | `z.ZodType<T>`                   | Yes      | -                    | Zod schema used for data validation                                                                         |
+| `initialData` | `T`                              | No       | -                    | Initial data used when no stored data exists. Required for `patch()`                                        |
+| `version`     | `number`                         | No       | -                    | Schema version. When changed, existing data is deleted. Returns `initialData` if provided, otherwise `null` |
+| `ttl`         | `number`                         | No       | `300000` (5 minutes) | Cache expiration time (ms). After this time, the data becomes stale                                         |
+| `merge`       | `(current: T, incoming: T) => T` | No       | `(_, next) => next`  | Function that merges server data with local data                                                            |
 
 ### version and initialData
 
@@ -66,7 +66,7 @@ const CartModel = defineModel('cart', {
 });
 ```
 
-When using `version`, you must provide `initialData`. When the version changes, existing data is deleted and reinitialized with `initialData`.
+When the version changes, existing data is deleted. If `initialData` is provided, it will be used for initialization; otherwise, `null` is returned, allowing you to fetch fresh data from the server.
 
 ### merge function
 

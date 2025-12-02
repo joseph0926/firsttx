@@ -103,7 +103,7 @@ export const CartModel = defineModel("cart", {
       defaultValue: '"1"',
       description: (
         <>
-          스키마/데이터 구조가 깨질 수 있는 변경이 있을 때 올려주는 버전입니다. 디스크에 저장된 버전과 다르면 기존 데이터를 폐기하고 <code>initialData</code> 또는 빈 상태로 재설정합니다. <code>version</code>을 사용할 때는 초기 상태를 안정적으로 되살리기 위해 <code>initialData</code>를 함께 지정하는 것을 권장합니다.
+          스키마/데이터 구조가 깨질 수 있는 변경이 있을 때 올려주는 버전입니다. 디스크에 저장된 버전과 다르면 기존 데이터를 삭제합니다. <code>initialData</code>가 있으면 그 값으로 초기화되고, 없으면 <code>null</code>을 반환하여 서버에서 새 데이터를 가져올 수 있습니다.
         </>
       ),
     },
@@ -141,7 +141,7 @@ export const CartModel = defineModel("cart", {
       이런 상황은 대개 스키마/버전 변경 실수이므로, 개발 환경에서는 <code>ValidationError</code>를 그대로 throw하여 조기 발견을 돕습니다. 프로덕션에서는 손상된 데이터를 조용히 제거하고 <code>null</code>로 간주합니다.
     </li>
     <li>
-      <code>version</code>을 올릴 때는 <code>initialData</code>를 함께 정의해 두면 “깨진 데이터 → 새 초기 상태”로 자연스럽게 넘어갈 수 있습니다.
+      <code>version</code>을 올릴 때 <code>initialData</code>를 함께 정의해 두면 "깨진 데이터 → 새 초기 상태"로 자연스럽게 넘어갑니다. 없으면 <code>null</code>이 반환되어 서버에서 새 데이터를 가져올 수 있습니다.
     </li>
   </ul>
 </Callout>

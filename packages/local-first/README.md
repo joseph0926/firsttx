@@ -133,8 +133,8 @@ const Model = defineModel('cart', {
 - `options.ttl?: number` - Time-to-live in milliseconds (default: `5 * 60 * 1000` = 5 minutes)
   - Set to `Infinity` for data that never expires
   - Set to `0` for always-stale behavior
-- `options.version?: number` - Schema version for migrations (requires `initialData`)
-- `options.initialData?: T` - Default value when no data exists or version changes
+- `options.version?: number` - Schema version. When changed, existing data is deleted
+- `options.initialData?: T` - Default value when no data exists. Required for `patch()`
 - `options.merge?: (current: T, incoming: T) => T` - Custom conflict resolution for cross-tab sync
 
 **Returns** `Model<T>`

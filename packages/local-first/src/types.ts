@@ -21,12 +21,12 @@ export interface ModelOptions<T> {
   schema: z.ZodType<T>;
   /**
    * User-bumped version to force a refresh/re-fetch.
-   * When provided, `initialData` should also be provided (to be enforced via overloads).
+   * When version changes, existing data is deleted.
    */
   version?: number;
   /**
-   * Initial value written at first creation or when `version` changes.
-   * Required if `version` is set (to be enforced via overloads).
+   * Initial value used when no data exists.
+   * Required for `patch()` when no stored data exists.
    */
   initialData?: T;
   /**
