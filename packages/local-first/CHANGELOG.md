@@ -1,5 +1,17 @@
 # @firsttx/local-first
 
+## 0.8.1
+
+### Patch Changes
+
+**Breaking Changes**
+
+- Removed storageKey option: The model name is now always used as the IndexedDB key. This simplifies the API and removes unnecessary complexity.
+
+**Changed**
+
+- Decoupled version and initialData: These options are now independent. When version changes, existing data is deleted. If initialData is provided, it will be used for initialization; otherwise, null is returned allowing fresh data to be fetched from the server.
+
 ## 0.8.0
 
 ### Minor Changes
