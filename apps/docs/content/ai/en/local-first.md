@@ -43,7 +43,6 @@ const UserModel = defineModel('user', {
 | `version`     | `number`                         | No                            | -                    | Schema version. When changed, existing data is deleted and reinitialized with `initialData` |
 | `ttl`         | `number`                         | No                            | `300000` (5 minutes) | Cache expiration time (ms). After this time, the data becomes stale                         |
 | `merge`       | `(current: T, incoming: T) => T` | No                            | `(_, next) => next`  | Function that merges server data with local data                                            |
-| `storageKey`  | `string`                         | No                            | Model name           | Key used in IndexedDB. Defaults to the model name passed as the first argument              |
 
 ### version and initialData
 
@@ -332,7 +331,7 @@ Data is stored in the `firsttx-local-first` database in IndexedDB.
 
 - Database name: `firsttx-local-first`
 - Store name: `models`
-- Key: `storageKey` option or the model name
+- Key: Model name
 
 ### Storage structure
 

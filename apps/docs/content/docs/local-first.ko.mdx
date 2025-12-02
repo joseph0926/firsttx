@@ -128,16 +128,6 @@ export const CartModel = defineModel("cart", {
         </>
       ),
     },
-    {
-      name: "storageKey",
-      type: "string",
-      defaultValue: "name",
-      description: (
-        <>
-          IndexedDB에 저장될 실제 키입니다. 따로 지정하지 않으면 <code>defineModel</code>의 첫 번째 인자(<code>name</code>)가 사용됩니다.
-        </>
-      ),
-    },
   ]}
 />
 

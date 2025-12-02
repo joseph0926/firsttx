@@ -57,7 +57,6 @@ export function defineModel<T>(
     schema: z.ZodType<T>;
     ttl?: number;
     merge?: (current: T, incoming: T) => T;
-    storageKey?: string;
   },
 ): Model<T>;
 export function defineModel<T>(
@@ -68,7 +67,6 @@ export function defineModel<T>(
     schema: z.ZodType<T>;
     ttl?: number;
     merge?: (current: T, incoming: T) => T;
-    storageKey?: string;
   },
 ): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
@@ -76,7 +74,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   const subscribers = new Set<() => void>();
 
   const effectiveTTL = options.ttl ?? 5 * 60 * 1000;
-  const storageKey = options.storageKey ?? name;
+  const storageKey = name;
 
   let cachedHistory: ModelHistory = {
     updatedAt: 0,
