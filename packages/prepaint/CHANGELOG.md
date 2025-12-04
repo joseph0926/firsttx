@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.6.1
+
+### Patch Changes
+
+- Widen React peer dependency range from `^19.2.1` to `^19.0.0` for broader compatibility with React 19.x users
+
 ## 0.6.0
 
 ### Minor Changes

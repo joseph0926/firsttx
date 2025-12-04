@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.8.2
+
+### Patch Changes
+
+- Widen React peer dependency range from `^19.2.1` to `^19.0.0` for broader compatibility with React 19.x users
+
 ## 0.8.1
 
 ### Patch Changes

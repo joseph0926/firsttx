@@ -1,5 +1,15 @@
 # @firsttx/devtools
 
+## 0.1.16
+
+### Patch Changes
+
+- Widen React peer dependency range from `^19.2.1` to `^19.0.0` for broader compatibility with React 19.x users
+- Updated dependencies
+  - @firsttx/local-first@0.8.2
+  - @firsttx/prepaint@0.6.1
+  - @firsttx/tx@0.5.3
+
 ## 0.1.15
 
 ### Patch Changes
