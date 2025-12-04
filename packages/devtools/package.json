@@ -33,13 +33,13 @@
     "@firsttx/local-first": "workspace:*",
     "@firsttx/prepaint": "workspace:*",
     "@firsttx/tx": "workspace:*",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.24",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^9.2.1",
     "tsup": "^8.5.0"

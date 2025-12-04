@@ -33,7 +33,6 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
           scope: "@firsttx"
-          always-auth: true
 
       - name: Upgrade npm
         run: |
