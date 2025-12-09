@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.8.3
+
+### Patch Changes
+
+- changing peerDependencies
+
 ## 0.8.2
 
 ### Patch Changes
