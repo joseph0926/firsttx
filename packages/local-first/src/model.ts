@@ -1,33 +1,18 @@
 import type { z } from 'zod';
-import type { CacheStatus, ModelHistory, ModelOptions } from './types';
-import { Storage } from './storage';
-import { FirstTxError, StorageError, ValidationError } from './errors';
+import type { ModelHistory, ModelOptions } from './types';
+import { FirstTxError, StorageError } from './errors';
 import { ModelBroadcaster } from './broadcast';
 import { emitModelEvent } from './devtools';
+import { CacheManager } from './cache-manager';
+import type { CombinedSnapshot } from './cache-manager';
+import { StorageManager } from './storage-manager';
+import { SyncManager } from './sync-manager';
+import type { SyncPromiseOptions } from './sync-manager';
 
-/**
- * Internal cache state
- */
-export type CacheState<T> =
-  | { status: 'loading' }
-  | { status: 'success'; data: T }
-  | { status: 'error'; error: FirstTxError };
+export type { CacheState, CombinedSnapshot } from './cache-manager';
+export type { SyncPromiseOptions } from './sync-manager';
 
-/**
- * Combined snapshot for React integration
- */
-export type CombinedSnapshot<T> = {
-  data: T | null;
-  status: CacheStatus;
-  error: FirstTxError | null;
-  history: ModelHistory;
-};
-
-export type SyncPromiseOptions<T> = {
-  revalidateOnMount?: 'always' | 'stale' | 'never';
-  onSuccess?: (data: T) => void;
-  onError?: (error: Error) => void;
-};
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 export type Model<T> = {
   name: string;
@@ -60,592 +45,108 @@ export function defineModel<T>(
   },
 ): Model<T>;
 export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T> {
-  let cacheState: CacheState<T> = { status: 'loading' };
-  const subscribers = new Set<() => void>();
+  const effectiveTTL = options.ttl ?? DEFAULT_TTL_MS;
+  const mergeFunction = options.merge ?? ((_, next: T) => next);
 
-  const effectiveTTL = options.ttl ?? 5 * 60 * 1000;
-  const storageKey = name;
-
-  let cachedHistory: ModelHistory = {
-    updatedAt: 0,
-    age: Infinity,
-    isStale: true,
-    isConflicted: false,
-  };
-
-  let cachedSnapshot: CombinedSnapshot<T> = {
-    data: null,
-    status: 'loading',
-    error: null,
-    history: cachedHistory,
-  };
-
-  let syncPromise: Promise<T> | null = null;
-  let cachedDataPromise: Promise<T> | null = null;
-  let revalidationPromise: Promise<void> | null = null;
-
-  const notifySubscribers = () => {
-    subscribers.forEach((fn) => fn());
-  };
-
-  /**
-   * Updates cached history with current timestamp
-   */
-  const updateHistory = (updatedAt: number) => {
-    const age = Date.now() - updatedAt;
-    cachedHistory = {
-      updatedAt,
-      age,
-      isStale: age >= effectiveTTL,
-      isConflicted: false,
-    };
-  };
-
-  /**
-   * Updates combined snapshot (creates new reference only when state changes)
-   */
-  const updateSnapshot = () => {
-    const newData = cacheState.status === 'success' ? cacheState.data : null;
-    const newError = cacheState.status === 'error' ? cacheState.error : null;
-    const newStatus = cacheState.status;
-
-    if (
-      cachedSnapshot.data === newData &&
-      cachedSnapshot.status === newStatus &&
-      cachedSnapshot.error === newError &&
-      cachedSnapshot.history === cachedHistory
-    ) {
-      return;
-    }
-
-    cachedSnapshot = {
-      data: newData,
-      status: newStatus,
-      error: newError,
-      history: cachedHistory,
-    };
-  };
-
-  let operationQueue: Promise<void> = Promise.resolve();
-  const enqueue = <R>(operation: () => Promise<R>): Promise<R> => {
-    const run = operationQueue.then(operation);
-    operationQueue = run.then(
-      () => undefined,
-      () => undefined,
-    );
-    return run;
-  };
-
-  const updateCache = (data: T, updatedAt: number) => {
-    cacheState = { status: 'success', data };
-    updateHistory(updatedAt);
-    updateSnapshot();
-    cachedDataPromise = null;
-    notifySubscribers();
-  };
-
-  const reloadCache = async () => {
-    const storage = Storage.getInstance();
-    const stored = await storage.get<T>(storageKey);
-    if (stored) {
-      updateCache(stored.data, stored.updatedAt);
-    }
-  };
-
-  const persist = async (storage: Storage, data: T, updatedAt: number) => {
-    await storage.set(storageKey, {
-      _v: options.version ?? 1,
-      updatedAt,
-      data,
-    });
-    updateCache(data, updatedAt);
-  };
+  const cacheManager = new CacheManager<T>(effectiveTTL);
+  const storageManager = new StorageManager<T>({
+    name,
+    schema: options.schema,
+    version: options.version,
+    ttl: effectiveTTL,
+    initialData: options.initialData,
+  });
+  const syncManager = new SyncManager<T>(name, cacheManager, storageManager, mergeFunction);
 
   const broadcaster = ModelBroadcaster.getInstance();
-  broadcaster.subscribe(storageKey, () => {
-    void reloadCache();
+  // eslint-disable-next-line
+  broadcaster.subscribe(name, async () => {
+    const result = await storageManager.load();
+    if (result) {
+      cacheManager.updateWithData(result.data, result.history.updatedAt);
+    }
   });
-
-  const getSnapshotWithMeta = async (): Promise<{
-    data: T;
-    history: ModelHistory;
-  } | null> => {
-    const loadStartTime = performance.now();
-    const storage = Storage.getInstance();
-    const stored = await storage.get<T>(storageKey);
-
-    if (!stored) {
-      return null;
-    }
-
-    if (options.version && stored._v !== options.version) {
-      await storage.delete(storageKey);
-
-      if (options.initialData) {
-        await model.replace(options.initialData);
-        return {
-          data: options.initialData,
-          history: {
-            updatedAt: Date.now(),
-            age: 0,
-            isStale: false,
-            isConflicted: false,
-          },
-        };
-      }
-      return null;
-    }
-
-    const parseResult = options.schema.safeParse(stored.data);
-    if (!parseResult.success) {
-      await storage.delete(storageKey);
-
-      emitModelEvent('validation.error', {
-        modelName: name,
-        error: parseResult.error.message,
-        path: parseResult.error.issues[0]?.path.join('.'),
-      });
-
-      if (process.env.NODE_ENV !== 'production') {
-        throw new ValidationError(
-          `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
-          name,
-          parseResult.error,
-        );
-      }
-
-      return null;
-    }
-
-    const loadDuration = performance.now() - loadStartTime;
-    const age = Date.now() - stored.updatedAt;
-
-    emitModelEvent('load', {
-      modelName: name,
-      dataSize: JSON.stringify(parseResult.data).length,
-      age,
-      isStale: age >= effectiveTTL,
-      duration: loadDuration,
-    });
-
-    return {
-      data: parseResult.data,
-      history: {
-        updatedAt: stored.updatedAt,
-        age,
-        isStale: age >= effectiveTTL,
-        isConflicted: false,
-      },
-    };
-  };
-
-  const revalidateInBackground = async (
-    current: T,
-    fetcher: (current: T) => Promise<T>,
-    options?: SyncPromiseOptions<T>,
-    // eslint-disable-next-line
-  ) => {
-    if (revalidationPromise) return;
-
-    revalidationPromise = (async () => {
-      try {
-        const fresh = await fetcher(current);
-        await model.replace(fresh);
-
-        emitModelEvent('revalidate', {
-          modelName: name,
-          source: 'background',
-        });
-
-        options?.onSuccess?.(fresh);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-
-        options?.onError?.(error);
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn(`[FirstTx] Background revalidation failed for "${name}":`, err);
-        }
-      } finally {
-        revalidationPromise = null;
-      }
-    })();
-  };
 
   const model: Model<T> = {
     name,
     schema: options.schema,
     ttl: effectiveTTL,
-    merge: options.merge ?? ((_, next) => next),
+    merge: mergeFunction,
 
-    /**
-     * Async snapshot retrieval from IndexedDB
-     */
-    getSnapshot: async () => {
-      const loadStartTime = performance.now();
-      const storage = Storage.getInstance();
-      const stored = await storage.get<T>(storageKey);
-
-      if (!stored) {
-        return null;
-      }
-
-      if (options.version && stored._v !== options.version) {
-        await storage.delete(storageKey);
-
-        if (options.initialData) {
-          await model.replace(options.initialData);
-          return options.initialData;
-        }
-        return null;
-      }
-
-      const parseResult = options.schema.safeParse(stored.data);
-      if (!parseResult.success) {
-        await storage.delete(storageKey);
-
-        emitModelEvent('validation.error', {
-          modelName: name,
-          error: parseResult.error.message,
-          path: parseResult.error.issues[0]?.path.join('.'),
-        });
-
-        if (process.env.NODE_ENV !== 'production') {
-          throw new ValidationError(
-            `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
-            name,
-            parseResult.error,
-          );
-        }
-
-        return null;
-      }
-
-      const loadDuration = performance.now() - loadStartTime;
-      const age = Date.now() - stored.updatedAt;
-
-      emitModelEvent('load', {
-        modelName: name,
-        dataSize: JSON.stringify(parseResult.data).length,
-        age,
-        isStale: age >= effectiveTTL,
-        duration: loadDuration,
-      });
-
-      return parseResult.data ?? null;
+    getSnapshot: async (): Promise<T | null> => {
+      const result = await storageManager.load();
+      return result?.data ?? null;
     },
 
-    /**
-     * Async history retrieval from IndexedDB
-     */
-    getHistory: async (): Promise<ModelHistory> => {
-      const storage = Storage.getInstance();
-      const stored = await storage.get<T>(storageKey);
-
-      if (!stored) {
-        return {
-          updatedAt: 0,
-          age: Infinity,
-          isStale: true,
-          isConflicted: false,
-        };
-      }
-
-      const age = Date.now() - stored.updatedAt;
-
-      return {
-        updatedAt: stored.updatedAt,
-        age,
-        isStale: age >= effectiveTTL,
-        isConflicted: false,
-      };
+    getHistory: (): Promise<ModelHistory> => {
+      return syncManager.getHistory();
     },
 
-    /**
-     * Replaces entire model data (used for server sync)
-     */
-    replace: async (data: T): Promise<void> =>
-      enqueue(async () => {
-        const replaceStartTime = performance.now();
-        const parseResult = options.schema.safeParse(data);
-        if (!parseResult.success) {
-          emitModelEvent('validation.error', {
-            modelName: name,
-            error: parseResult.error.message,
-            path: parseResult.error.issues[0]?.path.join('.'),
-          });
-
-          throw new ValidationError(
-            `[FirstTx] Invalid data for model "${name}"`,
-            name,
-            parseResult.error,
-          );
-        }
-
-        const storage = Storage.getInstance();
-        const stored = await storage.get<T>(storageKey);
-
-        let base: T | null = null;
-
-        if (stored) {
-          if (options.version && stored._v !== options.version) {
-            await storage.delete(storageKey);
-            if (options.initialData) {
-              base = structuredClone(options.initialData);
-            }
-          } else {
-            const parseStored = options.schema.safeParse(stored.data);
-
-            if (!parseStored.success) {
-              await storage.delete(storageKey);
-
-              emitModelEvent('validation.error', {
-                modelName: name,
-                error: parseStored.error.message,
-                path: parseStored.error.issues[0]?.path.join('.'),
-              });
-
-              if (process.env.NODE_ENV !== 'production') {
-                throw new ValidationError(
-                  `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
-                  name,
-                  parseStored.error,
-                );
-              }
-
-              if (!options.initialData) {
-                throw new Error(
-                  `[FirstTx] Cannot replace model "${name}" - no data exists and no initialData provided`,
-                );
-              }
-
-              base = structuredClone(options.initialData);
-            } else {
-              base = parseStored.data;
-            }
-          }
-        }
-
-        const merged = base ? model.merge(base, parseResult.data) : parseResult.data;
-        const now = Date.now();
-
-        await persist(storage, merged, now);
-
-        broadcaster.broadcast({ type: 'model-replaced', key: storageKey });
-
-        const replaceDuration = performance.now() - replaceStartTime;
-
-        emitModelEvent('replace', {
-          modelName: name,
-          dataSize: JSON.stringify(merged).length,
-          source: 'manual',
-          duration: replaceDuration,
-        });
-      }),
-
-    /**
-     * Patches model data with mutator function (used for optimistic updates)
-     */
-    patch: async (mutator: (draft: T) => void): Promise<void> =>
-      enqueue(async () => {
-        const patchStartTime = performance.now();
-        const storage = Storage.getInstance();
-        const stored = await storage.get<T>(storageKey);
-
-        let draft: T;
-
-        const isVersionMismatch = stored && options.version && stored._v !== options.version;
-        if (isVersionMismatch) {
-          await storage.delete(storageKey);
-        }
-
-        if (!stored || isVersionMismatch) {
-          if (!options.initialData) {
-            throw new Error(
-              `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
-            );
-          }
-
-          draft = structuredClone(options.initialData);
-        } else {
-          const parseStored = options.schema.safeParse(stored.data);
-
-          if (!parseStored.success) {
-            await storage.delete(storageKey);
-
-            emitModelEvent('validation.error', {
-              modelName: name,
-              error: parseStored.error.message,
-              path: parseStored.error.issues[0]?.path.join('.'),
-            });
-
-            if (process.env.NODE_ENV !== 'production') {
-              throw new ValidationError(
-                `[FirstTx] Invalid data for model "${name}" - removed corrupted data`,
-                name,
-                parseStored.error,
-              );
-            }
-
-            if (!options.initialData) {
-              throw new Error(
-                `[FirstTx] Cannot patch model "${name}" - no data exists and no initialData provided`,
-              );
-            }
-
-            draft = structuredClone(options.initialData);
-          } else {
-            draft = structuredClone(parseStored.data);
-          }
-        }
-
-        mutator(draft);
-
-        const parseResult = options.schema.safeParse(draft);
-        if (!parseResult.success) {
-          emitModelEvent('validation.error', {
-            modelName: name,
-            error: parseResult.error.message,
-            path: parseResult.error.issues[0]?.path.join('.'),
-          });
-
-          throw new ValidationError(
-            `[FirstTx] Patch validation failed for model "${name}"`,
-            name,
-            parseResult.error,
-          );
-        }
-
-        const now = Date.now();
-
-        await persist(storage, parseResult.data, now);
-
-        broadcaster.broadcast({ type: 'model-patched', key: storageKey });
-
-        const patchDuration = performance.now() - patchStartTime;
-        emitModelEvent('patch', {
-          modelName: name,
-          operation: 'mutate',
-          duration: patchDuration,
-        });
-      }),
-
-    getCachedSnapshot: () => {
-      return cacheState.status === 'success' ? cacheState.data : null;
+    replace: async (data: T): Promise<void> => {
+      await syncManager.replace(data);
+      broadcaster.broadcast({ type: 'model-replaced', key: name });
     },
 
-    getCachedError: () => {
-      return cacheState.status === 'error' ? cacheState.error : null;
+    patch: async (mutator: (draft: T) => void): Promise<void> => {
+      await syncManager.patch(mutator);
+      broadcaster.broadcast({ type: 'model-patched', key: name });
     },
 
-    getCachedHistory: () => {
-      return cachedHistory;
+    getCachedSnapshot: (): T | null => {
+      return cacheManager.getCachedSnapshot();
     },
 
-    /**
-     * Returns combined snapshot with stable reference (prevents infinite loops)
-     */
-    getCombinedSnapshot: () => {
-      return cachedSnapshot;
+    getCachedError: (): FirstTxError | null => {
+      return cacheManager.getCachedError();
     },
 
-    /**
-     * Subscribes to model changes (React integration)
-     */
-    subscribe: (callback) => {
-      subscribers.add(callback);
+    getCachedHistory: (): ModelHistory => {
+      return cacheManager.getCachedHistory();
+    },
 
-      if (subscribers.size === 1 && cacheState.status === 'loading') {
+    getCombinedSnapshot: (): CombinedSnapshot<T> => {
+      return cacheManager.getCombinedSnapshot();
+    },
+
+    subscribe: (callback: () => void): (() => void) => {
+      const unsubscribe = cacheManager.subscribe(callback);
+
+      if (cacheManager.getSubscriberCount() === 1 && cacheManager.isLoading()) {
         model
           .getSnapshot()
           .then(async (data) => {
             if (data) {
-              cacheState = { status: 'success', data };
               const history = await model.getHistory();
-              cachedHistory = history;
-              updateSnapshot();
-              notifySubscribers();
+              cacheManager.updateWithData(data, history.updatedAt);
+              cacheManager.setHistory(history);
             } else {
-              cacheState = { status: 'loading' };
-              updateSnapshot();
-              notifySubscribers();
+              cacheManager.setLoading();
             }
           })
           .catch((error: unknown) => {
             if (error instanceof FirstTxError) {
-              cacheState = { status: 'error', error };
+              cacheManager.updateWithError(error);
             } else {
-              cacheState = {
-                status: 'error',
-                error: new StorageError(
+              cacheManager.updateWithError(
+                new StorageError(
                   error instanceof Error ? error.message : String(error),
                   'UNKNOWN',
                   true,
                   { key: name, operation: 'get' },
                 ),
-              };
+              );
             }
-            updateSnapshot();
-            notifySubscribers();
           });
       }
 
-      return () => {
-        subscribers.delete(callback);
-      };
+      return unsubscribe;
     },
 
-    getSyncPromise: (fetcher, syncOptions) => {
-      const cached = model.getCachedSnapshot();
-      if (cached && cachedDataPromise) {
-        return cachedDataPromise;
-      }
-
-      if (syncPromise) {
-        return syncPromise;
-      }
-
-      if (cached) {
-        cachedDataPromise = Promise.resolve(cached);
-        return cachedDataPromise;
-      }
-
-      syncPromise = (async () => {
-        try {
-          const result = await getSnapshotWithMeta();
-
-          if (result) {
-            cacheState = { status: 'success', data: result.data };
-            cachedHistory = result.history;
-            updateSnapshot();
-
-            const revalidateMode = syncOptions?.revalidateOnMount ?? 'always';
-            const shouldRevalidate =
-              revalidateMode === 'always' || (revalidateMode === 'stale' && result.history.isStale);
-
-            if (shouldRevalidate) {
-              void revalidateInBackground(result.data, fetcher, syncOptions);
-            }
-
-            cachedDataPromise = Promise.resolve(result.data);
-            return result.data;
-          }
-
-          const data = await fetcher(null);
-          await model.replace(data);
-          syncOptions?.onSuccess?.(data);
-          cachedDataPromise = Promise.resolve(data);
-          return data;
-        } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          syncOptions?.onError?.(error);
-          throw error;
-        } finally {
-          syncPromise = null;
-        }
-      })();
-
-      return syncPromise;
+    getSyncPromise: (
+      fetcher: (current: T | null) => Promise<T>,
+      syncOptions?: SyncPromiseOptions<T>,
+    ): Promise<T> => {
+      return syncManager.getSyncPromise(fetcher, syncOptions);
     },
   };
 

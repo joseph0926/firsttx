@@ -37,6 +37,9 @@
     "snapshot",
     "persistence"
   ],
+  "dependencies": {
+    "@firsttx/shared": "workspace:*"
+  },
   "peerDependencies": {
     "react": "^18.2.0 || ^19.0.0",
     "zod": "^3.23.0 || ^4.0.0"
