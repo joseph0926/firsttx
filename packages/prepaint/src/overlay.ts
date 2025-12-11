@@ -1,5 +1,6 @@
 import { normalizeSnapshotStyleEntry } from './style-utils';
 import type { SnapshotStyle } from './types';
+import { sanitizeSnapshotHTMLSync } from './sanitize';
 
 const isTestEnv = typeof process !== 'undefined' && !!process.env?.VITEST;
 
@@ -69,7 +70,7 @@ export function mountOverlay(html: string, styles?: Array<SnapshotStyle | string
   }
 
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = html;
+  wrapper.innerHTML = sanitizeSnapshotHTMLSync(html);
   shadow.appendChild(wrapper);
   document.body.appendChild(host);
 }

@@ -6,6 +6,7 @@ import { mountOverlay } from './overlay';
 import { normalizeSnapshotStyleEntry } from './style-utils';
 import { BootError, PrepaintStorageError, convertDOMException } from './errors';
 import { emitDevToolsEvent } from './devtools';
+import { sanitizeSnapshotHTMLSync } from './sanitize';
 
 function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   return new Promise((resolve, reject) => {
@@ -36,8 +37,9 @@ function deleteSnapshot(db: IDBDatabase, route: string): Promise<void> {
 }
 
 function extractSingleRoot(html: string): string | null {
+  const sanitized = sanitizeSnapshotHTMLSync(html);
   const tmp = document.createElement('div');
-  tmp.innerHTML = html;
+  tmp.innerHTML = sanitized;
   const first = tmp.firstElementChild as HTMLElement | null;
   return first ? first.outerHTML : null;
 }
