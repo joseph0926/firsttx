@@ -1,5 +1,13 @@
 # @firsttx/tx
 
+## 0.5.4
+
+### Patch Changes
+
+### Dependencies
+
+- Add `@firsttx/shared` as dependency for Turborepo build order
+
 ## 0.5.3
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 # @firsttx/devtools
 
+## 0.1.18
+
+### Patch Changes
+
+### Security
+
+- Use explicit origin instead of wildcard (`*`) in `postMessage` calls in bridge and content script
+
+### Dependencies
+
+- Add `@firsttx/shared` as dependency
+
 ## 0.1.17
 
 ### Patch Changes

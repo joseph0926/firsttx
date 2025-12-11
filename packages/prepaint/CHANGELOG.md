@@ -1,5 +1,19 @@
 # @firsttx/prepaint
 
+## 0.7.0
+
+### Minor Changes
+
+### Features
+
+- Add HTML sanitization for XSS protection in `boot.ts` and `overlay.ts`
+- Support optional DOMPurify integration with fallback sanitizer
+
+### Dependencies
+
+- Add `@firsttx/shared` as dependency
+- Add `dompurify` as optional peer dependency
+
 ## 0.6.1
 
 ### Patch Changes

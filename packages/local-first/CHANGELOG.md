@@ -1,5 +1,20 @@
 # @firsttx/local-first
 
+## 0.9.0
+
+### Minor Changes
+
+### Refactor
+
+- Split `defineModel` (660+ lines) into `CacheManager`, `StorageManager`, and `SyncManager` classes
+- Extract cache state management into dedicated `CacheManager` class
+- Extract IndexedDB operations into `StorageManager` class
+- Extract sync logic and promise caching into `SyncManager` class
+
+### Dependencies
+
+- Add `@firsttx/shared` as dependency
+
 ## 0.8.3
 
 ### Patch Changes
