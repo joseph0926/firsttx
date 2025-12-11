@@ -1,0 +1,41 @@
+{
+  "name": "@firsttx/shared",
+  "version": "0.1.0",
+  "description": "Shared utilities for FirstTx packages",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "dompurify": "^3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "dompurify": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "dompurify": "^3.3.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}
