@@ -23,6 +23,19 @@ const STORAGE_VERSION = 1;
 const EXTENSION_MESSAGE_SOURCE = '__FIRSTTX_EXTENSION__';
 const BRIDGE_MESSAGE_SOURCE = '__FIRSTTX_BRIDGE__';
 
+function getCurrentOrigin(): string {
+  if (typeof window === 'undefined') return '*';
+  try {
+    const { location } = window;
+    if (location?.origin && location.origin !== 'null') {
+      return location.origin;
+    }
+  } catch {
+    // Security error in cross-origin context
+  }
+  return '*';
+}
+
 interface ExtensionMessage {
   source: typeof EXTENSION_MESSAGE_SOURCE;
   type: 'command' | 'buffer-request' | 'ping';
@@ -161,7 +174,7 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
         ...message,
       };
 
-      window.postMessage(fullMessage, '*');
+      window.postMessage(fullMessage, getCurrentOrigin());
 
       if (this.config.debug) {
         console.log('[FirstTx Bridge] Sent to extension:', fullMessage);

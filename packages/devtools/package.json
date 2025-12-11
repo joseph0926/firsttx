@@ -30,6 +30,7 @@
     "typecheck:bridge": "tsc -p tsconfig.bridge.json --noEmit"
   },
   "dependencies": {
+    "@firsttx/shared": "workspace:*",
     "@firsttx/local-first": "workspace:*",
     "@firsttx/prepaint": "workspace:*",
     "@firsttx/tx": "workspace:*",

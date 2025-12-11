@@ -9,6 +9,18 @@ import {
 
 console.log('[FirstTx] Content script loaded');
 
+function getCurrentOrigin(): string {
+  try {
+    const { location } = window;
+    if (location?.origin && location.origin !== 'null') {
+      return location.origin;
+    }
+  } catch {
+    // Security error
+  }
+  return '*';
+}
+
 type RuntimeLike = {
   getURL(path: string): string;
   sendMessage(
@@ -74,7 +86,7 @@ if (!runtime) {
     });
   });
 
-  runtime.onMessage.addListener((message, sender, sendResponse) => {
+  runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!isBackgroundToContentMessage(message)) {
       sendResponse({ success: false, error: 'Invalid message type' });
       return false;
@@ -87,7 +99,7 @@ if (!runtime) {
         data: message.data,
       };
 
-      window.postMessage(toBridge, '*');
+      window.postMessage(toBridge, getCurrentOrigin());
 
       sendResponse({ success: true });
     } catch (error) {
