@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.7.1
+
+### Patch Changes
+
+- update dependencies @firsttx/shared
+
 ## 0.7.0
 
 ### Minor Changes

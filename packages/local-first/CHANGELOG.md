@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.9.1
+
+### Patch Changes
+
+- update dependencies @firsttx/shared
+
 ## 0.9.0
 
 ### Minor Changes

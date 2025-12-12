@@ -1,5 +1,11 @@
 # @firsttx/tx
 
+## 0.5.5
+
+### Patch Changes
+
+- update dependencies @firsttx/shared
+
 ## 0.5.4
 
 ### Patch Changes
