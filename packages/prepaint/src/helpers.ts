@@ -70,6 +70,7 @@ export function createFirstTxRoot(
   element: ReactElement,
   options: CreateFirstTxRootOptions = {},
 ): void {
+  'use no memo';
   const { transition = true, onCapture, onHandoff, onHydrationError } = options;
   if (container instanceof DocumentFragment) {
     throw new Error(
