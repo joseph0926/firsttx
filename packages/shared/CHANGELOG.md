@@ -1,5 +1,11 @@
 # @firsttx/shared
 
+## 0.2.3
+
+### Patch Changes
+
+- add repository.url
+
 ## 0.2.2
 
 ### Patch Changes

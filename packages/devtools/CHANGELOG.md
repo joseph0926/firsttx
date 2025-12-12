@@ -1,5 +1,15 @@
 # @firsttx/devtools
 
+## 0.1.22
+
+### Patch Changes
+
+- Updated dependencies
+  - @firsttx/shared@0.2.3
+  - @firsttx/local-first@0.9.4
+  - @firsttx/prepaint@0.7.4
+  - @firsttx/tx@0.5.8
+
 ## 0.1.21
 
 ### Patch Changes
