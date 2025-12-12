@@ -1,5 +1,13 @@
 # @firsttx/prepaint
 
+## 0.8.1
+
+### Patch Changes
+
+### Bug Fixes
+
+- **prepaint**: Add `'use no memo'` directive to `createFirstTxRoot` to prevent "Invalid hook call" errors when used with React Compiler (`babel-plugin-react-compiler`). The compiler was injecting `useMemoCache` hooks into internal callbacks, causing crashes since the function executes outside React's rendering context.
+
 ## 0.8.0
 
 ### Minor Changes
