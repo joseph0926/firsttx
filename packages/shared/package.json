@@ -37,5 +37,10 @@
   "engines": {
     "node": ">=22"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joseph0926/firsttx.git",
+    "directory": "packages/shared"
+  }
 }
