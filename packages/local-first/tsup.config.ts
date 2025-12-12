@@ -9,4 +9,5 @@ export default defineConfig({
   treeshake: true,
   splitting: false,
   minify: false,
+  external: ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'zod'],
 });
