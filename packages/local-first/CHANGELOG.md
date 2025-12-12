@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.10.0
+
+### Minor Changes
+
+Added explicit external config in tsup for react, react/jsx-runtime, react/jsx-dev-runtime, and zod to prevent duplicate module instances when used in consumer applications.
+
 ## 0.9.4
 
 ### Patch Changes

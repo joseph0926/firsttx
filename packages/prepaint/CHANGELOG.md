@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.8.0
+
+### Minor Changes
+
+Fixed "Invalid hook call" error caused by bundling React into the package. Added explicit external config in tsup for react, react-dom, react/jsx-runtime, and react/jsx-dev-runtime to ensure the host app's React instance is used.
+
 ## 0.7.4
 
 ### Patch Changes

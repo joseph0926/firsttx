@@ -1,5 +1,11 @@
 # @firsttx/tx
 
+## 0.6.0
+
+### Minor Changes
+
+Added explicit external config in tsup for react, react/jsx-runtime, and react/jsx-dev-runtime to prevent duplicate React instance issues
+
 ## 0.5.8
 
 ### Patch Changes

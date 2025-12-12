@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/tx",
-  "version": "0.5.8",
+  "version": "0.6.0",
   "description": "Atomic transaction engine for optimistic UI that sequences steps with compensation, built-in retry/backoff, and ViewTransition-ready rollbacks.",
   "license": "MIT",
   "author": "joseph0926",

@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/prepaint",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "Instant boot script for CSR apps that replays IndexedDB snapshots before React loads, delivering ~0 ms revisit blanks with automatic hydration or clean rerender fallback.",
   "license": "MIT",
   "author": "joseph0926",
