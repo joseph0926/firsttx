@@ -1,0 +1,56 @@
+version: 2
+
+updates:
+  # npm 의존성 업데이트
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    # 그룹화하여 PR 수 줄이기
+    groups:
+      # 개발 의존성 그룹
+      dev-dependencies:
+        patterns:
+          - "*"
+        dependency-type: "development"
+      # 프로덕션 의존성 (개별 PR)
+      production-dependencies:
+        patterns:
+          - "*"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "automated"
+    # 보안 업데이트는 항상 즉시
+    open-pull-requests-limit: 10
+    # 특정 패키지 무시 (필요 시)
+    ignore:
+      # React 19는 수동 업데이트 권장
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions 업데이트
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "ci"
+      - "automated"
+    # 액션은 보안상 빠른 업데이트 권장
+    open-pull-requests-limit: 5

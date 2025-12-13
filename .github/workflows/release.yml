@@ -15,9 +15,10 @@ jobs:
   release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    environment: npm-publish
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -29,21 +30,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "24.x"
+          node-version: "22"
           cache: pnpm
           registry-url: https://registry.npmjs.org
           scope: "@firsttx"
 
-      - name: Upgrade npm
-        run: |
-          corepack enable || true
-          npm install -g npm@latest
-
-      - name: Print npm version (debug)
-        run: npm -v
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Setup Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-
 
       - name: Create Release Pull Request or Publish
         id: changesets

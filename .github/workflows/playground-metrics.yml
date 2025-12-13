@@ -6,44 +6,36 @@ on:
     branches:
       - main
       - "metrics/**"
+    paths:
+      - "apps/playground/**"
+      - "packages/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   metrics:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.22.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup environment
+        uses: ./.github/actions/setup-pnpm
 
       - name: Build FirstTx packages
-        run: |
-          pnpm --filter @firsttx/prepaint build
-          pnpm --filter @firsttx/local-first build
-          pnpm --filter @firsttx/tx build
+        run: pnpm run build --filter='./packages/*'
 
       - name: Run Playwright metrics suite
+        working-directory: apps/playground
         run: |
-          cd apps/playground
           pnpm exec playwright install --with-deps
           pnpm test:e2e
 
       - name: Copy metrics to public/
-        run: |
-          cd apps/playground
-          pnpm metrics:sync
+        working-directory: apps/playground
+        run: pnpm metrics:sync
 
       - name: Upload metrics artifacts
         uses: actions/upload-artifact@v4

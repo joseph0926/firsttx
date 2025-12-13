@@ -1,0 +1,58 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to deprecate"
+        required: true
+        type: choice
+        options:
+          - "@firsttx/prepaint"
+          - "@firsttx/tx"
+          - "@firsttx/local-first"
+          - "@firsttx/shared"
+          - "@firsttx/devtools"
+      version:
+        description: "Version to deprecate (e.g., 1.2.3)"
+        required: true
+        type: string
+      message:
+        description: "Deprecation message (e.g., Critical bug, use 1.2.2)"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+
+jobs:
+  deprecate:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+
+      - name: Deprecate package version
+        run: |
+          echo "Deprecating ${{ inputs.package }}@${{ inputs.version }}"
+          echo "Message: ${{ inputs.message }}"
+          npm deprecate "${{ inputs.package }}@${{ inputs.version }}" "${{ inputs.message }}"
+
+      - name: Summary
+        run: |
+          echo "## Package Deprecated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | \`${{ inputs.package }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ inputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Message | ${{ inputs.message }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Create a fix and publish a new patch version" >> $GITHUB_STEP_SUMMARY
+          echo "2. Update documentation if needed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Notify users through release notes" >> $GITHUB_STEP_SUMMARY
