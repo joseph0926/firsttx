@@ -1,13 +1,12 @@
 import { useCallback, useState } from 'react';
-import { Wifi, WifiOff, AlertTriangle, CheckCircle2, Clock, RotateCcw } from 'lucide-react';
-import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+import { Wifi, WifiOff, AlertTriangle, CheckCircle2, Clock, RotateCcw, Zap } from 'lucide-react';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useTx } from '@firsttx/tx';
 import { sleep } from '@/lib/utils';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('network-chaos')!;
+const relatedDemos = getRelatedDemos('network-chaos', 2);
 
 interface RequestLog {
   id: number;
@@ -184,13 +183,20 @@ export default function NetworkChaos() {
     stats.total === 0 ? '--' : `${Math.round((stats.success / stats.total) * 100)}%`;
 
   return (
-    <ScenarioLayout
-      level={3}
-      title="Network Chaos"
-      badge={{
-        icon: <Wifi className="h-3 w-3" />,
-        label: isRunning ? 'Testing' : 'Ready',
-      }}
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -228,6 +234,19 @@ export default function NetworkChaos() {
         title="Network Instability Simulator"
         description="Each request runs inside useTx with configurable retry + backoff. Toggle chaos types to see how transactions respond."
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Adjust the chaos type and retry settings, then run the test. See how auto-retry and
+              rollback work under network error conditions.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -427,7 +446,7 @@ export default function NetworkChaos() {
           </div>
         </div>
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }
 

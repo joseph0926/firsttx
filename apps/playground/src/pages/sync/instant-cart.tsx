@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Clock, Zap, RefreshCw, Loader2 } from 'lucide-react';
-import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader, BeforeAfter } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
 import { useTx } from '@firsttx/tx';
 import { CartModel, type Cart, type CartItem } from '@/models/cart.model';
 import { fetchCart, updateCartItem } from '@/api/cart.api';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('instant-cart')!;
+const relatedDemos = getRelatedDemos('instant-cart', 2);
 
 export default function InstantCart() {
   const { data: firstTxCart, patch, isSyncing } = useSyncedModel(CartModel, fetchCart);
@@ -71,12 +70,12 @@ export default function InstantCart() {
         setFirstTxServerAck(performance.now() - firstTxMutationStartRef.current);
         firstTxMutationStartRef.current = null;
       }
-      console.log('✅ [SUCCESS]', itemId, result);
+      console.log('[SUCCESS]', itemId, result);
     },
 
     onError: (error, itemId) => {
       firstTxMutationStartRef.current = null;
-      console.error('❌ [ERROR]', itemId, error);
+      console.error('[ERROR]', itemId, error);
     },
   });
 
@@ -118,7 +117,7 @@ export default function InstantCart() {
     const start = performance.now();
 
     if (!firstTxCart) {
-      console.warn('❌ firstTxCart is null!');
+      console.warn('firstTxCart is null!');
       return;
     }
 
@@ -156,13 +155,20 @@ export default function InstantCart() {
       : 0;
 
   return (
-    <ScenarioLayout
-      level={2}
-      title="Instant Cart"
-      badge={{
-        icon: <Zap className="h-3 w-3" />,
-        label: 'Local-First',
-      }}
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -195,10 +201,24 @@ export default function InstantCart() {
           status={timeSaved > 1000 ? 'excellent' : timeSaved > 500 ? 'good' : 'poor'}
         />
       </MetricsGrid>
+
       <SectionHeader
         title="Traditional CSR vs FirstTx"
         description="Click +1 buttons to see the response time difference. FirstTx updates instantly using local cache."
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Click the +1 button on both panels. Traditional waits for server response, while
+              FirstTx updates instantly. After refresh, FirstTx loads immediately from cache.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div
         className="sr-only"
@@ -210,123 +230,117 @@ export default function InstantCart() {
         data-firsttx-server-ack={firstTxServerAck ?? ''}
         data-time-saved={timeSaved || ''}
       />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4" data-testid="traditional-panel">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Traditional CSR</h3>
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
-                800ms load
-              </span>
-            </div>
 
-            {!traditionalCart && !traditionalLoading && (
-              <div className="py-12">
-                <button
-                  onClick={loadTraditionalCart}
-                  className="w-full rounded bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  Load Cart
-                </button>
+      <BeforeAfter
+        before={{
+          label: 'Traditional CSR',
+          description:
+            'All actions must wait for server response. Initial load ~800ms, updates ~500ms.',
+          demo: (
+            <div className="space-y-4" data-testid="traditional-panel">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
+                  800ms load
+                </span>
               </div>
-            )}
 
-            {traditionalLoading && (
-              <div className="py-12 text-center">
-                <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
-              </div>
-            )}
-
-            {traditionalCart && (
-              <div className="space-y-3">
-                {traditionalCart.items.map((item) => (
-                  <CartItemCard
-                    key={item.id}
-                    item={item}
-                    onIncrement={() => handleTraditionalIncrement(item.id)}
-                    loading={traditionalUpdating}
-                    testId="traditional-increment"
-                  />
-                ))}
-                <div className="border-t border-border pt-3">
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span>${traditionalCart.total.toFixed(2)}</span>
-                  </div>
+              {!traditionalCart && !traditionalLoading && (
+                <div className="py-8">
+                  <button
+                    onClick={loadTraditionalCart}
+                    className="w-full rounded bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    Load Cart
+                  </button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/5 p-4">
-            <div className="flex gap-3">
-              <Clock className="h-5 w-5 shrink-0 text-yellow-500" />
-              <div className="text-sm">
-                <div className="font-medium">Every action waits for server</div>
-                <div className="text-muted-foreground">Initial load: ~800ms, Updates: ~500ms</div>
-              </div>
-            </div>
-          </div>
-        </div>
+              {traditionalLoading && (
+                <div className="py-8 text-center">
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+                </div>
+              )}
 
-        <div className="space-y-4" data-testid="firsttx-panel">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">FirstTx (Local-First)</h3>
-              <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-500">
-                0ms response
-              </span>
-            </div>
-
-            {!firstTxCart && (
-              <div className="py-12 text-center">
-                <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
-              </div>
-            )}
-
-            {firstTxCart && (
-              <div className="space-y-3">
-                {firstTxCart.items.map((item) => (
-                  <CartItemCard
-                    key={item.id}
-                    item={item}
-                    onIncrement={() => handleFirstTxIncrement(item.id)}
-                    loading={false}
-                    testId="firsttx-increment"
-                  />
-                ))}
-                <div className="border-t border-border pt-3">
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span>${firstTxCart.total.toFixed(2)}</span>
-                  </div>
-                  {(isSyncing || isIncrementing) && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                      <span>{isIncrementing ? 'Updating...' : 'Syncing in background...'}</span>
+              {traditionalCart && (
+                <div className="space-y-3">
+                  {traditionalCart.items.map((item) => (
+                    <CartItemCard
+                      key={item.id}
+                      item={item}
+                      onIncrement={() => handleTraditionalIncrement(item.id)}
+                      loading={traditionalUpdating}
+                      testId="traditional-increment"
+                    />
+                  ))}
+                  <div className="border-t border-border pt-3">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total:</span>
+                      <span>${traditionalCart.total.toFixed(2)}</span>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-green-500/50 bg-green-500/5 p-4">
-            <div className="flex gap-3">
-              <Zap className="h-5 w-5 shrink-0 text-green-500" />
-              <div className="text-sm">
-                <div className="font-medium">Instant local updates</div>
-                <div className="text-muted-foreground">
-                  Response: ~0ms, Server sync in background
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-        </div>
-      </div>
-    </ScenarioLayout>
+          ),
+          metrics: [
+            { label: 'Initial Load', value: '~800ms', status: 'bad' },
+            { label: 'Update', value: '~500ms', status: 'bad' },
+          ],
+        }}
+        after={{
+          label: 'FirstTx (Local-First)',
+          description:
+            'Loads instantly from local cache with 0ms optimistic updates. Server sync happens in background.',
+          demo: (
+            <div className="space-y-4" data-testid="firsttx-panel">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-500">
+                  0ms response
+                </span>
+              </div>
+
+              {!firstTxCart && (
+                <div className="py-8 text-center">
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+                </div>
+              )}
+
+              {firstTxCart && (
+                <div className="space-y-3">
+                  {firstTxCart.items.map((item) => (
+                    <CartItemCard
+                      key={item.id}
+                      item={item}
+                      onIncrement={() => handleFirstTxIncrement(item.id)}
+                      loading={false}
+                      testId="firsttx-increment"
+                    />
+                  ))}
+                  <div className="border-t border-border pt-3">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total:</span>
+                      <span>${firstTxCart.total.toFixed(2)}</span>
+                    </div>
+                    {(isSyncing || isIncrementing) && (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        <span>{isIncrementing ? 'Updating...' : 'Syncing in background...'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ),
+          metrics: [
+            { label: 'Initial Load', value: '~0ms', status: 'excellent' },
+            { label: 'Update', value: '~0ms', status: 'excellent' },
+          ],
+        }}
+      />
+    </DemoLayout>
   );
 }
 
@@ -344,7 +358,7 @@ function CartItemCard({ item, onIncrement, loading, testId }: CartItemCardProps)
       <div className="flex-1">
         <div className="font-medium">{item.name}</div>
         <div className="text-sm text-muted-foreground">
-          ${item.price.toFixed(2)} × {item.quantity}
+          ${item.price.toFixed(2)} x {item.quantity}
         </div>
       </div>
       <button

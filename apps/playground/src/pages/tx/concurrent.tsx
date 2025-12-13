@@ -1,16 +1,23 @@
 import { useCallback, useMemo, useState } from 'react';
-import { GitBranch, CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+  GitBranch,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  RefreshCw,
+  AlertTriangle,
+  Zap,
+} from 'lucide-react';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
 import { useTx } from '@firsttx/tx';
 import { ConcurrentInventoryModel } from '@/models/concurrent-inventory.model';
 import { reserveItem, fetchInventory } from '@/api/concurrent-inventory.api';
 import { sleep } from '@/lib/utils';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('concurrent')!;
+const relatedDemos = getRelatedDemos('concurrent', 2);
 
 interface TransactionLog {
   id: number;
@@ -188,13 +195,20 @@ export default function ConcurrentUpdates() {
   };
 
   return (
-    <ScenarioLayout
-      level={3}
-      title="Concurrent Updates"
-      badge={{
-        icon: <GitBranch className="h-3 w-3" />,
-        label: 'Atomic Rollback',
-      }}
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -241,7 +255,20 @@ export default function ConcurrentUpdates() {
         description="Launch multiple transactions simultaneously. FirstTx ensures each rollback is atomic - failed transactions never leave partial state."
       />
 
-      <div className="mb-6 space-y-4">
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Adjust the number of concurrent transactions and failure rate, then run the test.
+              Failed transactions are automatically rolled back to maintain data consistency.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
         <div
           className="sr-only"
           data-testid="concurrent-metrics"
@@ -368,6 +395,6 @@ export default function ConcurrentUpdates() {
           </div>
         )}
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }

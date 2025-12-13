@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Clock, Zap, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
-import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
 import { startTransaction } from '@firsttx/tx';
 import { CartModel, type Cart } from '@/models/cart.model';
 import { fetchCart, updateCartItem } from '@/api/cart.api';
 import { sleep } from '@/lib/utils';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('timing')!;
+const relatedDemos = getRelatedDemos('timing', 2);
 
 interface TimelineEvent {
   time: number;
@@ -177,13 +176,20 @@ export default function TimingAttack() {
   };
 
   return (
-    <ScenarioLayout
-      level={2}
-      title="Timing Attack"
-      badge={{
-        icon: <Activity className="h-3 w-3" />,
-        label: 'Race Condition Test',
-      }}
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -215,6 +221,19 @@ export default function TimingAttack() {
         title="Race Condition Simulator"
         description="Test what happens when server sync arrives during transaction execution. Will the rollback preserve server data?"
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Adjust the server sync timing with the slider and run the test. Server data should be
+              preserved regardless of timing.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -407,6 +426,6 @@ export default function TimingAttack() {
           </div>
         </div>
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }

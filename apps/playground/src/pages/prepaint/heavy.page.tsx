@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Zap, Clock, TrendingUp } from 'lucide-react';
-import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
 import { ProductsModel, type Product } from '@/models/products.model';
 import { fetchProducts } from '@/api/mock-products';
 import { useHandoffStrategy } from '@/lib/prepaint-handshake';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('heavy')!;
+const relatedDemos = getRelatedDemos('heavy', 2);
 
 export default function HeavyPage() {
   const {
@@ -28,12 +27,6 @@ export default function HeavyPage() {
     },
     {
       syncOnMount: 'stale',
-      onSuccess: (data) => {
-        console.log('[HeavyPage] Sync success:', data.items.length, 'products');
-      },
-      onError: (err) => {
-        console.error('[HeavyPage] Sync failed:', err);
-      },
     },
   );
 
@@ -44,23 +37,35 @@ export default function HeavyPage() {
 
   useEffect(() => {
     const startTime = performance.now();
-
     const visits = Number(localStorage.getItem('heavy-page-visits') || '0');
     setVisitCount(visits + 1);
     localStorage.setItem('heavy-page-visits', String(visits + 1));
-
     const endTime = performance.now();
     setLoadTime(endTime - startTime);
   }, []);
 
   if (!products) {
     return (
-      <ScenarioLayout level={1} title="Heavy Page">
+      <DemoLayout
+        level={demoMeta.level}
+        title={demoMeta.title}
+        packages={demoMeta.packages}
+        difficulty={demoMeta.difficulty}
+        duration={demoMeta.duration}
+        problem={demoMeta.problem}
+        solution={demoMeta.solution}
+        problemDetails={demoMeta.problemDetails}
+        solutionDetails={demoMeta.solutionDetails}
+        codeSnippet={demoMeta.codeSnippet}
+        codeTitle={demoMeta.codeTitle}
+        docsLink={demoMeta.docsLink}
+        relatedDemos={relatedDemos}
+      >
         <div className="flex h-64 items-center justify-center text-muted-foreground">
           {isSyncing ? (
             <div className="text-center">
               <div className="mb-2 text-lg">Loading initial data...</div>
-              <div className="text-sm">🔄 Fetching from server</div>
+              <div className="text-sm">Fetching from server</div>
             </div>
           ) : (
             <div className="text-center">
@@ -74,13 +79,27 @@ export default function HeavyPage() {
             </div>
           )}
         </div>
-      </ScenarioLayout>
+      </DemoLayout>
     );
   }
 
   if (error) {
     return (
-      <ScenarioLayout level={1} title="Heavy Page">
+      <DemoLayout
+        level={demoMeta.level}
+        title={demoMeta.title}
+        packages={demoMeta.packages}
+        difficulty={demoMeta.difficulty}
+        duration={demoMeta.duration}
+        problem={demoMeta.problem}
+        solution={demoMeta.solution}
+        problemDetails={demoMeta.problemDetails}
+        solutionDetails={demoMeta.solutionDetails}
+        codeSnippet={demoMeta.codeSnippet}
+        codeTitle={demoMeta.codeTitle}
+        docsLink={demoMeta.docsLink}
+        relatedDemos={relatedDemos}
+      >
         <div className="rounded border border-destructive bg-destructive/10 p-4">
           <h3 className="mb-2 font-semibold text-destructive">Sync Error</h3>
           <p className="mb-4 text-sm text-muted-foreground">{error.message}</p>
@@ -92,24 +111,27 @@ export default function HeavyPage() {
             {isSyncing ? 'Retrying...' : 'Retry'}
           </button>
         </div>
-      </ScenarioLayout>
+      </DemoLayout>
     );
   }
 
   const avgLoadTime = visitCount > 1 ? (loadTime + (visitCount - 1) * 120) / visitCount : loadTime;
 
   return (
-    <ScenarioLayout
-      level={1}
-      title="Heavy Page"
-      badge={
-        isPrepaintActive
-          ? {
-              icon: <Zap className="h-3 w-3" />,
-              label: 'Prepaint Active',
-            }
-          : undefined
-      }
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -141,8 +163,21 @@ export default function HeavyPage() {
           isPrepaintActive
             ? 'Prepaint restored this instantly.'
             : 'No prepaint snapshot available yet.'
-        } ${isSyncing ? '🔄 Syncing with server...' : ''}`}
+        } ${isSyncing ? 'Syncing with server...' : ''}`}
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Press F5 to refresh and compare loading times on revisit. When Prepaint is active, the
+              screen displays instantly.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div
         className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
@@ -152,7 +187,7 @@ export default function HeavyPage() {
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }
 

@@ -1,14 +1,19 @@
 import { Suspense, useState } from 'react';
 import { Users, Clock, RefreshCw, Zap } from 'lucide-react';
 import {
-  ScenarioLayout,
+  DemoLayout,
   MetricsGrid,
   MetricCard,
   SectionHeader,
-} from '../../components/scenario-layout';
+  CodeComparison,
+} from '@/components/demo';
 import { useSuspenseSyncedModel, useSyncedModel } from '@firsttx/local-first';
 import { ContactsModel, type Contact } from '@/models/contacts.model';
 import { fetchContacts } from '@/api/contacts.api';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('suspense')!;
+const relatedDemos = getRelatedDemos('suspense', 2);
 
 function ContactsSkeleton() {
   return (
@@ -99,6 +104,39 @@ function TraditionalContactsList() {
   );
 }
 
+const SUSPENSE_CODE = `function ContactsList() {
+  const contacts = useSuspenseSyncedModel(
+    ContactsModel,
+    fetchContacts
+  );
+
+  return (
+    <div>
+      {contacts.map(c => (
+        <Card key={c.id} {...c} />
+      ))}
+    </div>
+  );
+}`;
+
+const TRADITIONAL_CODE = `function ContactsList() {
+  const { data, isSyncing } =
+    useSyncedModel(
+      ContactsModel,
+      fetchContacts
+    );
+
+  if (!data) return <Skeleton />;
+
+  return (
+    <div>
+      {data.map(c => (
+        <Card key={c.id} {...c} />
+      ))}
+    </div>
+  );
+}`;
+
 export default function SuspenseDemo() {
   const [mode, setMode] = useState<'suspense' | 'traditional'>('suspense');
   const [key, setKey] = useState(0);
@@ -108,13 +146,20 @@ export default function SuspenseDemo() {
   };
 
   return (
-    <ScenarioLayout
-      level={2}
-      title="Suspense Integration"
-      badge={{
-        icon: <Zap className="h-3 w-3" />,
-        label: 'Suspense',
-      }}
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -144,6 +189,19 @@ export default function SuspenseDemo() {
         title="Suspense vs Traditional Pattern"
         description="Compare useSuspenseSyncedModel with useSyncedModel. Suspense eliminates conditional loading checks for cleaner component code."
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Switch between modes and compare the code differences. In Suspense mode, no null
+              checks are needed - loading state is handled by the Suspense boundary.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="mb-6 flex items-center gap-4">
         <div className="flex rounded-lg border border-border bg-card p-1">
@@ -191,76 +249,58 @@ export default function SuspenseDemo() {
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h3 className="mb-4 font-semibold">Code Comparison</h3>
-          {mode === 'suspense' ? (
-            <div className="space-y-4">
-              <div className="rounded bg-muted/50 p-4">
-                <h4 className="mb-2 text-sm font-medium text-green-500">Suspense Pattern</h4>
-                <pre className="overflow-x-auto text-xs text-muted-foreground">
-                  {`function ContactsList() {
-  const contacts = useSuspenseSyncedModel(
-    ContactsModel,
-    fetchContacts
-  );
+        <div className="space-y-4">
+          <CodeComparison
+            before={{
+              code: TRADITIONAL_CODE,
+              title: 'Traditional Pattern',
+            }}
+            after={{
+              code: SUSPENSE_CODE,
+              title: 'Suspense Pattern',
+            }}
+          />
 
-  return (
-    <div>
-      {contacts.map(c => (
-        <Card key={c.id} {...c} />
-      ))}
-    </div>
-  );
-}`}
-                </pre>
-              </div>
-              <div className="rounded bg-primary/5 p-3 text-sm">
-                <strong>Benefits:</strong>
-                <ul className="mt-1 list-inside list-disc text-muted-foreground">
-                  <li>No null checks needed</li>
-                  <li>Declarative loading state</li>
-                  <li>Cleaner component code</li>
-                  <li>Automatic Suspense boundary</li>
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded bg-muted/50 p-4">
-                <h4 className="mb-2 text-sm font-medium text-yellow-500">Traditional Pattern</h4>
-                <pre className="overflow-x-auto text-xs text-muted-foreground">
-                  {`function ContactsList() {
-  const { data, isSyncing } =
-    useSyncedModel(
-      ContactsModel,
-      fetchContacts
-    );
-
-  if (!data) return <Skeleton />;
-
-  return (
-    <div>
-      {data.map(c => (
-        <Card key={c.id} {...c} />
-      ))}
-    </div>
-  );
-}`}
-                </pre>
-              </div>
-              <div className="rounded bg-primary/5 p-3 text-sm">
-                <strong>Characteristics:</strong>
-                <ul className="mt-1 list-inside list-disc text-muted-foreground">
-                  <li>Explicit null checks required</li>
-                  <li>Manual loading state handling</li>
-                  <li>More control over UI</li>
-                  <li>Works with React 18+</li>
-                </ul>
-              </div>
-            </div>
-          )}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <h4 className="mb-3 font-semibold">
+              {mode === 'suspense' ? 'Suspense Benefits' : 'Traditional Characteristics'}
+            </h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              {mode === 'suspense' ? (
+                <>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-400">+</span> No null checks needed
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-400">+</span> Declarative loading state
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-400">+</span> Cleaner component code
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-400">+</span> Automatic Suspense boundary
+                  </li>
+                </>
+              ) : (
+                <>
+                  <li className="flex items-center gap-2">
+                    <span className="text-yellow-400">-</span> Explicit null checks required
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-yellow-400">-</span> Manual loading state handling
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-400">+</span> More control over UI
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-green-400">+</span> Works with React 18+
+                  </li>
+                </>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }

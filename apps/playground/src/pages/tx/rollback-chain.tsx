@@ -1,11 +1,6 @@
 import { useState } from 'react';
-import { GitBranch, CheckCircle2, XCircle, RotateCcw, Clock } from 'lucide-react';
-import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+import { GitBranch, CheckCircle2, XCircle, RotateCcw, Clock, Zap } from 'lucide-react';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
 import { startTransaction } from '@firsttx/tx';
 import { OrderModel } from '@/models/order.model';
@@ -21,6 +16,10 @@ import {
   setForceFailStep,
 } from '@/api/order.api';
 import { sleep } from '@/lib/utils';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('rollback-chain')!;
+const relatedDemos = getRelatedDemos('rollback-chain', 2);
 
 interface Step {
   id: number;
@@ -229,13 +228,20 @@ export default function RollbackChain() {
   const compensatedSteps = steps.filter((s) => s.status === 'compensated').length;
 
   return (
-    <ScenarioLayout
-      level={3}
-      title="Rollback Chain"
-      badge={{
-        icon: <RotateCcw className="h-3 w-3" />,
-        label: isRunning ? 'Running' : 'Ready',
-      }}
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -279,6 +285,19 @@ export default function RollbackChain() {
         title="Multi-Step Transaction Rollback"
         description="Watch a 5-step transaction fail and roll back in reverse order, restoring the original state."
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              Use the slider to select which step should fail, then run the transaction. Completed
+              steps are rolled back in reverse order from the failure point.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -465,7 +484,7 @@ export default function RollbackChain() {
           )}
         </div>
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }
 

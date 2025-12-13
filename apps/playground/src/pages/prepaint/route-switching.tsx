@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { Zap, BarChart3, Package, Settings, LayoutDashboard, Clock, RefreshCw } from 'lucide-react';
-import {
-  ScenarioLayout,
-  MetricsGrid,
-  MetricCard,
-  SectionHeader,
-} from '../../components/scenario-layout';
+import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
 import { RouteMetricsModel, type RouteMetricsData } from '../../models/route-metrics.model';
 import { fetchRouteMetrics } from '@/api/route-metrics.api';
 import { useHandoffStrategy } from '@/lib/prepaint-handshake';
+import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
+
+const demoMeta = getDemoById('route-switching')!;
+const relatedDemos = getRelatedDemos('route-switching', 2);
 
 const routes = [
   { path: '/prepaint/route-switching/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,14 +26,10 @@ export default function RouteSwitching() {
     sync,
     isSyncing,
     error,
-  } = useSyncedModel(RouteMetricsModel, fetchRouteMetrics, {
-    onSuccess: () => console.log('[RouteSwitching] Synced with server'),
-    onError: (err) => console.error('[RouteSwitching] Sync failed:', err),
-  });
+  } = useSyncedModel(RouteMetricsModel, fetchRouteMetrics);
 
   const [currentLoadTime, setCurrentLoadTime] = useState<number>(0);
-  const handoffStrategy = useHandoffStrategy();
-  const isPrepaintActive = handoffStrategy === 'has-prepaint';
+  useHandoffStrategy();
 
   useEffect(() => {
     const startTime = performance.now();
@@ -65,17 +60,20 @@ export default function RouteSwitching() {
   const capturedRoutes = Object.keys(metrics).length;
 
   return (
-    <ScenarioLayout
-      level={1}
-      title="Route Switching"
-      badge={
-        isPrepaintActive
-          ? {
-              icon: <Zap className="h-3 w-3" />,
-              label: 'Prepaint Active',
-            }
-          : undefined
-      }
+    <DemoLayout
+      level={demoMeta.level}
+      title={demoMeta.title}
+      packages={demoMeta.packages}
+      difficulty={demoMeta.difficulty}
+      duration={demoMeta.duration}
+      problem={demoMeta.problem}
+      solution={demoMeta.solution}
+      problemDetails={demoMeta.problemDetails}
+      solutionDetails={demoMeta.solutionDetails}
+      codeSnippet={demoMeta.codeSnippet}
+      codeTitle={demoMeta.codeTitle}
+      docsLink={demoMeta.docsLink}
+      relatedDemos={relatedDemos}
     >
       <MetricsGrid>
         <MetricCard
@@ -105,6 +103,19 @@ export default function RouteSwitching() {
         title="Multi-Route Navigation"
         description="Switch between routes to see how prepaint captures and restores each page independently."
       />
+
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex gap-3">
+          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
+          <div className="text-sm">
+            <div className="font-medium text-blue-400">Try This</div>
+            <div className="text-muted-foreground">
+              After visiting each route, refresh the browser or navigate away and return. Visited
+              routes are instantly restored.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="mb-6 flex gap-2 rounded-lg border border-border bg-card p-2">
         {routes.map((route) => {
@@ -177,7 +188,7 @@ export default function RouteSwitching() {
           })}
         </div>
       </div>
-    </ScenarioLayout>
+    </DemoLayout>
   );
 }
 
