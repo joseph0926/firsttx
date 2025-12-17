@@ -22,9 +22,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update npm to latest
-        run: npm install -g npm@latest
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -37,6 +34,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
           scope: "@firsttx"
+
+      - name: Update npm to latest
+        run: sudo npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
