@@ -1,1 +1,20 @@
+# Default owner for everything
+* @joseph0926
+
+# Workflows require careful review
 /.github/workflows/ @joseph0926
+
+# Core packages
+/packages/prepaint/ @joseph0926
+/packages/local-first/ @joseph0926
+/packages/tx/ @joseph0926
+/packages/devtools/ @joseph0926
+/packages/shared/ @joseph0926
+
+# Apps
+/apps/playground/ @joseph0926
+/apps/docs/ @joseph0926
+
+# Documentation
+/docs/ @joseph0926
+/*.md @joseph0926
