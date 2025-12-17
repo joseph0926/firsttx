@@ -37,6 +37,42 @@
 
 <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400559/firsttx-local-01_zwhtge.gif" />
 
+## Why FirstTx?
+
+### The Problem
+
+| Scenario                | Traditional Solution    | Pain Point                      |
+| ----------------------- | ----------------------- | ------------------------------- |
+| Blank screen on revisit | Add SSR/SSG             | Infrastructure cost, complexity |
+| Data loss on refresh    | Manual IndexedDB code   | 500+ lines of boilerplate       |
+| Optimistic UI rollback  | Manual try-catch chains | Error-prone, hard to maintain   |
+| Multi-tab sync          | Custom BroadcastChannel | Complex state management        |
+
+### The FirstTx Approach
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        FirstTx Solution                         │
+├─────────────────────────────────────────────────────────────────┤
+│  Prepaint          │  Local-First       │  Tx                   │
+│  ─────────────     │  ────────────      │  ──                   │
+│  IndexedDB snapshot│  React + IndexedDB │  Atomic transactions  │
+│  before React loads│  auto-sync         │  with auto-rollback   │
+│                    │                    │                       │
+│  Result: 0ms blank │  Result: No data   │  Result: Safe         │
+│  screen on revisit │  loss on refresh   │  optimistic updates   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Differentiators
+
+1. **Prepaint**: Only solution that restores UI before JavaScript loads (SSR-level UX without SSR)
+2. **Sync + Async API**: `getCachedSnapshot()` for React rendering + `getSnapshot()` for async ops
+3. **Compensation Pattern**: Declare rollback once, auto-execute in reverse order on failure
+4. **ViewTransition**: Native integration for smooth UI transitions during rollback
+
+---
+
 ## Is FirstTx for you?
 
 Have you experienced any of these?

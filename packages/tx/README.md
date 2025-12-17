@@ -6,6 +6,16 @@
 
 Execute multi-step operations safely with automatic compensation on failure. Perfect for optimistic updates, API calls, and state synchronization.
 
+## Why Tx?
+
+**The only React library with automatic reverse-order compensation.**
+
+- **Auto rollback**: Declare `compensate` once, auto-execute in reverse order on failure
+- **Step-level retry**: Exponential/linear backoff per step (not just whole operation)
+- **ViewTransition**: Smooth animations during rollback
+- **Timeout protection**: Prevent hanging transactions with configurable limits
+- **Type-safe errors**: Structured error classes with `getUserMessage()` and `isRecoverable()`
+
 ```bash
 npm install @firsttx/tx
 ```

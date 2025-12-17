@@ -28,7 +28,16 @@ npm install @firsttx/prepaint
 
 ---
 
-## The Problem
+## Why Prepaint?
+
+**The only solution that restores UI before JavaScript loads.**
+
+- No SSR/SSG infrastructure needed
+- Works with any existing CSR React app
+- Automatic React hydration with graceful fallback
+- Native ViewTransition support
+
+### The Problem
 
 ```
 Traditional CSR on revisit:

@@ -35,17 +35,24 @@ Here are some very common issues in CSR apps,
 - The first visit is reasonably fast thanks to SSR/SPA skeletons, but…
   - on **revisit / tab switch / back navigation**, the user often sees a white screen or a spinner for 1-2 seconds again.
 - When users edit lists or submit forms with optimistic UI,
-  - we “update first, then send the request”,
+  - we "update first, then send the request",
   - and if the network fails, the screen ends up in a **half-rolled-back** state.
 - In offline / slow networks,
-  - even the “last seen state” is not restored,
+  - even the "last seen state" is not restored,
   - so every time the user opens the page, they start from a blank view and wait for loading.
 
 FirstTx splits these pain points into three layers,
 
-1. Use **Prepaint** to remember the “last screen”.
+1. Use **Prepaint** to remember the "last screen".
 2. Use **Local-First** to keep local models always available.
 3. Use **Tx** to wrap UI changes in transactions.
+
+### Key Differentiators
+
+1. **Prepaint**: The only solution that restores UI before JavaScript loads (SSR-level UX without SSR)
+2. **Sync + Async API**: `getCachedSnapshot()` for React rendering + `getSnapshot()` for async operations
+3. **Compensation Pattern**: Declare rollback once, auto-execute in reverse order on failure
+4. **ViewTransition**: Native integration for smooth UI transitions during rollback
 
 ---
 

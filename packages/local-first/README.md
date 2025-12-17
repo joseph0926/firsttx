@@ -4,6 +4,16 @@
 
 Type-safe IndexedDB models with React integration via `useSyncExternalStore`. Eliminates 90% of server sync boilerplate. Works with `@firsttx/tx` for atomic optimistic updates.
 
+## Why Local-First?
+
+**The only IndexedDB library with synchronous React API + automatic multi-tab sync.**
+
+- **Sync API**: `getCachedSnapshot()` returns instantly (no async/await in render)
+- **Multi-tab sync**: BroadcastChannel-based real-time sync across tabs (~1ms latency)
+- **TTL metadata**: Automatic staleness detection with `history.isStale`
+- **Zod validation**: Type-safe schema with runtime validation
+- **Zero boilerplate**: 3 lines to define a persistent model
+
 <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400559/firsttx-local-01_zwhtge.gif" />
 
 ```bash
