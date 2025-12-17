@@ -1,5 +1,23 @@
 # @firsttx/prepaint
 
+## 0.9.0
+
+### Changed
+
+- All error classes (`PrepaintError`, `BootError`, `CaptureError`, `HydrationError`, `PrepaintStorageError`) now inherit from `BaseFirstTxError`
+- Each error now has a `domain` property set to `'prepaint'`
+- Each error now has a structured `code` property (e.g., `'BOOT_DOM_RESTORE'`, `'CAPTURE_DB_WRITE'`, `'STORAGE_QUOTA_EXCEEDED'`)
+- `PrepaintStorageError.code` property renamed to `storageCode`; new `code` property returns prefixed codes
+
+### Removed
+
+- Duplicate `DANGEROUS_ATTRS` constant in `capture.ts` (now uses `DANGEROUS_ATTRIBUTES` from @firsttx/shared)
+- Duplicate `DANGEROUS_ATTRIBUTES` and `DANGEROUS_HTML_TAGS` constants in `sanitize.ts` (now imported from @firsttx/shared)
+
+### Added
+
+- `PrepaintErrorCode` type for type-safe error code handling
+
 ## 0.8.1
 
 ### Patch Changes

@@ -1,5 +1,19 @@
 # @firsttx/tx
 
+## 0.7.0
+
+### Minor Changes
+
+### Changed
+
+- All error classes (`TxError`, `CompensationFailedError`, `RetryExhaustedError`, `TransactionTimeoutError`, `TransactionStateError`) now inherit from `BaseFirstTxError`
+- Each error now has a `domain` property set to `'tx'`
+- Each error now has a structured `code` property (e.g., `'COMPENSATION_FAILED'`, `'RETRY_EXHAUSTED'`, `'TRANSACTION_TIMEOUT'`, `'TRANSACTION_STATE'`)
+
+### Added
+
+- `TxErrorCode` type for type-safe error code handling
+
 ## 0.6.0
 
 ### Minor Changes

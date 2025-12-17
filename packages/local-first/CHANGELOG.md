@@ -1,5 +1,29 @@
 # @firsttx/local-first
 
+## 0.11.0
+
+### Minor Changes
+
+### Changed
+
+- All error classes (`FirstTxError`, `StorageError`, `ValidationError`) now inherit from `BaseFirstTxError`
+- Each error now has a `domain` property set to `'local-first'`
+- Each error now has a structured `code` property (e.g., `'STORAGE_QUOTA_EXCEEDED'`, `'VALIDATION_FAILED'`)
+
+### Removed
+
+- Duplicate `DEFAULT_TTL_MS` constant in `model.ts` (now imported from @firsttx/shared)
+
+### Added
+
+- `LocalFirstErrorCode` type for type-safe error code handling
+
+### Breaking Changes
+
+- `StorageError.context` → `StorageError.storageContext`
+- `StorageError.code` → `StorageError.storageCode` (original storage code like `'QUOTA_EXCEEDED'`)
+- New `StorageError.code` property returns prefixed codes (e.g., `'STORAGE_QUOTA_EXCEEDED'`)
+
 ## 0.10.0
 
 ### Minor Changes
