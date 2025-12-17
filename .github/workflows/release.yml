@@ -36,7 +36,9 @@ jobs:
           scope: "@firsttx"
 
       - name: Update npm to latest
-        run: sudo npm install -g npm@latest
+        run: |
+          sudo npm install -g npm@latest
+          echo "npm version: $(npm --version)"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -60,3 +62,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ""
