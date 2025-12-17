@@ -1,5 +1,5 @@
 export { BaseFirstTxError } from './errors';
-export type { ErrorContext } from './errors';
+export type { ErrorContext, FirstTxDomain } from './errors';
 
 export {
   supportsViewTransition,
@@ -18,4 +18,6 @@ export {
   DEFAULT_MAX_BUFFER_SIZE,
   DEFAULT_RETRY_DELAY_MS,
   MAX_SNAPSHOT_AGE_MS,
+  DANGEROUS_ATTRIBUTES,
+  DANGEROUS_HTML_TAGS,
 } from './constants';

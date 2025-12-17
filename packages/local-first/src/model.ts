@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { DEFAULT_TTL_MS } from '@firsttx/shared';
 import type { ModelHistory, ModelOptions } from './types';
 import { FirstTxError, StorageError } from './errors';
 import { ModelBroadcaster } from './broadcast';
@@ -11,8 +12,6 @@ import type { SyncPromiseOptions } from './sync-manager';
 
 export type { CacheState, CombinedSnapshot } from './cache-manager';
 export type { SyncPromiseOptions } from './sync-manager';
-
-const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 export type Model<T> = {
   name: string;

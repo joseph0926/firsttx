@@ -1,8 +1,17 @@
 import type { z } from 'zod';
+import { BaseFirstTxError } from '@firsttx/shared';
 
-export abstract class FirstTxError extends Error {
-  abstract getUserMessage(): string;
-  abstract getDebugInfo(): string;
+export type LocalFirstErrorCode =
+  | 'STORAGE_QUOTA_EXCEEDED'
+  | 'STORAGE_PERMISSION_DENIED'
+  | 'STORAGE_UNKNOWN'
+  | 'VALIDATION_FAILED';
+
+export abstract class FirstTxError extends BaseFirstTxError {
+  readonly domain = 'local-first' as const;
+  abstract readonly code: LocalFirstErrorCode;
+
+  abstract isRecoverable(): boolean;
 }
 
 export type StorageErrorCode = 'QUOTA_EXCEEDED' | 'PERMISSION_DENIED' | 'UNKNOWN';
@@ -16,18 +25,25 @@ export type StorageErrorContext = {
 };
 
 export class StorageError extends FirstTxError {
+  readonly code: LocalFirstErrorCode;
+
   constructor(
     message: string,
-    public readonly code: StorageErrorCode,
+    public readonly storageCode: StorageErrorCode,
     public readonly recoverable: boolean,
-    public readonly context: StorageErrorContext,
+    public readonly storageContext: StorageErrorContext,
   ) {
-    super(message);
+    super(message, {
+      storageCode,
+      operation: storageContext.operation,
+      key: storageContext.key,
+    });
     this.name = 'StorageError';
+    this.code = `STORAGE_${storageCode}` as LocalFirstErrorCode;
   }
 
   getUserMessage(): string {
-    switch (this.code) {
+    switch (this.storageCode) {
       case 'QUOTA_EXCEEDED':
         return 'Storage quota exceeded. Please free up space in your browser settings.';
       case 'PERMISSION_DENIED':
@@ -38,8 +54,12 @@ export class StorageError extends FirstTxError {
   }
 
   getDebugInfo(): string {
-    const keySuffix = this.context.key ? ` "${this.context.key}"` : '';
-    return `[${this.code}] ${this.context.operation}${keySuffix}: ${this.message}`;
+    const keySuffix = this.storageContext.key ? ` "${this.storageContext.key}"` : '';
+    return `[${this.storageCode}] ${this.storageContext.operation}${keySuffix}: ${this.message}`;
+  }
+
+  isRecoverable(): boolean {
+    return this.recoverable;
   }
 }
 
@@ -85,12 +105,14 @@ export function convertDOMException(domError: Error, context: StorageErrorContex
 }
 
 export class ValidationError extends FirstTxError {
+  readonly code = 'VALIDATION_FAILED' as const;
+
   constructor(
     message: string,
     public readonly modelName: string,
     public readonly zodError: z.ZodError,
   ) {
-    super(message);
+    super(message, { modelName, issues: zodError.issues });
     this.name = 'ValidationError';
   }
 
@@ -106,5 +128,9 @@ export class ValidationError extends FirstTxError {
       .join('\n');
 
     return `[ValidationError] Model "${this.modelName}":\n${issues}`;
+  }
+
+  isRecoverable(): boolean {
+    return true;
   }
 }

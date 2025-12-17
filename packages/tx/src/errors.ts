@@ -1,15 +1,30 @@
-export abstract class TxError extends Error {
-  abstract getUserMessage(): string;
-  abstract getDebugInfo(): string;
+import { BaseFirstTxError } from '@firsttx/shared';
+
+export type TxErrorCode =
+  | 'COMPENSATION_FAILED'
+  | 'RETRY_EXHAUSTED'
+  | 'TRANSACTION_TIMEOUT'
+  | 'TRANSACTION_STATE';
+
+export abstract class TxError extends BaseFirstTxError {
+  readonly domain = 'tx' as const;
+  abstract readonly code: TxErrorCode;
+
   abstract isRecoverable(): boolean;
 }
 
 export class CompensationFailedError extends TxError {
+  readonly code = 'COMPENSATION_FAILED' as const;
+
   constructor(
     public readonly failures: Error[],
     public readonly completedSteps: number,
   ) {
-    super('Compensation failed');
+    super('Compensation failed', {
+      failureCount: failures.length,
+      completedSteps,
+      failures: failures.map((e) => e.message),
+    });
     this.name = 'CompensationFailedError';
   }
 
@@ -31,12 +46,18 @@ export class CompensationFailedError extends TxError {
 }
 
 export class RetryExhaustedError extends TxError {
+  readonly code = 'RETRY_EXHAUSTED' as const;
+
   constructor(
     public readonly stepId: string,
     public readonly attempts: number,
-    public readonly errors: Error[], // All attempt errors
+    public readonly errors: Error[],
   ) {
-    super(`Retry exhausted for ${stepId}`);
+    super(`Retry exhausted for ${stepId}`, {
+      stepId,
+      attempts,
+      errors: errors.map((e) => e.message),
+    });
     this.name = 'RetryExhaustedError';
   }
 
@@ -58,11 +79,13 @@ export class RetryExhaustedError extends TxError {
 }
 
 export class TransactionTimeoutError extends TxError {
+  readonly code = 'TRANSACTION_TIMEOUT' as const;
+
   constructor(
     public readonly timeoutMs: number,
     public readonly elapsedMs: number,
   ) {
-    super(`Transaction timeout`);
+    super('Transaction timeout', { timeoutMs, elapsedMs });
     this.name = 'TransactionTimeoutError';
   }
 
@@ -80,12 +103,18 @@ export class TransactionTimeoutError extends TxError {
 }
 
 export class TransactionStateError extends TxError {
+  readonly code = 'TRANSACTION_STATE' as const;
+
   constructor(
     public readonly currentState: string,
     public readonly attemptedAction: string,
     public readonly transactionId: string,
   ) {
-    super(TransactionStateError.formatMessage(attemptedAction, currentState));
+    super(TransactionStateError.formatMessage(attemptedAction, currentState), {
+      currentState,
+      attemptedAction,
+      transactionId,
+    });
     this.name = 'TransactionStateError';
   }
 

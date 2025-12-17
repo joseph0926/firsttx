@@ -22,10 +22,11 @@ describe('Errors', () => {
         operation: 'set',
       });
 
-      expect(error.code).toBe('QUOTA_EXCEEDED');
+      expect(error.code).toBe('STORAGE_QUOTA_EXCEEDED');
+      expect(error.storageCode).toBe('QUOTA_EXCEEDED');
       expect(error.recoverable).toBe(false);
-      expect(error.context.key).toBe('test-key');
-      expect(error.context.operation).toBe('set');
+      expect(error.storageContext.key).toBe('test-key');
+      expect(error.storageContext.operation).toBe('set');
       expect(error.name).toBe('StorageError');
     });
 
@@ -74,7 +75,7 @@ describe('Errors', () => {
         originalError,
       });
 
-      expect(error.context.originalError).toBe(originalError);
+      expect(error.storageContext.originalError).toBe(originalError);
     });
   });
 
@@ -86,10 +87,11 @@ describe('Errors', () => {
       const result = convertDOMException(domError, { key: 'test-key', operation: 'set' });
 
       expect(result).toBeInstanceOf(StorageError);
-      expect(result.code).toBe('QUOTA_EXCEEDED');
+      expect(result.code).toBe('STORAGE_QUOTA_EXCEEDED');
+      expect(result.storageCode).toBe('QUOTA_EXCEEDED');
       expect(result.recoverable).toBe(false);
-      expect(result.context.key).toBe('test-key');
-      expect(result.context.operation).toBe('set');
+      expect(result.storageContext.key).toBe('test-key');
+      expect(result.storageContext.operation).toBe('set');
     });
 
     it('should convert SecurityError', () => {
@@ -98,7 +100,8 @@ describe('Errors', () => {
 
       const result = convertDOMException(domError, { key: 'test-key', operation: 'get' });
 
-      expect(result.code).toBe('PERMISSION_DENIED');
+      expect(result.code).toBe('STORAGE_PERMISSION_DENIED');
+      expect(result.storageCode).toBe('PERMISSION_DENIED');
       expect(result.recoverable).toBe(false);
     });
 
@@ -108,7 +111,8 @@ describe('Errors', () => {
 
       const result = convertDOMException(domError, { key: 'test-key', operation: 'delete' });
 
-      expect(result.code).toBe('UNKNOWN');
+      expect(result.code).toBe('STORAGE_UNKNOWN');
+      expect(result.storageCode).toBe('UNKNOWN');
       expect(result.recoverable).toBe(true);
     });
   });

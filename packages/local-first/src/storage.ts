@@ -46,7 +46,9 @@ class Storage {
                 '[FirstTx] Failed to open IndexedDB: Unknown error',
                 'UNKNOWN',
                 true,
-                { operation: 'open' },
+                {
+                  operation: 'open',
+                },
               ),
             );
           }

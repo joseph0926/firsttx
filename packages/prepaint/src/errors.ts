@@ -1,17 +1,37 @@
-export abstract class PrepaintError extends Error {
-  abstract getUserMessage(): string;
-  abstract getDebugInfo(): string;
-  abstract isRecoverable(): boolean;
+import { BaseFirstTxError } from '@firsttx/shared';
+
+export type PrepaintErrorCode =
+  | 'BOOT_DB_OPEN'
+  | 'BOOT_SNAPSHOT_READ'
+  | 'BOOT_DOM_RESTORE'
+  | 'BOOT_STYLE_INJECTION'
+  | 'CAPTURE_DOM_SERIALIZE'
+  | 'CAPTURE_STYLE_COLLECT'
+  | 'CAPTURE_DB_WRITE'
+  | 'HYDRATION_CONTENT'
+  | 'HYDRATION_STRUCTURE'
+  | 'HYDRATION_ATTRIBUTE'
+  | 'STORAGE_QUOTA_EXCEEDED'
+  | 'STORAGE_PERMISSION_DENIED'
+  | 'STORAGE_CORRUPTED_DATA'
+  | 'STORAGE_UNKNOWN';
+
+export abstract class PrepaintError extends BaseFirstTxError {
+  readonly domain = 'prepaint' as const;
+  abstract readonly code: PrepaintErrorCode;
 }
 
 export class BootError extends PrepaintError {
+  readonly code: PrepaintErrorCode;
+
   constructor(
     message: string,
     public readonly phase: 'db-open' | 'snapshot-read' | 'dom-restore' | 'style-injection',
     public readonly cause?: Error,
   ) {
-    super(message);
+    super(message, { phase, cause: cause?.message });
     this.name = 'BootError';
+    this.code = `BOOT_${phase.toUpperCase().replace(/-/g, '_')}` as PrepaintErrorCode;
   }
 
   getUserMessage(): string {
@@ -29,14 +49,17 @@ export class BootError extends PrepaintError {
 }
 
 export class CaptureError extends PrepaintError {
+  readonly code: PrepaintErrorCode;
+
   constructor(
     message: string,
     public readonly phase: 'dom-serialize' | 'style-collect' | 'db-write',
     public readonly route: string,
     public readonly cause?: Error,
   ) {
-    super(message);
+    super(message, { phase, route, cause: cause?.message });
     this.name = 'CaptureError';
+    this.code = `CAPTURE_${phase.toUpperCase().replace(/-/g, '_')}` as PrepaintErrorCode;
   }
 
   getUserMessage(): string {
@@ -61,13 +84,16 @@ export class CaptureError extends PrepaintError {
 }
 
 export class HydrationError extends PrepaintError {
+  readonly code: PrepaintErrorCode;
+
   constructor(
     message: string,
     public readonly mismatchType: 'content' | 'structure' | 'attribute',
     public readonly cause: Error,
   ) {
-    super(message);
+    super(message, { mismatchType, cause: cause.message });
     this.name = 'HydrationError';
+    this.code = `HYDRATION_${mismatchType.toUpperCase()}` as PrepaintErrorCode;
   }
 
   getUserMessage(): string {
@@ -83,19 +109,28 @@ export class HydrationError extends PrepaintError {
   }
 }
 
+export type StorageErrorCode =
+  | 'QUOTA_EXCEEDED'
+  | 'PERMISSION_DENIED'
+  | 'CORRUPTED_DATA'
+  | 'UNKNOWN';
+
 export class PrepaintStorageError extends PrepaintError {
+  readonly code: PrepaintErrorCode;
+
   constructor(
     message: string,
-    public readonly code: 'QUOTA_EXCEEDED' | 'PERMISSION_DENIED' | 'CORRUPTED_DATA' | 'UNKNOWN',
+    public readonly storageCode: StorageErrorCode,
     public readonly operation: 'open' | 'read' | 'write' | 'delete',
     public readonly cause?: Error,
   ) {
-    super(message);
+    super(message, { storageCode, operation, cause: cause?.message });
     this.name = 'PrepaintStorageError';
+    this.code = `STORAGE_${storageCode}` as PrepaintErrorCode;
   }
 
   getUserMessage(): string {
-    switch (this.code) {
+    switch (this.storageCode) {
       case 'QUOTA_EXCEEDED':
         return 'Browser storage is full. Please free up space to enable instant page loading.';
       case 'PERMISSION_DENIED':
@@ -109,11 +144,11 @@ export class PrepaintStorageError extends PrepaintError {
 
   getDebugInfo(): string {
     const causeInfo = this.cause ? `\nCause: ${this.cause.message}` : '';
-    return `[PrepaintStorageError] ${this.code} during ${this.operation}: ${this.message}${causeInfo}`;
+    return `[PrepaintStorageError] ${this.storageCode} during ${this.operation}: ${this.message}${causeInfo}`;
   }
 
   isRecoverable(): boolean {
-    return this.code !== 'PERMISSION_DENIED';
+    return this.storageCode !== 'PERMISSION_DENIED';
   }
 }
 

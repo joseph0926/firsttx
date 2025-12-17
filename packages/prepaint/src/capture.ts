@@ -1,38 +1,6 @@
 declare const __FIRSTTX_DEV__: boolean;
 
-const DANGEROUS_ATTRS = [
-  'onload',
-  'onerror',
-  'onclick',
-  'onmouseover',
-  'onmouseout',
-  'onmouseenter',
-  'onmouseleave',
-  'onfocus',
-  'onblur',
-  'onchange',
-  'onsubmit',
-  'onkeydown',
-  'onkeyup',
-  'onkeypress',
-  'ontouchstart',
-  'ontouchend',
-  'ontouchmove',
-  'onpointerdown',
-  'onpointerup',
-  'onpointermove',
-  'ondrag',
-  'ondrop',
-  'ondragstart',
-  'ondragend',
-  'onanimationstart',
-  'onanimationend',
-  'onanimationiteration',
-  'ontransitionend',
-  'onwheel',
-  'onscroll',
-] as const;
-
+import { DANGEROUS_ATTRIBUTES } from '@firsttx/shared';
 import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
 import { openDB, resolveRouteKey, scrubSensitiveFields } from './utils';
 import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
@@ -180,7 +148,7 @@ function serializeRoot(rootEl: HTMLElement): string {
 
   const allElements = [clone, ...Array.from(clone.querySelectorAll('*'))];
   allElements.forEach((el) => {
-    DANGEROUS_ATTRS.forEach((attr) => {
+    DANGEROUS_ATTRIBUTES.forEach((attr) => {
       if (el.hasAttribute(attr)) {
         el.removeAttribute(attr);
       }
