@@ -5,7 +5,7 @@
   "description": "CSR-first toolkit that combines Prepaint, Local-First, and Tx to replay the last UI instantly, keep React state synced with IndexedDB, and execute optimistic transactions atomically—no SSR required.",
   "license": "MIT",
   "author": "joseph0926",
-  "packageManager": "pnpm@10.22.0",
+  "packageManager": "pnpm@10.26.0",
   "engines": {
     "node": ">=22"
   },

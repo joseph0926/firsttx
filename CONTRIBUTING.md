@@ -21,7 +21,7 @@ This project adheres to the [Contributor Covenant Code of Conduct](./CODE_OF_CON
 ### Prerequisites
 
 - Node.js 22+
-- pnpm 10.22.0+
+- pnpm 10.26.0+
 - Git
 
 ### Setup
