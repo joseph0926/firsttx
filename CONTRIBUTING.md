@@ -194,15 +194,6 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 | `docs`        | Documentation                |
 | `deps`        | Dependencies                 |
 
-### Examples
-
-```
-feat(prepaint): add overlay option for duplicate prevention
-fix(local-first): resolve cross-tab sync race condition
-docs: update API reference for useSyncedModel
-chore(deps): bump typescript to 5.9
-```
-
 ## Issue Guidelines
 
 ### Bug Reports
