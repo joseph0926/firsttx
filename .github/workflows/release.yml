@@ -5,15 +5,16 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+permissions: read-all
 
 jobs:
   release:
     runs-on: ubuntu-latest
     environment: npm-publish
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

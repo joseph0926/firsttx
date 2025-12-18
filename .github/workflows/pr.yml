@@ -6,6 +6,8 @@ on:
   push:
     branches: [main]
 
+permissions: read-all
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -121,11 +123,11 @@ jobs:
       - name: Summary
         if: success()
         run: |
-          echo "## ✅ All checks passed!" >> $GITHUB_STEP_SUMMARY
+          echo "## All checks passed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Typecheck | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Typecheck | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | Passed |" >> $GITHUB_STEP_SUMMARY

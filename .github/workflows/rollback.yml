@@ -22,13 +22,14 @@ on:
         required: true
         type: string
 
-permissions:
-  id-token: write
+permissions: read-all
 
 jobs:
   deprecate:
     runs-on: ubuntu-latest
     environment: npm-publish
+    permissions:
+      id-token: write
     steps:
       - name: Setup Node.js
         uses: actions/setup-node@v6

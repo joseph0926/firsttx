@@ -71,6 +71,22 @@ The [CODEOWNERS](.github/CODEOWNERS) file defines code ownership:
 - Package changes require approval from package maintainers
 - CI/workflow changes require maintainer approval
 
+### Branch Protection
+
+The `main` branch is protected with the following rules:
+
+- Require pull request before merging
+- Require at least 1 approval
+- Require status checks to pass (lint, typecheck, test, build)
+- Require conversation resolution before merging
+- Do not allow bypassing the above settings
+
+To configure (repository admins only):
+
+1. Go to Settings > Branches > Add branch protection rule
+2. Branch name pattern: `main`
+3. Enable the settings above
+
 ## Release Process
 
 1. Contributors add changesets via `pnpm changeset`
