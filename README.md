@@ -4,6 +4,9 @@
 
 # FirstTx
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/joseph0926/firsttx/badge)](https://scorecard.dev/viewer/?uri=github.com/joseph0926/firsttx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [Docs](https://www.firsttx.store)
 
 > 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.

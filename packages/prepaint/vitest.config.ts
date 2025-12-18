@@ -5,5 +5,11 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./tests/setup.ts'],
     globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'lcov'],
+      include: ['src/**/*.ts', 'src/**/*.tsx'],
+      exclude: ['src/**/*.d.ts', 'src/**/types.ts'],
+    },
   },
 });

@@ -32,6 +32,7 @@
     "clean": "turbo run clean && rimraf node_modules **/node_modules **/dist --glob",
     "test": "turbo run test",
     "test:run": "turbo run test:run",
+    "test:coverage": "turbo run test:coverage",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -60,6 +61,7 @@
   "homepage": "https://github.com/joseph0926/firsttx#readme",
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
+    "@vitest/coverage-v8": "^3.2.4",
     "@eslint/js": "^9.37.0",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.6.2",

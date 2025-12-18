@@ -28,7 +28,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "transaction",

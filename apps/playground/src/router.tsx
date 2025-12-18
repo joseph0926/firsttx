@@ -40,36 +40,32 @@ const routerObjects: RouteObject[] = [
               {
                 path: 'dashboard',
                 lazy: async () => {
-                  const { DashboardRoute: Component } = await import(
-                    './pages/prepaint/route-switching'
-                  );
+                  const { DashboardRoute: Component } =
+                    await import('./pages/prepaint/route-switching');
                   return { Component };
                 },
               },
               {
                 path: 'products',
                 lazy: async () => {
-                  const { ProductsRoute: Component } = await import(
-                    './pages/prepaint/route-switching'
-                  );
+                  const { ProductsRoute: Component } =
+                    await import('./pages/prepaint/route-switching');
                   return { Component };
                 },
               },
               {
                 path: 'analytics',
                 lazy: async () => {
-                  const { AnalyticsRoute: Component } = await import(
-                    './pages/prepaint/route-switching'
-                  );
+                  const { AnalyticsRoute: Component } =
+                    await import('./pages/prepaint/route-switching');
                   return { Component };
                 },
               },
               {
                 path: 'settings',
                 lazy: async () => {
-                  const { SettingsRoute: Component } = await import(
-                    './pages/prepaint/route-switching'
-                  );
+                  const { SettingsRoute: Component } =
+                    await import('./pages/prepaint/route-switching');
                   return { Component };
                 },
               },

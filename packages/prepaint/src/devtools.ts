@@ -15,52 +15,47 @@ interface PrepaintEvent<T = unknown> {
   priority: number;
 }
 
-export interface PrepaintCaptureEvent
-  extends PrepaintEvent<{
-    route: string;
-    bodySize: number;
-    styleCount: number;
-    hasVolatile: boolean;
-    duration: number;
-  }> {
+export interface PrepaintCaptureEvent extends PrepaintEvent<{
+  route: string;
+  bodySize: number;
+  styleCount: number;
+  hasVolatile: boolean;
+  duration: number;
+}> {
   type: 'capture';
 }
 
-export interface PrepaintRestoreEvent
-  extends PrepaintEvent<{
-    route: string;
-    strategy: 'has-prepaint' | 'cold-start';
-    snapshotAge: number;
-    restoreDuration: number;
-  }> {
+export interface PrepaintRestoreEvent extends PrepaintEvent<{
+  route: string;
+  strategy: 'has-prepaint' | 'cold-start';
+  snapshotAge: number;
+  restoreDuration: number;
+}> {
   type: 'restore';
 }
 
-export interface PrepaintHandoffEvent
-  extends PrepaintEvent<{
-    strategy: 'has-prepaint' | 'cold-start';
-    canHydrate: boolean;
-  }> {
+export interface PrepaintHandoffEvent extends PrepaintEvent<{
+  strategy: 'has-prepaint' | 'cold-start';
+  canHydrate: boolean;
+}> {
   type: 'handoff';
 }
 
-export interface PrepaintHydrationErrorEvent
-  extends PrepaintEvent<{
-    error: string;
-    mismatchType: 'content' | 'attribute' | 'structure';
-    recovered: boolean;
-    route: string;
-  }> {
+export interface PrepaintHydrationErrorEvent extends PrepaintEvent<{
+  error: string;
+  mismatchType: 'content' | 'attribute' | 'structure';
+  recovered: boolean;
+  route: string;
+}> {
   type: 'hydration.error';
 }
 
-export interface PrepaintStorageErrorEvent
-  extends PrepaintEvent<{
-    operation: 'read' | 'write';
-    code: string;
-    recoverable: boolean;
-    route: string;
-  }> {
+export interface PrepaintStorageErrorEvent extends PrepaintEvent<{
+  operation: 'read' | 'write';
+  code: string;
+  recoverable: boolean;
+  route: string;
+}> {
   type: 'storage.error';
 }
 

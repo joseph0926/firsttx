@@ -53,6 +53,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -60,8 +63,32 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-pnpm
 
-      - name: Run tests
-        run: pnpm run test:run
+      - name: Run tests with coverage
+        run: pnpm run test:coverage
+
+      - name: Coverage report (prepaint)
+        if: github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: "./packages/prepaint/coverage/coverage-summary.json"
+          json-final-path: "./packages/prepaint/coverage/coverage-final.json"
+          name: prepaint
+
+      - name: Coverage report (local-first)
+        if: github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: "./packages/local-first/coverage/coverage-summary.json"
+          json-final-path: "./packages/local-first/coverage/coverage-final.json"
+          name: local-first
+
+      - name: Coverage report (tx)
+        if: github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: "./packages/tx/coverage/coverage-summary.json"
+          json-final-path: "./packages/tx/coverage/coverage-final.json"
+          name: tx
 
   security:
     name: Security Audit
