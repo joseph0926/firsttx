@@ -120,7 +120,11 @@ pnpm add @firsttx/local-first @firsttx/tx
 
 </details>
 
+> Module format: ESM-only. CommonJS users should use `import()` (dynamic import).
+
 ## Quick Start
+
+Prepaint currently provides a **Vite plugin only**.
 
 ### 1. Vite Plugin Setup
 

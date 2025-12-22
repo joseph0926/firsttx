@@ -30,6 +30,8 @@ Tx는 **낙관적 UI 업데이트와 서버 요청을 하나의 트랜잭션으�
 
 <InstallTabs title="Tx + Local-First 설치" packages={["@firsttx/tx", "@firsttx/local-first"]} />
 
+> 모듈 형식: ESM-only. CommonJS 환경에서는 `import()`(dynamic import)를 사용하세요.
+
 > `@firsttx/tx` 자체는 어느 상태 관리 레이어에도 **런타임 의존**이 없습니다.  
 > React 훅(`useTx`)을 위해 `react`가 `peerDependency`로 요구되며,  
 > 이 문서의 예제에서는 Local-First 모델을 함께 사용하는 방식으로 설명합니다. ([GitHub][1])
