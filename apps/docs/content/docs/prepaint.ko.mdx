@@ -30,6 +30,8 @@ Prepaint만 먼저 붙여 보고 싶다면 이렇게 최소 설치도 가능합�
 
 <InstallTabs title="Prepaint만 설치" packages={["@firsttx/prepaint"]} />
 
+> 모듈 형식: ESM-only. CommonJS 환경에서는 `import()`(dynamic import)를 사용하세요.
+
 <Callout type="info" title="Local‑First / Tx와의 조합">
   <ul>
     <li>Prepaint만 써도 “재방문 시 빈 화면” 문제는 해결됩니다.</li>
@@ -45,6 +47,7 @@ Prepaint만 먼저 붙여 보고 싶다면 이렇게 최소 설치도 가능합�
 ### 1‑2. Vite 플러그인 설정
 
 Prepaint는 Vite 플러그인을 통해 **부트 스크립트**를 HTML에 주입합니다.
+현재 Prepaint 플러그인은 **Vite만 지원**합니다.
 
 ```ts
 // vite.config.ts

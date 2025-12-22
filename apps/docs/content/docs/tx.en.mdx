@@ -30,6 +30,8 @@ First, install Tx. The examples in this document use the Local-First model, so w
 
 <InstallTabs title="Install Tx + Local-First" packages={["@firsttx/tx", "@firsttx/local-first"]} />
 
+> Module format: ESM-only. CommonJS users should use `import()` (dynamic import).
+
 > `@firsttx/tx` itself has **no runtime dependency** on any particular state management layer.  
 > It only requires `react` as a `peerDependency` for the `useTx` hook.  
 > In this document we choose to use the Local-First model in the examples. ([GitHub][1])

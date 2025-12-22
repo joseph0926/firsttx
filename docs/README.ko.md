@@ -115,7 +115,11 @@ pnpm add @firsttx/local-first @firsttx/tx
 
 </details>
 
+> 모듈 형식: ESM-only. CommonJS 환경에서는 `import()`(dynamic import)를 사용하세요.
+
 ## Quick Start
+
+Prepaint 플러그인은 **Vite만 지원**합니다.
 
 ### 1. Vite 플러그인 설정
 
