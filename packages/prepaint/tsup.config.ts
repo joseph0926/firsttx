@@ -5,7 +5,6 @@ export default defineConfig({
     index: 'src/index.ts',
     boot: 'src/boot.ts',
     'plugin/vite': 'src/plugin/vite.ts',
-    'plugin/esbuild': 'src/plugin/esbuild.ts',
   },
   format: ['esm'],
   dts: true,

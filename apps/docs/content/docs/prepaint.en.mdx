@@ -28,6 +28,8 @@ If you want to try Prepaint first, you can install it alone,
 
 <InstallTabs title="Install only Prepaint" packages={["@firsttx/prepaint"]} />
 
+> Module format: ESM-only. CommonJS users should use `import()` (dynamic import).
+
 <Callout type="info" title="Combining with Local-First / Tx">
   <ul>
     <li>Prepaint alone fixes most “blank screen on revisit” problems.</li>
@@ -43,6 +45,7 @@ If you want to try Prepaint first, you can install it alone,
 ### 1-2. Vite plugin setup
 
 Prepaint ships a Vite plugin that injects a **boot script** into your HTML.
+Currently, the Prepaint plugin is provided for **Vite only**.
 
 ```ts
 // vite.config.ts
@@ -58,7 +61,7 @@ export default defineConfig({
 });
 ```
 
-- `firstTx()` bundles the boot script with esbuild and injects it as an IIFE into your HTML.
+- `firstTx()` bundles the boot script (using esbuild internally) and injects it as an IIFE into your HTML.
 - Default behavior,
   - `inline: true` - bundle is inlined into the HTML (no extra network request)
   - `minify` is enabled only in production

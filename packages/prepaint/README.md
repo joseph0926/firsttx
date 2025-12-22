@@ -26,6 +26,8 @@ npm install @firsttx/prepaint
 [![npm version](https://img.shields.io/npm/v/@firsttx/prepaint.svg)](https://www.npmjs.com/package/@firsttx/prepaint)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+> Module format: ESM-only. CommonJS users should use `import()` (dynamic import).
+
 ---
 
 ## Why Prepaint?
@@ -54,6 +56,8 @@ Prepaint captures DOM snapshots per route and replays them instantly on the next
 ## Quick Start
 
 ### 1. Vite Plugin
+
+Prepaint currently provides a Vite plugin only.
 
 ```ts
 // vite.config.ts
