@@ -1,0 +1,64 @@
+name: e2e-playwright
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  e2e:
+    name: e2e-${{ matrix.suite.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: smoke
+            testArgs: tests/home.smoke.spec.ts
+          - name: metrics
+            testArgs: tests/prepaint-heavy.spec.ts tests/*.metrics.spec.ts
+    env:
+      CI: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers (Chromium)
+        run: pnpm --filter playground exec playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        run: pnpm --filter playground test:e2e -- ${{ matrix.suite.testArgs }}
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report-${{ matrix.suite.name }}
+          path: apps/playground/playwright-report
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload Playwright test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-test-results-${{ matrix.suite.name }}
+          path: apps/playground/test-results
+          if-no-files-found: ignore
