@@ -147,8 +147,12 @@ describe('captureSnapshot', () => {
   beforeEach(() => {
     document.head.innerHTML = '';
     document.body.innerHTML = '<div id="root"><div id="app">Test Content</div></div>';
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     resetMemoryDB();
+    vi.spyOn(utilsModule, 'openDB').mockImplementation(() =>
+      Promise.resolve(db ?? (db = makeMemoryDB())),
+    );
   });
 
   afterEach(() => {
