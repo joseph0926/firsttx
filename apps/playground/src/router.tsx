@@ -21,6 +21,50 @@ const routerObjects: RouteObject[] = [
         },
       },
       {
+        path: 'tour',
+        lazy: async () => {
+          const { default: Component } = await import('./pages/tour');
+          return { Component };
+        },
+        children: [
+          {
+            path: 'problem',
+            lazy: async () => {
+              const { default: Component } = await import('./pages/tour/step-problem');
+              return { Component };
+            },
+          },
+          {
+            path: 'prepaint',
+            lazy: async () => {
+              const { default: Component } = await import('./pages/tour/step-prepaint');
+              return { Component };
+            },
+          },
+          {
+            path: 'local-first',
+            lazy: async () => {
+              const { default: Component } = await import('./pages/tour/step-local-first');
+              return { Component };
+            },
+          },
+          {
+            path: 'tx',
+            lazy: async () => {
+              const { default: Component } = await import('./pages/tour/step-tx');
+              return { Component };
+            },
+          },
+          {
+            path: 'next',
+            lazy: async () => {
+              const { default: Component } = await import('./pages/tour/step-next');
+              return { Component };
+            },
+          },
+        ],
+      },
+      {
         path: 'prepaint',
         children: [
           {

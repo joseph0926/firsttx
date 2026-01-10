@@ -1,12 +1,15 @@
-import { Link } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { IntroSection } from '@/components/home/intro-section';
 import { LevelSection } from '@/components/home/level-section';
 import { StatCard } from '@/components/home/stat-card';
 import { DevtoolsPanel } from '@/components/home/devtools-panel';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { levels } from '@/data/scenarios';
-import { BookOpen, GitBranch, RefreshCw, Terminal, Zap } from 'lucide-react';
+import { BookOpen, GitBranch, Play, RefreshCw, Terminal, Zap } from 'lucide-react';
 import { useModel } from '@firsttx/local-first';
 import { PlaygroundMetricsModel, type PlaygroundMetrics } from '@/models/metrics.model';
+import { TourModel } from '@/models/tour.model';
+import { useI18n } from '@/hooks/use-i18n';
 import type { MetricFormat } from '@/data/scenarios';
 
 function formatValue(value: unknown, format: MetricFormat): string | null {
@@ -34,13 +37,35 @@ function formatValue(value: unknown, format: MetricFormat): string | null {
   return null;
 }
 
+function HomePageSkeleton() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="text-sm text-muted-foreground">Loading...</span>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
+  const { t, getDocsUrl } = useI18n();
   const { data: metrics } = useModel(PlaygroundMetricsModel);
+  const { data: tourState, status: tourStatus } = useModel(TourModel);
+
+  if (tourStatus === 'loading') {
+    return <HomePageSkeleton />;
+  }
+
+  if (tourState?.status === 'not_started') {
+    return <Navigate to="/tour/problem" replace />;
+  }
+
   const scenarioMetrics = metrics?.scenarios ?? {};
   const liveBenchmarks = [
     {
-      label: 'Prepaint Warm FCP',
-      description: 'Blank screen on revisit (ms)',
+      label: t('home.prepaintWarmFcp'),
+      description: t('home.prepaintWarmFcpDescription'),
       metric: formatValue(
         scenarioMetrics['prepaint-heavy']?.metrics['warmFirstContentfulPaint'],
         'ms',
@@ -48,17 +73,17 @@ export default function HomePage() {
       target: '<20ms',
     },
     {
-      label: 'Instant Cart Time Saved',
-      description: 'Per interaction (ms)',
+      label: t('home.instantCartTimeSaved'),
+      description: t('home.instantCartTimeSavedDescription'),
       metric: formatValue(
         scenarioMetrics['instant-cart']?.metrics['timeSavedPerInteraction'],
         'ms',
       ),
-      target: 'Higher is better',
+      target: t('home.higherIsBetter'),
     },
     {
-      label: 'Concurrent Success Rate',
-      description: 'Tx completion',
+      label: t('home.concurrentSuccessRate'),
+      description: t('home.txCompletion'),
       metric: formatValue(scenarioMetrics['tx-concurrent']?.metrics['successRate'], 'percentage'),
       target: '>90%',
     },
@@ -67,45 +92,56 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       <section className="relative px-6 py-24 md:py-32">
+        <div className="absolute right-6 top-6">
+          <LanguageSwitcher />
+        </div>
         <div className="mx-auto max-w-5xl">
           <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground terminal-text">
             <Terminal className="h-4 w-4" />
             <span>$ firsttx --playground</span>
           </div>
           <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl">
-            FirstTx Performance Arena
+            {t('home.tagline')}
           </h1>
           <p className="mb-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Experience how FirstTx solves CSR challenges through 10 real-world scenarios. Test
-            instant replay, atomic rollback, and server sync in action.
+            {t('home.description')}
           </p>
-          <div className="mb-8">
+          <div className="mb-8 flex flex-wrap items-center gap-4">
             <Link
-              to="/getting-started"
+              to="/tour"
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              <BookOpen className="h-4 w-4" />
-              Getting Started Guide
+              <Play className="h-4 w-4" />
+              {t('home.fiveMinTour')}
             </Link>
+            <a
+              href={getDocsUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 font-medium transition-colors hover:bg-muted"
+            >
+              <BookOpen className="h-4 w-4" />
+              {t('common.documentation')}
+            </a>
           </div>
           <div className="mb-12 grid gap-4 sm:grid-cols-3">
             <StatCard
               icon={<Zap className="h-5 w-5" />}
-              label="Prepaint"
-              value="2 scenarios"
-              description="Instant replay"
+              label={t('home.prepaint')}
+              value={`2 ${t('home.scenarios')}`}
+              description={t('home.prepaintDescription')}
             />
             <StatCard
               icon={<RefreshCw className="h-5 w-5" />}
-              label="Sync"
-              value="4 scenarios"
-              description="Server reconciliation"
+              label={t('home.sync')}
+              value={`4 ${t('home.scenarios')}`}
+              description={t('home.syncDescription')}
             />
             <StatCard
               icon={<GitBranch className="h-5 w-5" />}
-              label="Tx"
-              value="3 scenarios"
-              description="Atomic updates"
+              label={t('home.tx')}
+              value={`3 ${t('home.scenarios')}`}
+              description={t('home.txDescription')}
             />
           </div>
           <IntroSection />
@@ -150,45 +186,50 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-8 md:grid-cols-2">
             <div>
-              <h3 className="mb-2 text-sm font-semibold">About FirstTx</h3>
-              <p className="text-sm text-muted-foreground">
-                A unified system that makes CSR revisit experiences feel like SSR. Combines
-                Prepaint, Local-First, and Tx layers.
-              </p>
+              <h3 className="mb-2 text-sm font-semibold">{t('common.aboutFirstTx')}</h3>
+              <p className="text-sm text-muted-foreground">{t('common.aboutFirstTxDescription')}</p>
             </div>
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Resources</h3>
+              <h3 className="mb-2 text-sm font-semibold">{t('common.resources')}</h3>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 <li>
                   <a
-                    href="https://github.com/joseph0926/firsttx"
+                    href={getDocsUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-foreground transition-colors"
                   >
-                    GitHub Repository
+                    {t('common.documentation')}
                   </a>
                 </li>
                 <li>
                   <a
-                    href="https://github.com/joseph0926/firsttx/tree/main/packages/prepaint"
+                    href={getDocsUrl('prepaint')}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-foreground transition-colors"
                   >
-                    Prepaint Package
+                    {t('common.prepaintPackage')}
                   </a>
                 </li>
                 <li>
                   <a
-                    href="https://github.com/joseph0926/firsttx/tree/main/packages/local-first"
+                    href={getDocsUrl('local-first')}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-foreground transition-colors"
                   >
-                    Local-First Package
+                    {t('common.localFirstPackage')}
                   </a>
                 </li>
                 <li>
                   <a
-                    href="https://github.com/joseph0926/firsttx/tree/main/packages/tx"
+                    href={getDocsUrl('tx')}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-foreground transition-colors"
                   >
-                    Tx Package
+                    {t('common.txPackage')}
                   </a>
                 </li>
               </ul>

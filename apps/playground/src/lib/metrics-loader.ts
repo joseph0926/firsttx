@@ -48,6 +48,10 @@ const METRIC_SOURCES: MetricSource[] = [
 ];
 
 export async function loadMetricsFromPublic() {
+  if (!metricsBase) {
+    return;
+  }
+
   const current = (await PlaygroundMetricsModel.getSnapshot()) ?? { scenarios: {} };
   const scenarios = { ...current.scenarios };
 
@@ -56,7 +60,7 @@ export async function loadMetricsFromPublic() {
       try {
         const response = await fetch(source.file, { cache: 'no-store' });
         if (!response.ok) {
-          throw new Error(`${source.file} responded with ${response.status}`);
+          return;
         }
         const payload = (await response.json()) as MetricFilePayload;
         const record: ScenarioMetrics = {
@@ -67,8 +71,8 @@ export async function loadMetricsFromPublic() {
           updatedAt: Date.now(),
         };
         scenarios[source.id] = record;
-      } catch (error) {
-        console.warn(`[metrics] Failed to load ${source.id}:`, error);
+      } catch {
+        // Silently ignore fetch errors
       }
     }),
   );

@@ -118,6 +118,11 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
               const history = await model.getHistory();
               cacheManager.updateWithData(data, history.updatedAt);
               cacheManager.setHistory(history);
+            } else if (options.initialData !== undefined) {
+              // IndexedDB에 데이터가 없지만 initialData가 있으면 사용
+              const now = Date.now();
+              await storageManager.save(options.initialData);
+              cacheManager.updateWithData(options.initialData, now);
             } else {
               cacheManager.setLoading();
             }
