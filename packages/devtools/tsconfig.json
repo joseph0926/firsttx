@@ -9,7 +9,8 @@
     { "path": "./tsconfig.background.json" },
     { "path": "./tsconfig.content.json" },
     { "path": "./tsconfig.panel.json" },
-    { "path": "./tsconfig.bridge.json" }
+    { "path": "./tsconfig.bridge.json" },
+    { "path": "./tsconfig.tests.json" }
   ],
   "files": [],
   "include": [],
