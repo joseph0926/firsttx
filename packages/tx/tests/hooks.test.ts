@@ -348,6 +348,7 @@ describe('useTx', () => {
 
   it('should prevent unhandled promise rejection', async () => {
     const unhandledRejection = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     process.on('unhandledRejection', unhandledRejection);
 
     const { result } = renderHook(() =>
@@ -373,6 +374,7 @@ describe('useTx', () => {
 
     expect(unhandledRejection).not.toHaveBeenCalled();
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     process.removeListener('unhandledRejection', unhandledRejection);
   });
 
