@@ -115,10 +115,23 @@ async function collectStyles(): Promise<SnapshotStyle[]> {
     if (fetchFn && currentOrigin && url.origin === currentOrigin) {
       const promise = (async (): Promise<SnapshotStyle> => {
         try {
-          const response = await fetchFn(url.href, { credentials: 'same-origin' });
-          if (response.ok) {
-            const text = await response.text();
-            if (text) return { type: 'external', href: url.href, content: text };
+          const controller = new AbortController();
+          const timeoutId = setTimeout(
+            () => controller.abort(),
+            STORAGE_CONFIG.STYLE_FETCH_TIMEOUT,
+          );
+          try {
+            const response = await fetchFn(url.href, {
+              credentials: 'same-origin',
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            if (response.ok) {
+              const text = await response.text();
+              if (text) return { type: 'external', href: url.href, content: text };
+            }
+          } finally {
+            clearTimeout(timeoutId);
           }
         } catch {}
         return { type: 'external', href: url.href };
@@ -158,6 +171,31 @@ function serializeRoot(rootEl: HTMLElement): string {
   return clone.outerHTML;
 }
 
+/**
+ * Captures the current DOM state and saves it to IndexedDB for later restoration.
+ *
+ * This function serializes the first child of `#root`, collects all stylesheets,
+ * and persists the snapshot to IndexedDB keyed by the current route.
+ *
+ * @description
+ * The capture process:
+ * 1. Serializes the first child of `#root` (clones to avoid mutations)
+ * 2. Scrubs sensitive fields (password inputs, `[data-firsttx-sensitive]`)
+ * 3. Clears volatile content (`[data-firsttx-volatile]`)
+ * 4. Removes dangerous attributes (onclick, onerror, etc.)
+ * 5. Collects inline styles and fetches same-origin external stylesheets
+ * 6. Saves the snapshot to IndexedDB with timestamp
+ *
+ * @returns The captured snapshot, or null if capture failed
+ *
+ * @example
+ * ```typescript
+ * const snapshot = await captureSnapshot();
+ * if (snapshot) {
+ *   console.log(`Captured ${snapshot.body.length} bytes for ${snapshot.route}`);
+ * }
+ * ```
+ */
 export async function captureSnapshot(): Promise<Snapshot | null> {
   const captureStartTime = performance.now();
   const route = resolveRouteKey();
@@ -248,13 +286,50 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
   return snapshot;
 }
 
+/**
+ * Options for configuring automatic snapshot capture.
+ */
 export interface SetupCaptureOptions {
+  /** Limit capture to specific routes. If omitted, all routes are captured. */
   routes?: string[];
+  /** Callback invoked after each successful capture. */
   onCapture?: (snapshot: Snapshot) => void;
 }
 
 let captureInitialized = false;
 
+/**
+ * Registers event listeners to automatically capture snapshots when the page
+ * is about to be hidden or unloaded.
+ *
+ * This function sets up listeners for `visibilitychange`, `pagehide`, and
+ * `beforeunload` events to trigger snapshot capture at the optimal moment
+ * (when the user navigates away or switches tabs).
+ *
+ * @param options - Configuration options for capture behavior
+ * @returns A cleanup function that removes all registered listeners
+ *
+ * @example
+ * ```typescript
+ * // In your app's entry point
+ * import { setupCapture } from '@firsttx/prepaint';
+ *
+ * const cleanup = setupCapture({
+ *   routes: ['/dashboard', '/profile'],
+ *   onCapture: (snapshot) => {
+ *     console.log('Snapshot saved:', snapshot.route);
+ *   },
+ * });
+ *
+ * // Later, if needed:
+ * cleanup();
+ * ```
+ *
+ * @remarks
+ * - Only one capture setup is allowed per page. Subsequent calls return a no-op.
+ * - Captures are debounced using `queueMicrotask` to prevent duplicates.
+ * - The cleanup function resets the initialization flag, allowing re-setup.
+ */
 export function setupCapture(options?: SetupCaptureOptions): () => void {
   if (captureInitialized) return () => {};
   captureInitialized = true;

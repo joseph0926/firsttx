@@ -8,10 +8,20 @@ import { HydrationError } from './errors';
 import { emitDevToolsEvent } from './devtools';
 import { supportsViewTransition } from './utils';
 
+/**
+ * Configuration options for `createFirstTxRoot`.
+ */
 export interface CreateFirstTxRootOptions {
+  /**
+   * Whether to use ViewTransition API for smooth visual transitions.
+   * @default true
+   */
   transition?: boolean;
+  /** Callback invoked when a snapshot is captured (on page hide/unload). */
   onCapture?: (snapshot: Snapshot) => void;
+  /** Callback invoked after determining the handoff strategy. */
   onHandoff?: (strategy: HandoffStrategy) => void;
+  /** Callback invoked when a hydration mismatch is detected and recovered. */
   onHydrationError?: (error: HydrationError) => void;
 }
 
@@ -65,6 +75,51 @@ function inferMismatchType(error: Error): HydrationError['mismatchType'] {
   return 'content';
 }
 
+/**
+ * Creates a React root with prepaint integration, handling hydration,
+ * snapshot capture, and error recovery automatically.
+ *
+ * This is the main entry point for integrating prepaint with React apps.
+ * It replaces `createRoot` or `hydrateRoot` with intelligent behavior:
+ *
+ * - **has-prepaint strategy**: If a prepaint snapshot was restored, attempts
+ *   hydration. On mismatch, gracefully falls back to client render.
+ * - **cold-start strategy**: No snapshot available, performs standard client render.
+ *
+ * @description
+ * The function:
+ * 1. Sets up automatic snapshot capture on page hide/unload
+ * 2. Detects if a prepaint snapshot is present (`data-prepaint` attribute)
+ * 3. Attempts hydration if possible, with automatic error recovery
+ * 4. Installs a root guard to handle edge cases (multiple children, navigation)
+ * 5. Cleans up prepaint markers after successful render
+ *
+ * @param container - The DOM element to render into (must be an Element, not DocumentFragment)
+ * @param element - The React element to render
+ * @param options - Configuration options
+ *
+ * @example
+ * ```tsx
+ * // In your app's entry point (e.g., main.tsx)
+ * import { createFirstTxRoot } from '@firsttx/prepaint';
+ *
+ * createFirstTxRoot(
+ *   document.getElementById('root')!,
+ *   <App />,
+ *   {
+ *     transition: true,
+ *     onHandoff: (strategy) => {
+ *       console.log('Handoff strategy:', strategy);
+ *     },
+ *     onHydrationError: (error) => {
+ *       console.warn('Hydration error:', error.mismatchType);
+ *     },
+ *   }
+ * );
+ * ```
+ *
+ * @throws {Error} If container is a DocumentFragment (not supported)
+ */
 export function createFirstTxRoot(
   container: Element | DocumentFragment,
   element: ReactElement,

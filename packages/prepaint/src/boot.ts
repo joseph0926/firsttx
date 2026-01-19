@@ -62,6 +62,38 @@ function shouldUseOverlay(route: string): boolean {
   return false;
 }
 
+/**
+ * Restores a cached DOM snapshot from IndexedDB during initial page load.
+ *
+ * This function is the core of prepaint's boot phase. It should be called
+ * as early as possible in the page lifecycle (ideally via an inline script
+ * in the document head) to minimize blank screen time.
+ *
+ * @description
+ * The boot process:
+ * 1. Opens IndexedDB and retrieves the snapshot for the current route
+ * 2. Validates the snapshot structure and checks TTL (max 7 days)
+ * 3. Restores the DOM by injecting the cached HTML into `#root`
+ * 4. Injects cached styles with `data-firsttx-prepaint` markers
+ * 5. Sets `data-prepaint` attribute on `<html>` for handoff detection
+ *
+ * If overlay mode is enabled (via `window.__FIRSTTX_OVERLAY__` or localStorage),
+ * the snapshot is rendered in a shadow DOM overlay instead of replacing #root.
+ *
+ * @returns Resolves when boot is complete (success or graceful failure)
+ *
+ * @example
+ * ```html
+ * <!-- In index.html, as early as possible -->
+ * <script type="module">
+ *   import { boot } from '@firsttx/prepaint/boot';
+ *   boot().catch(console.error);
+ * </script>
+ * ```
+ *
+ * @throws Never throws - all errors are caught, logged, and recovered from.
+ * The app will continue with a cold start if boot fails.
+ */
 export async function boot(): Promise<void> {
   const restoreStartTime = performance.now();
   const route = resolveRouteKey();

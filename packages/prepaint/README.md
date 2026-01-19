@@ -296,6 +296,53 @@ const [data] = useModel(Model);
 
 ---
 
+## Security
+
+### HTML Sanitization
+
+Prepaint sanitizes all restored HTML to prevent XSS attacks:
+
+- Removes dangerous tags: `<script>`, `<iframe>`, `<form>`, `<object>`, etc.
+- Removes event handlers: `onclick`, `onerror`, `onload`, etc.
+- Blocks `javascript:` and `data:text/html` URLs
+
+**Note on DOMPurify**
+
+The boot-time restore path uses a synchronous built-in sanitizer for speed. For async helpers (`safeSetInnerHTML`), [DOMPurify](https://github.com/cure53/DOMPurify) is used if available:
+
+```bash
+npm install dompurify
+```
+
+The built-in fallback covers common attack vectors but may not catch all edge cases. For maximum security in custom restore flows, use `safeSetInnerHTML` with DOMPurify installed.
+
+### Sensitive Data
+
+Prepaint automatically protects sensitive fields:
+
+```tsx
+// Password inputs are automatically cleared
+<input type="password" />
+
+// Mark custom sensitive fields
+<input data-firsttx-sensitive name="ssn" />
+<div data-firsttx-sensitive>{authToken}</div>
+```
+
+**Best Practices:**
+
+✅ Mark auth tokens and PII with `data-firsttx-sensitive`
+✅ Keep session data in memory (not DOM)
+❌ Don't store encryption keys in visible elements
+
+### Storage Security
+
+- Snapshots are stored in IndexedDB (browser's same-origin policy applies)
+- Data is **not encrypted** — treat IndexedDB like localStorage
+- TTL: 7 days (auto-expires)
+
+---
+
 ## Debugging
 
 ### Development Logs

@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.9.1
+
+### Patch Changes
+
+- feat(prepaint): add comprehensive tests and improve documentation
+
 ## 0.9.0
 
 ### Changed
