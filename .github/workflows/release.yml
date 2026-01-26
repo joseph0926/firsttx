@@ -54,35 +54,6 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}-
             turbo-${{ runner.os }}-
 
-      - name: Prepare npm auth for OIDC
-        run: |
-          echo "" > "$RUNNER_TEMP/oidc-npmrc"
-          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/oidc-npmrc" >> $GITHUB_ENV
-          echo "NODE_AUTH_TOKEN=" >> $GITHUB_ENV
-          echo "NPM_TOKEN=" >> $GITHUB_ENV
-
-      - name: Debug npm auth (OIDC)
-        run: |
-          echo "node: $(node --version)"
-          echo "npm: $(npm --version)"
-          echo "which npm: $(command -v npm)"
-          ls -l "$(command -v npm)" || true
-          echo "npm prefix: $(npm config get prefix)"
-          echo "userconfig: ${NPM_CONFIG_USERCONFIG:-<unset>}"
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            ls -l "$NPM_CONFIG_USERCONFIG"
-            sed -E 's/(_authToken=).*/\1<redacted>/' "$NPM_CONFIG_USERCONFIG" || true
-          fi
-          if [ -n "${NPM_CONFIG_PREFIX:-}" ]; then
-            echo "npm (prefix): $("$NPM_CONFIG_PREFIX/bin/npm" --version)"
-            ls -l "$NPM_CONFIG_PREFIX/bin/npm" || true
-          fi
-          echo "NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN:+set}"
-          echo "NPM_TOKEN=${NPM_TOKEN:+set}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL:+set}"
-          npm config get userconfig
-          npm config list -l | sed -E 's/(_authToken=).*/\1<redacted>/'
-
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
@@ -92,3 +63,4 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
