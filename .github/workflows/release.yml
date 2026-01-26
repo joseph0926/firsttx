@@ -34,10 +34,12 @@ jobs:
           registry-url: https://registry.npmjs.org
           scope: "@firsttx"
 
-      - name: Update npm to latest
+      - name: Update npm to 11.5.1+
         run: |
-          sudo npm install -g npm@^11.5.1
-          echo "npm version: $(npm --version)"
+          export NPM_CONFIG_PREFIX="$RUNNER_TEMP/npm"
+          npm install -g npm@^11.5.1
+          echo "PATH=$NPM_CONFIG_PREFIX/bin:$PATH" >> $GITHUB_ENV
+          "$NPM_CONFIG_PREFIX/bin/npm" --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
