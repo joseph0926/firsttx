@@ -205,8 +205,8 @@ describe('useTx', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(optimistic).toHaveBeenCalledWith(variables);
-    expect(request).toHaveBeenCalledWith(variables);
+    expect(optimistic).toHaveBeenCalledWith(variables, expect.any(AbortSignal));
+    expect(request).toHaveBeenCalledWith(variables, expect.any(AbortSignal));
   });
 
   it('should handle retry configuration', async () => {

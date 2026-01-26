@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { startTransaction } from '.';
 
 export type UseTxConfig<TVariables, TResult = unknown, TSnapshot = void> = {
-  optimistic: (variables: TVariables) => Promise<TSnapshot>;
+  optimistic: (variables: TVariables, signal?: AbortSignal) => Promise<TSnapshot>;
   rollback: (variables: TVariables, snapshot?: TSnapshot) => Promise<void>;
-  request: (variables: TVariables) => Promise<TResult>;
+  request: (variables: TVariables, signal?: AbortSignal) => Promise<TResult>;
   transition?: boolean;
   retry?: {
     maxAttempts?: number;
@@ -74,26 +74,28 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
       });
 
       await tx.run(
-        async () => {
+        async (signal) => {
           if (isCancelledRef.current) {
             throw new Error('Transaction cancelled');
           }
-          snapshot = await configRef.current.optimistic(variables);
+          snapshot = await configRef.current.optimistic(variables, signal);
         },
         {
           compensate: () => configRef.current.rollback(variables, snapshot),
+          signal: abortControllerRef.current?.signal,
         },
       );
 
       const result = await tx.run(
-        () => {
+        (signal) => {
           if (isCancelledRef.current) {
             throw new Error('Transaction cancelled');
           }
-          return configRef.current.request(variables);
+          return configRef.current.request(variables, signal);
         },
         {
           retry: configRef.current.retry,
+          signal: abortControllerRef.current?.signal,
         },
       );
 
@@ -113,11 +115,12 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
       return result as TResult;
     } catch (err) {
       const error = err as Error;
-      if (error.message === 'Transaction cancelled') {
+      const isCancelled = isCancelledRef.current || error.message === 'Transaction cancelled';
+      if (isCancelled) {
         if (isMountedRef.current) {
           setIsPending(false);
         }
-        throw error;
+        throw new Error('Transaction cancelled');
       }
 
       if (isMountedRef.current) {

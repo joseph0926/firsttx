@@ -47,6 +47,7 @@ export function useSyncedModel<T>(
   const fetcherRef = useRef(fetcher);
   const optionsRef = useRef(options);
   const syncTriggerRef = useRef<'mount' | 'manual' | 'stale'>('manual');
+  const didAutoSyncRef = useRef<boolean>(false);
 
   useEffect(() => {
     fetcherRef.current = fetcher;
@@ -123,7 +124,10 @@ export function useSyncedModel<T>(
     }
   }, [model]);
 
-  const didAutoSyncRef = useRef<boolean>(false);
+  useEffect(() => {
+    didAutoSyncRef.current = false;
+    syncTriggerRef.current = 'manual';
+  }, [model]);
 
   useEffect(() => {
     if (didAutoSyncRef.current) return;

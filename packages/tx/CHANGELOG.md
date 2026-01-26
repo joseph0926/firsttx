@@ -1,5 +1,11 @@
 # @firsttx/tx
 
+## 0.8.0
+
+### Minor Changes
+
+- useTx now passes AbortSignal to optimistic and request for real cancellation.tx.run supports external abort signals and cancels the current step when possible.Concurrent run() calls are disallowed (throws TransactionStateError).Hooks tests updated for the signal argument.
+
 ## 0.7.0
 
 ### Minor Changes

@@ -312,6 +312,9 @@ const { mutate } = useTx({
 | `rolled-back` | 롤백 완료                             |
 | `failed`      | compensate 실패로 불일치 상태         |
 
+`running`은 현재 스텝이 실행 중임을 의미합니다. 다음 `run()`은 반드시 이전 스텝 완료( await ) 후에 호출해야 하며,
+동시에 호출하면 `TransactionStateError`가 발생합니다.
+
 ## 에러 처리
 
 ### TransactionTimeoutError

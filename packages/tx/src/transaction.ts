@@ -8,6 +8,7 @@ export class Transaction {
   private steps: TxStep<unknown>[] = [];
   private completedSteps = 0;
   private status: TxStatus = 'pending';
+  private isStepRunning = false;
   private readonly id: string;
   private readonly options: Required<TxOptions>;
   private startTime?: number;
@@ -35,13 +36,33 @@ export class Transaction {
       throw new TransactionStateError(this.status, 'add step', this.id);
     }
 
+    if (this.isStepRunning) {
+      throw new TransactionStateError(this.status, 'add step', this.id);
+    }
+
     this.status = 'running';
+    this.isStepRunning = true;
 
     if (!this.startTime) {
       this.startTime = Date.now();
     }
 
     this.abortController = new AbortController();
+    const externalSignal = options?.signal;
+    const onExternalAbort = () => {
+      if (!this.abortController || this.abortController.signal.aborted) return;
+      const reason: unknown = externalSignal?.reason;
+      const abortError = reason instanceof Error ? reason : new Error('Aborted');
+      this.abortController.abort(abortError);
+    };
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        onExternalAbort();
+      } else {
+        externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+      }
+    }
 
     const stepIndex = this.steps.length;
     const step: TxStep<T> = {
@@ -101,6 +122,10 @@ export class Transaction {
     } finally {
       this.clearTimeout();
       this.abortController = undefined;
+      this.isStepRunning = false;
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
     }
   }
 

@@ -139,6 +139,8 @@ Internally, the transaction engine roughly has the following states,
 - You may call `run()` and `commit()` only while the transaction is in `pending` or `running`.
 - If you call them after the transaction has already been `committed` or has reached `rolled-back` / `failed`,
   a **`TransactionStateError`** is thrown.
+- While in `running`, **await the current step** before calling the next `run()`.
+  Concurrent calls will throw a **`TransactionStateError`**.
 
 **Global timeout & Abort**
 
@@ -388,7 +390,7 @@ export function AddToCartButton({
       name: "config.cancelOnUnmount",
       type: "boolean",
       defaultValue: "false",
-      description: "Whether to automatically call <code>cancel()</code> when the component unmounts. In the current implementation this does <strong>logical cancellation only</strong>: it does not stop in-flight network requests, but prevents subsequent state updates and callbacks for this transaction.",
+      description: "Whether to automatically call <code>cancel()</code> when the component unmounts. Cancellation aborts the current step if it respects <code>AbortSignal</code>; otherwise in-flight work may continue, but subsequent state updates and callbacks for this transaction are ignored.",
     },
   ]}
 />
@@ -411,7 +413,7 @@ export function AddToCartButton({
     {
       name: "cancel",
       type: "() => void",
-      description: "Logically cancels the current transaction so its result is not reflected in the UI. In-flight network/timer work continues to run, but once it completes, state updates and callbacks are ignored.",
+      description: "Cancels the current transaction. If the running step uses <code>AbortSignal</code>, in-flight work is aborted; otherwise it may keep running, but its result is ignored and no state updates/callbacks are applied.",
     },
     {
       name: "isPending",
@@ -442,7 +444,7 @@ export function AddToCartButton({
       <code>useTx</code> creates a new underlying <code>startTransaction</code> for each call, and uses it to group the optimistic, request, and rollback steps.
     </li>
     <li>
-      When <code>cancelOnUnmount</code> is <code>true</code>, unmounting the component automatically calls <code>cancel()</code>, preventing further state updates and callbacks for that transaction. In-flight network requests themselves are <strong>not</strong> aborted.
+      When <code>cancelOnUnmount</code> is <code>true</code>, unmounting the component calls <code>cancel()</code>. If the active step honors <code>AbortSignal</code>, it will be aborted; otherwise it may finish but its result is ignored.
     </li>
     <li>
       When <code>transition: true</code> and the browser supports <code>document.startViewTransition</code>, the rollback path is wrapped in a ViewTransition, providing a smooth “undo” animation. (Successful commit paths do not use ViewTransition.)

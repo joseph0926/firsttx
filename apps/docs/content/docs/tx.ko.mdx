@@ -139,6 +139,8 @@ async function addToCart(item: { id: string; name: string; qty: number }) {
 - `pending` / `running` 상태에서만 `run()`과 `commit()`을 호출할 수 있습니다.
 - 이미 `committed`이거나 `rolled-back` / `failed` 상태에서 다시 호출하면
   **`TransactionStateError`**가 발생합니다.
+- `running` 상태에서는 **현재 스텝 실행이 끝난 뒤(반드시 await)** 다음 `run()`을 호출해야 합니다.
+  동시에 호출하면 **`TransactionStateError`**가 발생합니다.
 
 **전역 타임아웃 & Abort**
 
@@ -390,7 +392,7 @@ export function AddToCartButton({
       name: "config.cancelOnUnmount",
       type: "boolean",
       defaultValue: "false",
-      description: "컴포넌트 언마운트 시 자동으로 <code>cancel()</code>을 호출할지 여부입니다. 현재 구현에서는 네트워크 요청 자체를 중단하지 않고, 완료 후 상태 업데이트/콜백 실행만 막는 <strong>논리적 취소</strong>입니다.",
+      description: "컴포넌트 언마운트 시 자동으로 <code>cancel()</code>을 호출할지 여부입니다. 취소 시 현재 스텝이 <code>AbortSignal</code>을 사용한다면 즉시 중단되며, 그렇지 않으면 진행은 계속되지만 결과는 무시되고 상태 업데이트/콜백은 실행되지 않습니다.",
     },
   ]}
 />
@@ -413,7 +415,7 @@ export function AddToCartButton({
     {
       name: "cancel",
       type: "() => void",
-      description: "현재 진행 중인 트랜잭션 결과를 UI에 반영하지 않도록 논리적으로 취소합니다. 이미 시작된 네트워크/타이머 작업은 계속 진행되지만, 완료 후 상태 업데이트와 콜백 실행은 무시됩니다.",
+      description: "현재 진행 중인 트랜잭션을 취소합니다. 실행 중인 스텝이 <code>AbortSignal</code>을 지원하면 즉시 중단되고, 지원하지 않으면 계속 진행되지만 결과는 무시됩니다.",
     },
     {
       name: "isPending",
@@ -444,7 +446,7 @@ export function AddToCartButton({
       <code>useTx</code>는 호출될 때마다 내부적으로 새로운 <code>startTransaction</code>을 생성해 각 단계를 트랜잭션으로 묶습니다.
     </li>
     <li>
-      <code>cancelOnUnmount</code>가 <code>true</code>면 언마운트 시 자동으로 <code>cancel()</code>이 호출되어 이후 상태 업데이트와 콜백 실행만 막습니다. 이미 진행 중인 네트워크 요청 자체는 취소하지 않습니다.
+      <code>cancelOnUnmount</code>가 <code>true</code>면 언마운트 시 자동으로 <code>cancel()</code>이 호출됩니다. 실행 중인 스텝이 <code>AbortSignal</code>을 지원하면 중단되며, 그렇지 않으면 완료되더라도 결과는 무시됩니다.
     </li>
     <li>
       <code>transition: true</code>이고 브라우저가 <code>document.startViewTransition</code>을 지원하면, 실패로 인해 롤백이 실행될 때 ViewTransition으로 감싸져 자연스러운 되돌리기 애니메이션을 제공합니다. (성공 경로에서는 ViewTransition을 사용하지 않습니다.)

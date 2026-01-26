@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.11.1
+
+### Patch Changes
+
+- Auto-sync re-runs when the model instance changes in useSyncedModel.
+
 ## 0.11.0
 
 ### Minor Changes

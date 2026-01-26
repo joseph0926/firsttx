@@ -1,5 +1,14 @@
 # @firsttx/devtools
 
+## 0.1.27
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @firsttx/tx@0.8.0
+  - @firsttx/local-first@0.11.1
+
 ## 0.1.26
 
 ### Patch Changes

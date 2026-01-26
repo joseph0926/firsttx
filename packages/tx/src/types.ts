@@ -36,6 +36,8 @@ export type StepOptions = {
   compensate?: () => Promise<void>;
   /** Retry configuration */
   retry?: RetryConfig;
+  /** Optional AbortSignal to cancel the current step */
+  signal?: AbortSignal;
 };
 
 export type TxStep<T = void> = {

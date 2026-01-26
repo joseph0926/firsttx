@@ -312,6 +312,9 @@ A transaction can be in one of the following states:
 | `rolled-back` | Rollback has completed                                      |
 | `failed`      | Inconsistent state due to failed compensate operations      |
 
+`running` means a step is currently executing. Call the next `run()` only after the current step finishes (await it).
+Concurrent `run()` calls will throw a `TransactionStateError`.
+
 ## Error handling
 
 ### TransactionTimeoutError
