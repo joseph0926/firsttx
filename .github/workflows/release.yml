@@ -38,7 +38,8 @@ jobs:
         run: |
           export NPM_CONFIG_PREFIX="$RUNNER_TEMP/npm"
           npm install -g npm@^11.5.1
-          echo "PATH=$NPM_CONFIG_PREFIX/bin:$PATH" >> $GITHUB_ENV
+          echo "NPM_CONFIG_PREFIX=$NPM_CONFIG_PREFIX" >> $GITHUB_ENV
+          echo "$NPM_CONFIG_PREFIX/bin" >> $GITHUB_PATH
           "$NPM_CONFIG_PREFIX/bin/npm" --version
 
       - name: Install dependencies
@@ -64,10 +65,17 @@ jobs:
         run: |
           echo "node: $(node --version)"
           echo "npm: $(npm --version)"
+          echo "which npm: $(command -v npm)"
+          ls -l "$(command -v npm)" || true
+          echo "npm prefix: $(npm config get prefix)"
           echo "userconfig: ${NPM_CONFIG_USERCONFIG:-<unset>}"
           if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
             ls -l "$NPM_CONFIG_USERCONFIG"
             sed -E 's/(_authToken=).*/\1<redacted>/' "$NPM_CONFIG_USERCONFIG" || true
+          fi
+          if [ -n "${NPM_CONFIG_PREFIX:-}" ]; then
+            echo "npm (prefix): $("$NPM_CONFIG_PREFIX/bin/npm" --version)"
+            ls -l "$NPM_CONFIG_PREFIX/bin/npm" || true
           fi
           echo "NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN:+set}"
           echo "NPM_TOKEN=${NPM_TOKEN:+set}"
