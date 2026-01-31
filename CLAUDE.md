@@ -48,8 +48,8 @@ pnpm --filter @firsttx/tx dev
 
 ## 필수 환경
 
-- **Node**: >= 22
-- **pnpm**: 10.26.0 (루트 `package.json`의 `packageManager` 참조)
+- **Node**: >= 24
+- **pnpm**: 10.28.2 (루트 `package.json`의 `packageManager` 참조)
 - **모듈 시스템**: ESM only
 
 ## 핵심 설정 파일
