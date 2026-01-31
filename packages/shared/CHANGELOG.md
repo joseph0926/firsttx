@@ -1,5 +1,11 @@
 # @firsttx/shared
 
+## 0.3.1
+
+### Patch Changes
+
+- update version
+
 ## 0.3.0
 
 ### Minor Changes

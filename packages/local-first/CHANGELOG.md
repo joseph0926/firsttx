@@ -1,5 +1,13 @@
 # @firsttx/local-first
 
+## 0.11.2
+
+### Patch Changes
+
+- update version
+- Updated dependencies
+  - @firsttx/shared@0.3.1
+
 ## 0.11.1
 
 ### Patch Changes
