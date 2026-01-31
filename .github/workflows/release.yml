@@ -31,8 +31,6 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          registry-url: https://registry.npmjs.org
-          scope: "@firsttx"
 
       - name: Update npm to 11.5.1+
         run: |
@@ -56,11 +54,10 @@ jobs:
 
       - name: Create Release Pull Request or Publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v1.4.10
         with:
           version: pnpm run release:version
           publish: pnpm run release:publish
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'
