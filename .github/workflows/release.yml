@@ -29,17 +29,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm to 11.5.1+
-        run: |
-          export NPM_CONFIG_PREFIX="$RUNNER_TEMP/npm"
-          npm install -g npm@^11.5.1
-          echo "NPM_CONFIG_PREFIX=$NPM_CONFIG_PREFIX" >> $GITHUB_ENV
-          echo "$NPM_CONFIG_PREFIX/bin" >> $GITHUB_PATH
-          "$NPM_CONFIG_PREFIX/bin/npm" --version
+      # Node.js 24는 npm v11을 기본 포함 (OIDC Trusted Publishing 지원)
+      - name: Verify npm version
+        run: npm --version
 
       - name: Install dependencies
         # --ignore-scripts: OIDC 토큰이 job 전체에 노출되므로
