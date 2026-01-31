@@ -60,7 +60,8 @@
   },
   "homepage": "https://github.com/joseph0926/firsttx#readme",
   "devDependencies": {
-    "@changesets/cli": "^2.29.7",
+    "@changesets/cli": "^2.29.8",
+    "@changesets/config": "^3.1.2",
     "@eslint/js": "^9.37.0",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.6.2",
