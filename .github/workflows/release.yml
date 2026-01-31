@@ -41,7 +41,10 @@ jobs:
           "$NPM_CONFIG_PREFIX/bin/npm" --version
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # --ignore-scripts: OIDC 토큰이 job 전체에 노출되므로
+        # install 중 악성 postinstall 스크립트가 npm publish 호출하는 것을 방지
+        # ref: https://github.com/changesets/changesets/issues/1802
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Setup Turbo cache
         uses: actions/cache@v5
