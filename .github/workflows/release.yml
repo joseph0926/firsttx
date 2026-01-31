@@ -31,6 +31,7 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
+          registry-url: "https://registry.npmjs.org"
 
       - name: Update npm to 11.5.1+
         run: |
