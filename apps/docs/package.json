@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/node": "^20",
+    "@types/node": "^25",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
