@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.9.3
+
+### Patch Changes
+
+- Fix a background revalidation race where stale network responses could overwrite newer local patches. The sync manager now drops stale revalidation writes and adds a regression test. / Improve prepaint hot-path performance by switching dangerous-attribute stripping to a single-pass scan. Harden the Vite plugin by trimming and validating nonce values, rejecting unsafe input with tests.
+
 ## 0.9.2
 
 ### Patch Changes

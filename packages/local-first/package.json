@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/local-first",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "description": "React + IndexedDB data layer that exposes synchronous snapshots, staleness metadata, and server sync hooks while pairing with Tx for optimistic durability.",
   "license": "MIT",
   "author": "joseph0926",
