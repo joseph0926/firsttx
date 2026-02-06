@@ -5,6 +5,7 @@ type DOMPurifyLike = {
 };
 
 let cachedDOMPurify: DOMPurifyLike | null | undefined = undefined;
+const DANGEROUS_ATTRIBUTE_SET = new Set<string>(DANGEROUS_ATTRIBUTES);
 
 async function tryLoadDOMPurify(): Promise<DOMPurifyLike | null> {
   if (cachedDOMPurify !== undefined) {
@@ -31,16 +32,12 @@ function fallbackSanitize(html: string): string {
 
   const allElements = doc.body.querySelectorAll('*');
   allElements.forEach((el) => {
-    DANGEROUS_ATTRIBUTES.forEach((attr) => {
-      if (el.hasAttribute(attr)) {
-        el.removeAttribute(attr);
-      }
-    });
-
     const attributes = Array.from(el.attributes);
     attributes.forEach((attr) => {
-      if (attr.name.startsWith('on')) {
+      const attrName = attr.name.toLowerCase();
+      if (DANGEROUS_ATTRIBUTE_SET.has(attrName) || attrName.startsWith('on')) {
         el.removeAttribute(attr.name);
+        return;
       }
       const value = attr.value.toLowerCase().trim();
       if (value.startsWith('javascript:') || value.startsWith('data:text/html')) {

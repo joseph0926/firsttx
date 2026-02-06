@@ -28,7 +28,7 @@ interface ModelPatchData {
 interface ModelReplaceData {
   modelName: string;
   dataSize: number;
-  source: 'sync' | 'broadcast' | 'manual';
+  source: 'sync' | 'broadcast' | 'manual' | 'background';
   duration: number;
 }
 

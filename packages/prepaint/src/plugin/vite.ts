@@ -13,6 +13,8 @@ export interface FirstTxPluginOptions {
   devFlagOverride?: boolean;
 }
 
+const NONCE_PATTERN = /^[A-Za-z0-9+/_-]+=*$/;
+
 export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
   const {
     inline = true,
@@ -66,7 +68,7 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
       order: 'pre',
       handler(html) {
         if (!bootScriptCode) return html;
-        const nonceValue = typeof nonce === 'function' ? nonce() : nonce;
+        const nonceValue = resolveAndValidateNonce(nonce);
 
         const cfg: string[] = [];
         if (overlay === true) cfg.push('window.__FIRSTTX_OVERLAY__=true;');
@@ -101,6 +103,27 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
       }
     },
   };
+}
+
+function resolveAndValidateNonce(nonceOption: FirstTxPluginOptions['nonce']): string | undefined {
+  const nonceValue = typeof nonceOption === 'function' ? nonceOption() : nonceOption;
+
+  if (!nonceValue) {
+    return undefined;
+  }
+
+  const normalizedNonce = nonceValue.trim();
+  if (!normalizedNonce) {
+    return undefined;
+  }
+
+  if (!NONCE_PATTERN.test(normalizedNonce)) {
+    throw new Error(
+      '[FirstTx] Invalid nonce value. Use only base64/base64url characters for CSP nonce.',
+    );
+  }
+
+  return normalizedNonce;
 }
 
 function injectScript(html: string, scriptTag: string, position: string): string {

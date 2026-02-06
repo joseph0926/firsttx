@@ -240,6 +240,44 @@ describe('Model.getSyncPromise', () => {
     expect(freshData).toEqual({ count: 42 });
   });
 
+  it('should ignore stale background revalidation after local patch', async () => {
+    const TestModel = defineModel('test-stale-race-guard', {
+      schema: z.object({ count: z.number() }),
+      ttl: 100,
+    });
+
+    await TestModel.replace({ count: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    let resolveFetcher!: (value: { count: number }) => void;
+    const pendingFetch = new Promise<{ count: number }>((resolve) => {
+      resolveFetcher = resolve;
+    });
+
+    const fetcherSpy = vi.fn(() => pendingFetch);
+
+    const NewModel = defineModel('test-stale-race-guard', {
+      schema: z.object({ count: z.number() }),
+      ttl: 100,
+    });
+
+    const promise = NewModel.getSyncPromise(fetcherSpy);
+    const data = await promise;
+    expect(data).toEqual({ count: 1 });
+    expect(fetcherSpy).toHaveBeenCalledTimes(1);
+    expect(fetcherSpy).toHaveBeenCalledWith({ count: 1 });
+
+    await NewModel.patch((draft) => {
+      draft.count = 10;
+    });
+
+    resolveFetcher({ count: 42 });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const latestData = await NewModel.getSnapshot();
+    expect(latestData).toEqual({ count: 10 });
+  });
+
   it('should not revalidate fresh IndexedDB cache when revalidateOnMount is stale', async () => {
     const TestModel = defineModel('test-fresh-cache', {
       schema: z.object({ value: z.string() }),

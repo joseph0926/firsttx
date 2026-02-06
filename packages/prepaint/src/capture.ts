@@ -7,6 +7,7 @@ import { CaptureError, PrepaintStorageError, convertDOMException } from './error
 import { emitDevToolsEvent } from './devtools';
 
 const isTestEnv = typeof process !== 'undefined' && !!process.env?.VITEST;
+const DANGEROUS_ATTRIBUTE_SET = new Set<string>(DANGEROUS_ATTRIBUTES);
 
 function getDocumentBaseUrl(): string | null {
   try {
@@ -161,9 +162,11 @@ function serializeRoot(rootEl: HTMLElement): string {
 
   const allElements = [clone, ...Array.from(clone.querySelectorAll('*'))];
   allElements.forEach((el) => {
-    DANGEROUS_ATTRIBUTES.forEach((attr) => {
-      if (el.hasAttribute(attr)) {
-        el.removeAttribute(attr);
+    const attributes = Array.from(el.attributes);
+    attributes.forEach((attr) => {
+      const attrName = attr.name.toLowerCase();
+      if (DANGEROUS_ATTRIBUTE_SET.has(attrName) || attrName.startsWith('on')) {
+        el.removeAttribute(attr.name);
       }
     });
   });

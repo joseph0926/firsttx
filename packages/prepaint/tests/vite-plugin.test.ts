@@ -254,6 +254,15 @@ describe('firstTx Vite Plugin', () => {
       expect(result).toContain('nonce="abc123"');
     });
 
+    it('trims nonce attribute when surrounding whitespace exists', async () => {
+      const handler = await getTransformHandler({ nonce: '  abc123  ' });
+      const html = '<html><head></head><body></body></html>';
+
+      const result = handler(html);
+
+      expect(result).toContain('nonce="abc123"');
+    });
+
     it('calls nonce function when provided', async () => {
       const nonceFn = vi.fn().mockReturnValue('dynamic-nonce');
       const handler = await getTransformHandler({ nonce: nonceFn });
@@ -263,6 +272,13 @@ describe('firstTx Vite Plugin', () => {
 
       expect(nonceFn).toHaveBeenCalled();
       expect(result).toContain('nonce="dynamic-nonce"');
+    });
+
+    it('throws for unsafe nonce characters', async () => {
+      const handler = await getTransformHandler({ nonce: 'abc"onload="x' });
+      const html = '<html><head></head><body></body></html>';
+
+      expect(() => handler(html)).toThrow('[FirstTx] Invalid nonce value');
     });
 
     it('adds overlay flag script when overlay is true', async () => {

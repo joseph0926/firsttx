@@ -12,10 +12,18 @@ export type SyncPromiseOptions<T> = {
   onError?: (error: Error) => void;
 };
 
+type ReplaceSource = 'manual' | 'background';
+
+type ReplaceOptions = {
+  source?: ReplaceSource;
+  expectedMutationVersion?: number;
+};
+
 export class SyncManager<T> {
   private syncPromise: Promise<T> | null = null;
   private cachedDataPromise: Promise<T> | null = null;
   private revalidationPromise: Promise<void> | null = null;
+  private mutationVersion = 0;
 
   constructor(
     private readonly name: string,
@@ -94,8 +102,12 @@ export class SyncManager<T> {
 
     this.revalidationPromise = (async () => {
       try {
+        const expectedMutationVersion = this.mutationVersion;
         const fresh = await fetcher(current);
-        await this.replace(fresh);
+        await this.replace(fresh, {
+          source: 'background',
+          expectedMutationVersion,
+        });
 
         emitModelEvent('revalidate', {
           modelName: this.name,
@@ -116,9 +128,18 @@ export class SyncManager<T> {
     })();
   }
 
-  async replace(data: T): Promise<void> {
+  async replace(data: T, options?: ReplaceOptions): Promise<void> {
     return this.storageManager.enqueue(async () => {
       const replaceStartTime = performance.now();
+      const source = options?.source ?? 'manual';
+
+      if (
+        source === 'background' &&
+        typeof options?.expectedMutationVersion === 'number' &&
+        this.mutationVersion !== options.expectedMutationVersion
+      ) {
+        return;
+      }
 
       const validation = this.storageManager.validate(data);
       if (!validation.success) {
@@ -147,12 +168,15 @@ export class SyncManager<T> {
       const updatedAt = await this.storageManager.save(merged);
       this.cacheManager.updateWithData(merged, updatedAt);
       this.cachedDataPromise = Promise.resolve(merged);
+      if (source === 'manual') {
+        this.mutationVersion++;
+      }
 
       const replaceDuration = performance.now() - replaceStartTime;
       emitModelEvent('replace', {
         modelName: this.name,
         dataSize: JSON.stringify(merged).length,
-        source: 'manual',
+        source,
         duration: replaceDuration,
       });
     });
@@ -197,6 +221,7 @@ export class SyncManager<T> {
       const updatedAt = await this.storageManager.save(validation.data);
       this.cacheManager.updateWithData(validation.data, updatedAt);
       this.cachedDataPromise = Promise.resolve(validation.data);
+      this.mutationVersion++;
 
       const patchDuration = performance.now() - patchStartTime;
       emitModelEvent('patch', {
