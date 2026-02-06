@@ -1,179 +1,200 @@
-# 테스트 커버리지 갭 분석
+# 영역 이슈 레지스터: Test Coverage
 
-> 감사일: 2026-02-06 | 대상: 전체 모노레포
+> 마지막 업데이트: 2026-02-06
+> 대상 범위: 모노레포 테스트 공백 중 우선 대응 항목
 
-## 전체 평가
+## 운영 상태 요약
 
-shared 패키지는 우수한 커버리지. prepaint/tx는 주요 모듈은 테스트되나 유틸/에러 클래스 부분적 누락. local-first는 핵심 매니저 클래스 3개가 직접 테스트 전무. devtools는 bridge helpers와 filter 외 대부분 미테스트.
+- 전체 이슈: 12
+- Severity 분포: Critical 4, High 4, Medium 4
+- Status 분포: Open 4, Planned 8
 
----
+## 기준선 스냅샷
 
-## 패키지별 상세
+| 패키지                 | 현재 상태                          | 핵심 갭                                                             |
+| ---------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| `@firsttx/local-first` | 핵심 훅/스토리지 일부 테스트됨     | `cache-manager`, `sync-manager`, `storage-manager` 직접 테스트 없음 |
+| `@firsttx/devtools`    | helper/filter 위주 테스트          | `bridge/core` 및 panel 주요 유틸 미테스트                           |
+| `@firsttx/prepaint`    | 주요 경로 테스트 존재              | `errors`, `style-utils`, 일부 유틸 엣지 케이스 부족                 |
+| `@firsttx/tx`          | transaction/retry/hook 테스트 존재 | 에러 클래스/Abort edge 케이스 부족                                  |
+| `apps/playground`      | 주요 E2E 시나리오 존재             | offline/cross-tab/TTL 시나리오 부족                                 |
 
-### @firsttx/prepaint
+### <a id="tc-01"></a>TC-01: `cache-manager.ts` 직접 단위 테스트 부재
 
-| 소스 모듈      | 테스트                                       | 상태     |
-| -------------- | -------------------------------------------- | -------- |
-| boot.ts        | boot.test.ts                                 | 양호     |
-| capture.ts     | capture.test.ts                              | 양호     |
-| handoff.ts     | handoff.test.ts                              | 양호     |
-| overlay.ts     | overlay.test.ts                              | 부분적   |
-| sanitize.ts    | sanitize.test.ts                             | 우수     |
-| utils.ts       | utils.test.ts                                | 부분적   |
-| helpers.ts     | hydration.test.tsx, hydration-error.test.tsx | 양호     |
-| devtools.ts    | devtools.test.ts                             | 우수     |
-| errors.ts      | hydration-error.test.tsx (부분)              | 부분적   |
-| style-utils.ts | (없음)                                       | 미테스트 |
-| plugin/vite.ts | vite-plugin.test.ts                          | 우수     |
+- **ID**: TC-01
+- **Severity**: Critical
+- **Status**: Open
+- **Owner**: Unassigned
+- **Component**: `@firsttx/local-first`
+- **Location**: `packages/local-first/src/cache-manager.ts` (target: `packages/local-first/tests/cache-manager.test.ts`)
+- **Impact**: 상태 전이/구독자 알림/동등성 최적화 회귀를 조기에 탐지하지 못합니다.
+- **Repro**: 커버리지 리포트에서 `cache-manager.ts` 직접 커버리지 항목 부재를 확인합니다.
+- **Fix Plan**: 상태 전이, subscriber count, stale 계산, 참조 동등성 케이스를 포함한 단위 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/local-first test` 실행 후 신규 테스트 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-**누락된 테스트:**
+### <a id="tc-02"></a>TC-02: `sync-manager.ts` 핵심 흐름 테스트 부재
 
-- **[Medium] style-utils.ts** — `normalizeSnapshotStyleEntry()` 직접 테스트 없음. 빈 문자열, undefined href 등 엣지 케이스 누락
-- **[Medium] overlay.ts** — `removeOverlay()` 직접 테스트 없음. document.body 없을 때 deferred mount 경로 미테스트
-- **[Medium] utils.ts** — `resolveRouteKey()`, `scrubSensitiveFields()` 등 직접 테스트 없음. `__FIRSTTX_ROUTE_KEY__` 함수 오버라이드 엣지 케이스 미테스트
-- **[Medium] boot.ts** — `appendStyleResource()` external link style 경로 직접 테스트 없음
-- **[Low] errors.ts** — BootError, CaptureError, PrepaintStorageError 직접 테스트 없음. `convertDOMException()` SecurityError/UNKNOWN 분기 미테스트
+- **ID**: TC-02
+- **Severity**: Critical
+- **Status**: Open
+- **Owner**: Unassigned
+- **Component**: `@firsttx/local-first`
+- **Location**: `packages/local-first/src/sync-manager.ts` (target: `packages/local-first/tests/sync-manager.test.ts`)
+- **Impact**: dedupe/revalidation/merge/patch 직렬화 회귀가 production에서만 드러날 수 있습니다.
+- **Repro**: race 상황을 재현해도 이를 자동 탐지할 단위 테스트가 없습니다.
+- **Fix Plan**: `getSyncPromise` dedupe, `revalidateInBackground`, `replace/patch` 시나리오 테스트를 작성합니다.
+- **Validation**: `pnpm --filter @firsttx/local-first test`와 해당 테스트 파일 단독 실행으로 검증합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
----
+### <a id="tc-03"></a>TC-03: `storage-manager.ts` 마이그레이션/에러 분기 테스트 부재
 
-### @firsttx/local-first
+- **ID**: TC-03
+- **Severity**: Critical
+- **Status**: Open
+- **Owner**: Unassigned
+- **Component**: `@firsttx/local-first`
+- **Location**: `packages/local-first/src/storage-manager.ts` (target: `packages/local-first/tests/storage-manager.test.ts`)
+- **Impact**: 버전 마이그레이션/검증 실패/직렬화 큐 정책 변경이 검증 없이 배포될 수 있습니다.
+- **Repro**: schema mismatch 상황에서 자동 삭제/복구 동작을 수동으로만 검증해야 합니다.
+- **Fix Plan**: migration, zod failure cleanup, enqueue serialization, env 분기 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/local-first test`에서 신규 시나리오 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-| 소스 모듈          | 테스트                                    | 상태     |
-| ------------------ | ----------------------------------------- | -------- |
-| model.ts           | model.test.ts, model-ttl-optional.test.ts | 양호     |
-| hooks.ts           | hooks.test.ts                             | 양호     |
-| storage.ts         | storage.test.ts                           | 양호     |
-| broadcast.ts       | broadcast.test.ts                         | 양호     |
-| suspense.ts        | suspense.test.tsx                         | 양호     |
-| errors.ts          | errors.test.ts                            | 양호     |
-| cache-manager.ts   | (없음)                                    | 미테스트 |
-| storage-manager.ts | (없음)                                    | 미테스트 |
-| sync-manager.ts    | (없음)                                    | 미테스트 |
-| devtools.ts        | (없음)                                    | 미테스트 |
-| utils.ts           | (없음)                                    | 미테스트 |
+### <a id="tc-04"></a>TC-04: `bridge/core.ts` 핵심 동작 테스트 부재
 
-**누락된 테스트:**
+- **ID**: TC-04
+- **Severity**: Critical
+- **Status**: Open
+- **Owner**: Unassigned
+- **Component**: `@firsttx/devtools`
+- **Location**: `packages/devtools/src/bridge/core.ts` (target: `packages/devtools/tests/bridge/core.test.ts`)
+- **Impact**: 이벤트 버퍼링/브로드캐스트/영속화 로직 회귀가 탐지되지 않습니다.
+- **Repro**: 고빈도 이벤트 시나리오를 실행해도 브리지 핵심 경로를 검증하는 자동 테스트가 없습니다.
+- **Fix Plan**: batch 전송, high-priority persist, 채널 연결/해제 케이스를 포함한 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/devtools test`에서 bridge core 테스트 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-- **[Critical] cache-manager.ts** — 핵심 상태 관리. subscriber count, snapshot 참조 동등성 최적화, TTL 기반 isStale 계산 직접 검증 필요
-- **[Critical] sync-manager.ts** — `getSyncPromise` dedupe, `revalidateInBackground`, `replace` merge, `patch` validation, 작업 큐 직렬화 직접 검증 필요
-- **[Critical] storage-manager.ts** — load 버전 마이그레이션, Zod 실패 시 삭제, production vs dev 에러 처리 분기, `enqueue` 직렬화 직접 검증 필요
-- **[High] devtools.ts** — `emitModelEvent()` 안전성. window 미정의, DevTools API 미존재, emit 에러 시 분기
-- **[Low] utils.ts** — `supportsViewTransition()` 직접 테스트 없음
+### <a id="tc-05"></a>TC-05: local-first devtools emit 안전성 테스트 보강 필요
 
----
+- **ID**: TC-05
+- **Severity**: High
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/local-first`
+- **Location**: `packages/local-first/src/devtools.ts` (target: `packages/local-first/tests/devtools.test.ts`)
+- **Impact**: 브라우저/런타임 차이에 따른 emit 실패가 조용히 누락될 수 있습니다.
+- **Repro**: `window` 미정의/DevTools API 누락 조건에서 emit 함수 동작을 확인할 테스트가 없습니다.
+- **Fix Plan**: 환경별 fallback 및 예외 처리 분기 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/local-first test` 실행 결과로 검증합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-### @firsttx/tx
+### <a id="tc-06"></a>TC-06: timeline 유틸 테스트 부재
 
-| 소스 모듈      | 테스트              | 상태   |
-| -------------- | ------------------- | ------ |
-| transaction.ts | transaction.test.ts | 양호   |
-| hooks.ts       | hooks.test.ts       | 양호   |
-| retry.ts       | retry.test.ts       | 양호   |
-| utils.ts       | utils.test.ts       | 양호   |
-| errors.ts      | (간접)              | 부분적 |
-| devtools.ts    | devtools.test.ts    | 양호   |
+- **ID**: TC-06
+- **Severity**: High
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/devtools`
+- **Location**: `packages/devtools/src/panel/utils/timeline.ts`, `packages/devtools/src/panel/utils/timeline-scale.ts`
+- **Impact**: 시간축 그룹핑/스케일 계산 회귀가 UI 오동작으로 이어질 수 있습니다.
+- **Repro**: 타임라인 표시 이상을 재현해도 유틸 레벨 단위 테스트가 없습니다.
+- **Fix Plan**: `groupTxEvents()`, `calculateTimelineScale()`를 별도 테스트 파일로 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/devtools test`에서 유틸 테스트 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-**누락된 테스트:**
+### <a id="tc-07"></a>TC-07: prepaint errors 모듈 직접 테스트 부재
 
-- **[Medium] errors.ts** — 각 에러 클래스 직접 테스트 없음. `getUserMessage()`, `getDebugInfo()`, `isRecoverable()`, `toJSON()` 직접 검증 부족
-- **[Medium] transaction.ts** — `AbortSignal` 연동, `createTimeoutPromise` 엣지 케이스, concurrent step 방지 `isStepRunning` 엣지 케이스
+- **ID**: TC-07
+- **Severity**: High
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/prepaint`
+- **Location**: `packages/prepaint/src/errors.ts` (target: `packages/prepaint/tests/errors.test.ts`)
+- **Impact**: 에러 타입/매핑 변경 시 디버깅 정보 품질이 저하될 수 있습니다.
+- **Repro**: `convertDOMException()` 분기와 커스텀 에러 직렬화를 자동 검증하는 테스트가 없습니다.
+- **Fix Plan**: 에러 클래스별 생성/직렬화/메시지 매핑 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/prepaint test` 실행으로 검증합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
----
+### <a id="tc-08"></a>TC-08: 패키지 간 통합 테스트 부재 (`tx + local-first`)
 
-### @firsttx/shared
+- **ID**: TC-08
+- **Severity**: High
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/local-first`, `@firsttx/tx`
+- **Location**: integration layer (target: `packages/tx/tests/integration/*` 또는 `apps/playground/tests/*`)
+- **Impact**: 패키지 경계에서의 계약 불일치가 단위 테스트만으로는 탐지되지 않습니다.
+- **Repro**: 낙관적 업데이트 + 저장소 동기화 결합 시나리오를 자동 검증하는 테스트가 없습니다.
+- **Fix Plan**: tx 실행과 local-first 저장/롤백을 결합한 통합 테스트를 추가합니다.
+- **Validation**: `pnpm run test`와 대상 패키지 테스트에서 통합 시나리오 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-| 소스 모듈      | 테스트              | 상태 |
-| -------------- | ------------------- | ---- |
-| browser.ts     | browser.test.ts     | 우수 |
-| constants.ts   | constants.test.ts   | 양호 |
-| errors.ts      | errors.test.ts      | 양호 |
-| type-guards.ts | type-guards.test.ts | 우수 |
+### <a id="tc-09"></a>TC-09: `style-utils.ts` 엣지 케이스 테스트 부재
 
-주요 갭 없음.
+- **ID**: TC-09
+- **Severity**: Medium
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/prepaint`
+- **Location**: `packages/prepaint/src/style-utils.ts` (target: `packages/prepaint/tests/style-utils.test.ts`)
+- **Impact**: 스타일 정규화 함수의 빈 값/잘못된 입력 처리 회귀가 발생할 수 있습니다.
+- **Repro**: `normalizeSnapshotStyleEntry()`에 빈 문자열/undefined href 입력 케이스를 자동 검증할 테스트가 없습니다.
+- **Fix Plan**: edge input matrix 기반 단위 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/prepaint test`에서 신규 테스트 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
----
+### <a id="tc-10"></a>TC-10: prepaint 유틸/boot 엣지 경로 테스트 보강 필요
 
-### @firsttx/devtools
+- **ID**: TC-10
+- **Severity**: Medium
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/prepaint`
+- **Location**: `packages/prepaint/src/utils.ts`, `packages/prepaint/src/boot.ts`
+- **Impact**: route key override, style append 등 엣지 경로 회귀 탐지가 어렵습니다.
+- **Repro**: `resolveRouteKey()`, `appendStyleResource()` 엣지 입력을 검증하는 직접 테스트가 부족합니다.
+- **Fix Plan**: `utils.test.ts`, `boot.test.ts`에 대상 케이스를 확장합니다.
+- **Validation**: `pnpm --filter @firsttx/prepaint test` 실행으로 회귀를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-| 소스 모듈                     | 테스트                     | 상태     |
-| ----------------------------- | -------------------------- | -------- |
-| bridge/helpers.ts             | bridge/helpers.test.ts     | 양호     |
-| bridge/core.ts                | (없음)                     | 미테스트 |
-| panel/utils/filter.ts         | panel/utils/filter.test.ts | 양호     |
-| panel/utils/timeline.ts       | (없음)                     | 미테스트 |
-| panel/utils/timeline-scale.ts | (없음)                     | 미테스트 |
-| panel/components/\* (7개)     | (없음)                     | 미테스트 |
-| panel/App.tsx                 | (없음)                     | 미테스트 |
-| extension/\* (4개)            | (없음)                     | 미테스트 |
+### <a id="tc-11"></a>TC-11: tx errors/abort edge 테스트 보강 필요
 
-**누락된 테스트:**
+- **ID**: TC-11
+- **Severity**: Medium
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `@firsttx/tx`
+- **Location**: `packages/tx/src/errors.ts`, `packages/tx/src/transaction.ts`
+- **Impact**: 취소/타임아웃/에러 메시지 회귀가 사용자 오류 처리에 영향을 줄 수 있습니다.
+- **Repro**: AbortSignal 타이밍과 에러 객체 직렬화를 자동 검증하는 직접 테스트가 부족합니다.
+- **Fix Plan**: errors 클래스 단위 테스트와 abort edge 시나리오 테스트를 추가합니다.
+- **Validation**: `pnpm --filter @firsttx/tx test`에서 신규 케이스 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD
 
-- **[Critical] bridge/core.ts** — DevToolsBridgeImpl 이벤트 버퍼링, BroadcastChannel 통신, 고우선순위 IndexedDB 영속화, 배치 전송
-- **[High] panel/utils/timeline.ts** — `groupTxEvents()` 함수
-- **[High] panel/utils/timeline-scale.ts** — `calculateTimelineScale()` 함수
-- **[Medium] panel/components/\*** — React 컴포넌트 (Chrome DevTools 확장이라 브라우저 테스트 필요)
-- **[Low] extension/\*** — Chrome Extension 스크립트
+### <a id="tc-12"></a>TC-12: E2E offline/cross-tab/TTL 시나리오 보강 필요
 
----
-
-### Playground E2E (Playwright)
-
-| E2E 테스트                       | 시나리오                  |
-| -------------------------------- | ------------------------- |
-| home.smoke.spec.ts               | 기본 라우팅, 투어 스킵    |
-| prepaint-heavy.spec.ts           | 대용량 prepaint           |
-| prepaint-route-switching.spec.ts | 라우트 전환 시 스냅샷     |
-| instant-cart.metrics.spec.ts     | 카트 인스턴트 로딩 메트릭 |
-| tx-rollback.spec.ts              | 트랜잭션 롤백 체인        |
-| tx-concurrent.metrics.spec.ts    | 동시 트랜잭션 메트릭      |
-| tx-network-chaos.spec.ts         | 네트워크 불안정           |
-| sync-staleness.spec.ts           | 동기화 + staleness        |
-
-**누락된 E2E:**
-
-- **[Medium]** 오프라인/IndexedDB 비가용 시나리오
-- **[Medium]** 크로스탭 동기화 (BroadcastChannel)
-- **[Low]** 스냅샷 TTL 만료 후 cold-start 폴백
-
----
-
-### 통합 테스트
-
-- **[High]** 패키지 간 통합 테스트 전무. prepaint + local-first, tx + local-first 연동 시나리오가 E2E에서만 간접 테스트
-- **[Medium]** devtools bridge ↔ 각 패키지 emit 함수 연동 통합 테스트 없음
-
----
-
-### 모킹 적절성
-
-- **prepaint/capture.test.ts**: `openDB` in-memory 모킹 — 적절
-- **prepaint/boot.test.ts**: 실제 fake-indexeddb — 우수
-- **tx/retry.test.ts**: `vi.useFakeTimers()` + devtools 모킹 — 적절
-- **tx/hooks.test.ts**: `startViewTransition` 모킹 — 적절
-- **vite-plugin.test.ts**: esbuild 모킹 — 적절
-- **전반**: 과도한 모킹 없음. fake-indexeddb로 실제 동작에 가까운 테스트 수행
-
----
-
-## 우선 권장 테스트 추가 목록
-
-### P0 (Critical)
-
-1. `packages/local-first/tests/cache-manager.test.ts`
-2. `packages/local-first/tests/sync-manager.test.ts`
-3. `packages/local-first/tests/storage-manager.test.ts`
-4. `packages/devtools/tests/bridge/core.test.ts`
-
-### P1 (High)
-
-5. `packages/local-first/tests/devtools.test.ts`
-6. `packages/devtools/tests/panel/utils/timeline.test.ts`
-7. `packages/devtools/tests/panel/utils/timeline-scale.test.ts`
-8. `packages/prepaint/tests/errors.test.ts`
-
-### P2 (Medium)
-
-9. `packages/prepaint/tests/style-utils.test.ts`
-10. `packages/prepaint/tests/utils.test.ts` 확장
-11. `packages/tx/tests/errors.test.ts`
-12. 패키지 간 통합 테스트 (tx + local-first 연동)
+- **ID**: TC-12
+- **Severity**: Medium
+- **Status**: Planned
+- **Owner**: Unassigned
+- **Component**: `apps/playground`
+- **Location**: `apps/playground/tests/*.spec.ts`
+- **Impact**: 실제 사용자 환경(오프라인/멀티탭/TTL 만료) 회귀를 놓칠 수 있습니다.
+- **Repro**: 기존 E2E 세트에는 offline, cross-tab sync, TTL expiry 시나리오가 없습니다.
+- **Fix Plan**: 신규 Playwright 스펙 3종을 추가해 핵심 복원/동기화 경로를 검증합니다.
+- **Validation**: `pnpm --filter playground test` 실행으로 신규 시나리오 통과를 확인합니다.
+- **Last Verified**: 2026-02-06
+- **Related PR/Issue**: TBD

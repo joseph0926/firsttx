@@ -1,59 +1,40 @@
-# 종합 요약 및 액션 아이템
+# 운영 라운드 요약 및 마일스톤
 
-> 감사일: 2026-02-06
+> 라운드 기준일: 2026-02-06
+> 이 문서는 의사결정/마일스톤 전용입니다.
+> 상세 이슈 목록과 상태는 [`README.md`](./README.md) 단일 인덱스를 기준으로 관리합니다.
 
-## Critical 이슈 (즉시 대응 — 6건)
+## 이번 라운드 의사결정
 
-### 1. Background revalidation Race Condition
+1. `docs/security`를 내부 운영 레지스터로 고정하고, 외부 정책은 루트 `SECURITY.md`로 분리 유지합니다.
+2. 모든 영역 문서(`security`, `data-integrity`, `performance`, `test-coverage`)에 12필드 표준 스키마를 적용합니다.
+3. 단일 집계/상태 추적은 `README.md`에서만 수행하고 중복 통계는 제거합니다.
+4. 재검증은 Phase A->D 절차(구조 점검 -> 근거 spot-check -> 상태 갱신 -> 명령 검증)로 고정합니다.
+5. 이번 라운드 코드 개선으로 `DATA-01`, `PERF-01`, `PERF-02`, `SEC-02`를 Done으로 전환했습니다(커밋 대기).
 
-- **관점**: 데이터 무결성
-- **위치**: `packages/local-first/src/sync-manager.ts:88-117`
-- **설명**: `revalidateInBackground()`가 네트워크 응답을 기다리는 동안 사용자가 `patch()` 또는 `replace()`로 데이터를 변경하면, 백그라운드 revalidation이 `this.replace(fresh)`를 호출하여 사용자의 최근 변경을 덮어쓴다.
-- **영향**: 사용자 데이터 사일런트 손실
-- **수정 방향**: generation counter 도입 — 로컬 변경이 있었으면 revalidation 결과 폐기. 또는 revalidation 전후 데이터를 비교하여 중간 변경 감지.
+## 마일스톤 보드
 
-### 2. DOM 직렬화 DANGEROUS_ATTRIBUTES 이중 루프
+| Phase               | 범위                         | 종료 기준                                               | 대상 이슈                               | 상태        |
+| ------------------- | ---------------------------- | ------------------------------------------------------- | --------------------------------------- | ----------- |
+| Phase A (구조)      | 문서 역할 정렬/인덱스 단일화 | `README` 기준으로 이슈/상태 집계 일치                   | 전체 (`SEC-*`,`DATA-*`,`PERF-*`,`TC-*`) | Done        |
+| Phase B (스키마)    | 12필드 정규화                | 모든 이슈에 `Status/Owner/Last Verified` 포함           | 전체                                    | Done        |
+| Phase C (운영 규칙) | 상태 갱신 규칙/Done 조건     | `Status=Done` 시 PR/Issue 링크 필수 규칙 반영           | 전체                                    | Done        |
+| Phase D (검증)      | 명령/라인 참조 점검          | lint/typecheck/test/build/format 및 라인 참조 검증 완료 | 전체                                    | In Progress |
 
-- **관점**: 성능
-- **위치**: `packages/prepaint/src/capture.ts:151-172`
-- **설명**: `querySelectorAll('*')` + `DANGEROUS_ATTRIBUTES.forEach` 이중 루프로 O(N×M) 복잡도. 1000 요소 DOM에서 53,000회 `hasAttribute`/`removeAttribute` 호출.
-- **영향**: 큰 DOM에서 캡처 시간 급증, `visibilitychange` 핸들러 내 실행으로 bfcache 이탈 가능
-- **수정 방향**: `DANGEROUS_ATTRIBUTES`를 `Set`으로 캐시하고 `el.attributes` 단일 순회로 변경. 또는 `TreeWalker` API 사용.
+## 이번 스프린트 우선순위
 
-### 3-6. 핵심 모듈 테스트 전무
+1. P0: `TC-01`~`TC-04` (미해결 Critical 테스트 공백)
+2. P1: `DATA-02`, `DATA-03`, `DATA-04`, `PERF-03`, `PERF-04`, `TC-05`~`TC-08`
+3. P2: 나머지 Planned 이슈 (`SEC-04`~`SEC-07`, `DATA-05`~`DATA-07`, `PERF-05`~`PERF-11`, `TC-09`~`TC-12`)
 
-| #   | 모듈                             | 미테스트 핵심 로직                                           |
-| --- | -------------------------------- | ------------------------------------------------------------ |
-| 3   | `local-first/cache-manager.ts`   | 상태 전이, subscriber 알림, snapshot 참조 동등성             |
-| 4   | `local-first/sync-manager.ts`    | getSyncPromise dedupe, revalidateInBackground, replace merge |
-| 5   | `local-first/storage-manager.ts` | load 버전 마이그레이션, Zod 실패 시 삭제, enqueue 직렬화     |
-| 6   | `devtools/bridge/core.ts`        | 이벤트 버퍼링, BroadcastChannel 통신, 고우선순위 영속화      |
+## 운영 리스크
 
----
+- 이슈 해결 속도가 빠르면 `Last Verified`가 빠르게 stale 될 수 있습니다.
+- `README` 인덱스와 영역 문서를 동시에 갱신하지 않으면 상태 드리프트가 재발합니다.
+- 테스트 공백(`TC-*`)이 해소되지 않으면 보안/성능 수정의 회귀 탐지력이 부족할 수 있습니다.
 
-## 우선순위별 액션 아이템
+## 다음 업데이트 체크리스트
 
-### P0 — 이번 스프린트
-
-1. `sync-manager.ts` revalidation race condition 수정
-2. `capture.ts` / `sanitize.ts` DANGEROUS_ATTRIBUTES Set 최적화
-3. `cache-manager`, `sync-manager`, `storage-manager` 단위 테스트 추가
-
-### P1 — 다음 스프린트
-
-4. DevTools bridge 자동 초기화 → 조건부 초기화로 변경 (`__FIRSTTX_DEV__` 플래그)
-5. 트랜잭션 `CompensationFailedError` 발생 시 사용자 피드백 강화
-6. IndexedDB `onversionchange` 커넥션 유실 복구 로직 추가
-7. `devtools/bridge/core.ts` 테스트 추가
-8. `operationQueue` 에러 격리 — 실패 시 후속 operation 취소 또는 상태 보장
-
-### P2 — 백로그
-
-9. DOMPurify를 필수 의존성(dependency)으로 격상 검토
-10. Vite 플러그인 nonce 값 검증 (base64 알파벳 제한)
-11. fallbackSanitize `data:` URI 필터링 강화
-12. 스타일시트 href origin 검증 (`boot.ts`, `overlay.ts`)
-13. E2E 오프라인/크로스탭 시나리오 추가
-14. DevTools 패널 이벤트 배열 상한 제한 (CircularBuffer)
-15. `@firsttx/shared` `"sideEffects": false` 추가
-16. 패키지 간 통합 테스트 추가 (tx + local-first 연동)
+1. `Status=Done` 전환 시 `Related PR/Issue` 링크를 추가합니다.
+2. 심각도 변경 시 변경 이유를 본 문서의 의사결정 섹션에 추가합니다.
+3. 재검증 라운드마다 날짜를 갱신하고 인덱스 집계 정합성을 다시 확인합니다.
