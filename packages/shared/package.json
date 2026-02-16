@@ -35,7 +35,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
     "dompurify": "^3.3.1",
-    "happy-dom": "^19.0.2",
+    "happy-dom": "^20.6.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
