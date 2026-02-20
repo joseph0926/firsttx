@@ -1,110 +1,41 @@
-# FirstTx - AI Agent Instructions
+# CLAUDE.md
 
-이 문서는 Claude Code 및 AI 에이전트가 FirstTx 모노레포에서 작업할 때 참조하는 지침입니다.
+## Repository Working Agreement
 
-## 프로젝트 개요
+새 기능 구현은 아래 3단계 문서 흐름으로 진행한다.
 
-**FirstTx**는 CSR 앱의 재방문 UX를 SSR 수준으로 개선하는 툴킷입니다.
+공통 근거 탐색 규칙:
 
-- **Prepaint**: React 로드 전 마지막 UI 스냅샷 즉시 복원 (0ms 빈 화면)
-- **Local-First**: IndexedDB + React 상태 자동 동기화
-- **Tx**: 낙관적 업데이트 + 자동 롤백 트랜잭션 엔진
+- 근거를 현재 저장소/합의 문서 범위에서 찾지 못한다고 판단되면 웹검색을 활용한다.
+- 웹검색으로 확보한 근거는 답변/문서에 출처와 함께 명시한다.
 
-## 워크스페이스 구조
+1. RFC 단계
 
-```
-apps/
-  docs/          # Next.js 16 문서 사이트
-  playground/    # Vite 7 + React Router 7 데모
-packages/
-  prepaint/      # UI 스냅샷 캡처/복원
-  local-first/   # IndexedDB + React 동기화
-  tx/            # 트랜잭션 엔진
-  shared/        # 공통 유틸리티
-  devtools/      # Chrome DevTools 확장
-```
+- 사용자와 QnA로 요구사항/범위/수용기준을 확정한다.
+- 경로: `docs/rfcs/<주제>.md`
+- 사용자가 `docs/rfc/<주제>.md`라고 요청해도 동일 단계로 취급한다.
+- RFC 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
+- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
+- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, RFC 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
 
-## 빠른 명령
+2. Plan 단계
 
-```bash
-# 의존성 설치
-pnpm install
+- RFC 확정 후 구현 계획을 구체화한다.
+- 경로: `docs/plan/<주제>.md`
+- Plan 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
+- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
+- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, Plan 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
 
-# 전체 빌드/검증
-pnpm run build
-pnpm run lint
-pnpm run typecheck
-pnpm run test
+3. Implementation 단계
 
-# 앱 개발
-pnpm --filter @firsttx/docs dev
-pnpm --filter playground dev
+- Plan 확정 후 구현하고 결과를 기록한다.
+- 구현 근거(중요): 선택한 방식의 이유, 제약, 트레이드오프를 반드시 명시한다.
+- 경로: `docs/impl/<주제>.md`
+- 구현 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
+- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
+- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
 
-# 패키지 개발
-pnpm --filter @firsttx/prepaint dev
-pnpm --filter @firsttx/local-first dev
-pnpm --filter @firsttx/tx dev
-```
+## Completed Docs Rule
 
-## 필수 환경
-
-- **Node**: >= 24
-- **pnpm**: 10.28.2 (루트 `package.json`의 `packageManager` 참조)
-- **모듈 시스템**: ESM only
-
-## 핵심 설정 파일
-
-| 파일                  | 용도                                       |
-| --------------------- | ------------------------------------------ |
-| `package.json`        | 워크스페이스 스크립트, 버전                |
-| `pnpm-workspace.yaml` | 워크스페이스 범위 (`apps/*`, `packages/*`) |
-| `turbo.json`          | 태스크 그래프 + 캐시 규칙                  |
-| `tsconfig.base.json`  | TS 기본 설정 + 경로 별칭                   |
-| `.changeset/`         | 릴리스 관리                                |
-
-## 가드레일 (금지 사항)
-
-1. **생성물 디렉토리 수정 금지**:
-   - `dist/`, `coverage/`, `.turbo/`, `.next/`, `node_modules/`
-
-2. **워크스페이스 프로토콜 유지**:
-   - 패키지 간 의존성은 `workspace:*` 사용
-
-3. **불필요한 파일 생성 금지**:
-   - README, 문서 파일은 요청 시에만 생성
-
-## 의존성 관계
-
-```
-@firsttx/shared
-    ↑
-    ├── @firsttx/prepaint
-    ├── @firsttx/local-first
-    └── @firsttx/tx
-          ↑
-          └── @firsttx/devtools (모든 패키지 의존)
-```
-
-## 테스트 환경
-
-| 패키지      | 환경      | 프레임워크 |
-| ----------- | --------- | ---------- |
-| prepaint    | happy-dom | Vitest     |
-| local-first | node      | Vitest     |
-| tx          | happy-dom | Vitest     |
-| playground  | chromium  | Playwright |
-
-## CI/CD
-
-- **PR**: `pr.yml` - lint/typecheck/test/coverage/build
-- **릴리스**: `release.yml` - Changesets + NPM Trusted Publishing
-- **E2E**: `e2e-playwright.yml` - Playground 메트릭 테스트
-
-## 추가 문서
-
-자세한 내용은 `docs/ai/` 디렉토리 참조:
-
-- `docs/ai/repo-map.md`: 워크스페이스 맵
-- `docs/ai/architecture.md`: 아키텍처 개요
-- `docs/ai/packages.md`: 패키지별 상세
-- `docs/ai/workflows.md`: 워크플로 가이드
+- 문서 첫 줄이 `<!-- AI_STATUS: COMPLETED -->`면 완료로 간주한다.
+- 완료 문서는 명시적 수정 요청이 없으면 다른 AI는 추가 분석 없이 early return 한다.

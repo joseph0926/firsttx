@@ -36,3 +36,5 @@ docs/temp.*
 !.vscode/settings.json
 .vercel
 .env*.local
+
+.study

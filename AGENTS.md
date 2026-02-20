@@ -1,162 +1,45 @@
-# FirstTx - Multi-Agent Instructions
+# AGENTS.md
 
-이 문서는 Cursor, Windsurf, Cline 등 다양한 AI 에이전트가 FirstTx 모노레포에서 작업할 때 참조하는 공통 지침입니다.
+## Default
 
-## Quick Reference
+- 기본 응답 언어는 한국어다.
 
-| 항목              | 값                              |
-| ----------------- | ------------------------------- |
-| **런타임**        | Node >= 22                      |
-| **패키지 매니저** | pnpm 10.26.0                    |
-| **모듈 시스템**   | ESM only                        |
-| **테스트**        | Vitest (단위), Playwright (E2E) |
-| **빌드**          | turbo + tsup                    |
+## Feature Workflow (Mandatory)
 
-## Repository Layout
+새 기능 구현 요청 시 아래 순서를 반드시 따른다.
 
-```
-firsttx/
-├── apps/
-│   ├── docs/          # Next.js 16 + MDX
-│   └── playground/    # Vite 7 + React Router 7
-├── packages/
-│   ├── prepaint/      # UI snapshot restore
-│   ├── local-first/   # IndexedDB + React sync
-│   ├── tx/            # Transaction engine
-│   ├── shared/        # Common utilities
-│   └── devtools/      # Chrome DevTools extension
-├── docs/
-│   └── ai/            # AI-optimized documentation
-├── turbo.json         # Task orchestration
-├── tsconfig.base.json # Shared TS config
-└── pnpm-workspace.yaml
-```
+공통 근거 탐색 규칙:
 
-## Commands
+- 근거를 현재 저장소/합의 문서 범위에서 찾지 못한다고 판단되면 웹검색을 활용한다.
+- 웹검색으로 확보한 근거는 답변/문서에 출처와 함께 명시한다.
 
-### Development
+1. RFC 합의
 
-```bash
-# Install
-pnpm install
+- 사용자와 QnA를 통해 요구사항을 먼저 확정한다.
+- 문서 경로: `docs/rfcs/<주제>.md`
+- 참고: 사용자가 `docs/rfc/<주제>.md`라고 표현해도 동일 의미로 처리한다.
+- RFC 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
+- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
+- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, RFC 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
 
-# Run specific app
-pnpm --filter @firsttx/docs dev
-pnpm --filter playground dev
+2. Plan 확정
 
-# Run specific package in watch mode
-pnpm --filter @firsttx/prepaint dev
-```
+- RFC가 합의되면 실행 계획을 작성/합의한다.
+- 문서 경로: `docs/plan/<주제>.md`
+- Plan 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
+- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
+- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, Plan 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
 
-### Validation
+3. Implementation
 
-```bash
-# All checks (parallelized via turbo)
-pnpm run lint
-pnpm run typecheck
-pnpm run test
+- Plan이 합의되면 구현을 진행한다.
+- 구현 근거(왜 이렇게 구현했는지, 대안 대비 이유 포함)를 반드시 남긴다.
+- 문서 경로: `docs/impl/<주제>.md`
+- 구현 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
+- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
+- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, 구현 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
 
-# Single package
-pnpm --filter @firsttx/tx test
-pnpm --filter @firsttx/tx typecheck
-```
+## Completion Marker Rule
 
-### Build
-
-```bash
-# All packages
-pnpm run build
-
-# Single package
-pnpm --filter @firsttx/prepaint build
-```
-
-## Package Dependencies
-
-```
-shared ← prepaint, local-first, tx
-devtools ← shared, prepaint, local-first, tx
-playground ← prepaint, local-first, tx
-docs ← (standalone)
-```
-
-## Tech Stack by Workspace
-
-### apps/docs
-
-- Next.js 16 (App Router)
-- React 19
-- Tailwind CSS 4
-- MDX + next-intl
-
-### apps/playground
-
-- Vite 7
-- React 19
-- React Router 7
-- Tailwind CSS 4
-- Playwright (E2E)
-
-### packages/\*
-
-- TypeScript 5.9
-- tsup (build)
-- Vitest (test)
-
-## Guardrails
-
-### DO NOT modify:
-
-- `dist/`, `coverage/`, `.turbo/`, `.next/`, `node_modules/`
-- Generated files or build artifacts
-
-### DO maintain:
-
-- `workspace:*` protocol for internal dependencies
-- Existing code style and patterns
-- Test coverage for changes
-
-### DO verify before committing:
-
-```bash
-pnpm run lint && pnpm run typecheck && pnpm run test
-```
-
-## Testing Guidelines
-
-| Package     | Environment | Command                                   |
-| ----------- | ----------- | ----------------------------------------- |
-| prepaint    | happy-dom   | `pnpm --filter @firsttx/prepaint test`    |
-| local-first | node        | `pnpm --filter @firsttx/local-first test` |
-| tx          | happy-dom   | `pnpm --filter @firsttx/tx test`          |
-| playground  | chromium    | `pnpm --filter playground test`           |
-
-## Release Process
-
-```bash
-# Version bump (creates changeset PR)
-pnpm run release:version
-
-# Publish (CI handles this via Trusted Publishing)
-pnpm run release:publish
-```
-
-Note: `apps/docs` and `apps/playground` are excluded from npm publish.
-
-## Environment Variables
-
-### Build-time (turbo.json)
-
-- `NEXT_PUBLIC_ENABLE_CHAT`
-- `OPENAI_API_KEY`
-- `UPSTASH_*`
-
-### Runtime (Playground)
-
-- `VITE_METRICS_BASE_URL`
-
-## Additional Resources
-
-- `docs/ai/README.md` - AI onboarding
-- `docs/ai/architecture.md` - System design
-- `docs/project-analysis.md` - Detailed analysis (Korean)
+- 문서 첫 줄이 `<!-- AI_STATUS: COMPLETED -->`면 완료 문서로 간주한다.
+- 완료 문서는 사용자가 명시적으로 수정 요청하지 않는 한, 다른 AI 채팅에서 즉시 종료(early return)한다.
