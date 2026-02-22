@@ -300,6 +300,8 @@ export interface SetupCaptureOptions {
 }
 
 let captureInitialized = false;
+let captureOptions: SetupCaptureOptions | undefined = undefined;
+let captureCleanup: (() => void) | null = null;
 
 /**
  * Registers event listeners to automatically capture snapshots when the page
@@ -329,12 +331,15 @@ let captureInitialized = false;
  * ```
  *
  * @remarks
- * - Only one capture setup is allowed per page. Subsequent calls return a no-op.
+ * - Only one capture listener set is registered per page.
+ * - Subsequent calls update options (routes/onCapture) and reuse existing listeners.
  * - Captures are debounced using `queueMicrotask` to prevent duplicates.
  * - The cleanup function resets the initialization flag, allowing re-setup.
  */
 export function setupCapture(options?: SetupCaptureOptions): () => void {
-  if (captureInitialized) return () => {};
+  captureOptions = options;
+  if (captureCleanup) return captureCleanup;
+
   captureInitialized = true;
   let scheduled = false;
   const maybeSave = () => {
@@ -343,9 +348,10 @@ export function setupCapture(options?: SetupCaptureOptions): () => void {
     queueMicrotask(() => {
       scheduled = false;
       const route = window.location.pathname;
-      if (options?.routes && !options.routes.includes(route)) return;
+      const activeOptions = captureOptions;
+      if (activeOptions?.routes && !activeOptions.routes.includes(route)) return;
       void captureSnapshot().then((snapshot) => {
-        if (snapshot) options?.onCapture?.(snapshot);
+        if (snapshot) activeOptions?.onCapture?.(snapshot);
       });
     });
   };
@@ -358,10 +364,17 @@ export function setupCapture(options?: SetupCaptureOptions): () => void {
     maybeSave();
   };
   window.addEventListener('beforeunload', onBeforeUnload);
-  return () => {
+
+  captureCleanup = () => {
+    if (!captureInitialized) return;
     captureInitialized = false;
+    captureOptions = undefined;
+    scheduled = false;
     document.removeEventListener('visibilitychange', onHidden, { capture: true });
     window.removeEventListener('pagehide', maybeSave, { capture: true });
     window.removeEventListener('beforeunload', onBeforeUnload);
+    captureCleanup = null;
   };
+
+  return captureCleanup;
 }

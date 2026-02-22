@@ -25,6 +25,40 @@ export interface CreateFirstTxRootOptions {
   onHydrationError?: (error: HydrationError) => void;
 }
 
+interface RootLifecycle {
+  root: Root | null;
+  guardCleanup: (() => void) | null;
+}
+
+const ROOT_LIFECYCLES = new Map<Element, RootLifecycle>();
+
+function getOrCreateRootLifecycle(container: Element): RootLifecycle {
+  const existing = ROOT_LIFECYCLES.get(container);
+  if (existing) return existing;
+  const created: RootLifecycle = { root: null, guardCleanup: null };
+  ROOT_LIFECYCLES.set(container, created);
+  return created;
+}
+
+function cleanupRootLifecycle(container: Element): void {
+  const lifecycle = ROOT_LIFECYCLES.get(container);
+  if (!lifecycle) return;
+  lifecycle.guardCleanup?.();
+  lifecycle.guardCleanup = null;
+  try {
+    lifecycle.root?.unmount?.();
+  } catch {}
+  lifecycle.root = null;
+}
+
+function cleanupDetachedLifecycles(): void {
+  for (const [trackedContainer] of ROOT_LIFECYCLES) {
+    if (trackedContainer.isConnected) continue;
+    cleanupRootLifecycle(trackedContainer);
+    ROOT_LIFECYCLES.delete(trackedContainer);
+  }
+}
+
 function canHydrate(container: Element): boolean {
   const count = container.children.length;
   return count === 1;
@@ -66,6 +100,15 @@ function installRootGuard(container: Element, getRoot: () => Root | null, reset:
     window.removeEventListener('popstate', check);
     window.removeEventListener('pageshow', check);
   };
+}
+
+function installManagedRootGuard(
+  container: Element,
+  lifecycle: RootLifecycle,
+  reset: () => void,
+): void {
+  lifecycle.guardCleanup?.();
+  lifecycle.guardCleanup = installRootGuard(container, () => lifecycle.root, reset);
 }
 
 function inferMismatchType(error: Error): HydrationError['mismatchType'] {
@@ -132,6 +175,15 @@ export function createFirstTxRoot(
       '[FirstTx] DocumentFragment is not supported for hydration. Use an Element instead.',
     );
   }
+
+  cleanupDetachedLifecycles();
+  if (ROOT_LIFECYCLES.has(container)) {
+    cleanupRootLifecycle(container);
+    container.innerHTML = '';
+  }
+
+  const lifecycle = getOrCreateRootLifecycle(container);
+
   setupCapture({ onCapture });
   const strategy = handoff();
 
@@ -144,29 +196,24 @@ export function createFirstTxRoot(
   const attemptHydration = strategy === 'has-prepaint' && canHydrate(container);
   if (attemptHydration) {
     let bailed = false;
-    let root: Root | null = null;
     const runClientReset = () => {
       try {
-        root?.unmount?.();
+        lifecycle.root?.unmount?.();
       } catch {}
       container.innerHTML = '';
       const r = createRoot(container);
       r.render(element);
-      root = r;
+      lifecycle.root = r;
       cleanupPrepaintMarks();
-      installRootGuard(
-        container,
-        () => root,
-        () => {
-          const r2 = createRoot(container);
-          r2.render(element);
-          root = r2;
-          cleanupPrepaintMarks();
-        },
-      );
+      installManagedRootGuard(container, lifecycle, () => {
+        const r2 = createRoot(container);
+        r2.render(element);
+        lifecycle.root = r2;
+        cleanupPrepaintMarks();
+      });
     };
     const runHydrate = () => {
-      root = hydrateRoot(container, element, {
+      lifecycle.root = hydrateRoot(container, element, {
         onRecoverableError: (reactError) => {
           const hydrationError = new HydrationError(
             'Hydration mismatch detected',
@@ -198,16 +245,12 @@ export function createFirstTxRoot(
       });
       queueMicrotask(() => {
         cleanupPrepaintMarks();
-        installRootGuard(
-          container,
-          () => root,
-          () => {
-            const r = createRoot(container);
-            r.render(element);
-            root = r;
-            cleanupPrepaintMarks();
-          },
-        );
+        installManagedRootGuard(container, lifecycle, () => {
+          const r = createRoot(container);
+          r.render(element);
+          lifecycle.root = r;
+          cleanupPrepaintMarks();
+        });
       });
     };
     if (supportsViewTransition() && transition) {
@@ -218,15 +261,13 @@ export function createFirstTxRoot(
   } else {
     const r = createRoot(container);
     r.render(element);
+    lifecycle.root = r;
     cleanupPrepaintMarks();
-    installRootGuard(
-      container,
-      () => r,
-      () => {
-        const r2 = createRoot(container);
-        r2.render(element);
-        cleanupPrepaintMarks();
-      },
-    );
+    installManagedRootGuard(container, lifecycle, () => {
+      const r2 = createRoot(container);
+      r2.render(element);
+      lifecycle.root = r2;
+      cleanupPrepaintMarks();
+    });
   }
 }
