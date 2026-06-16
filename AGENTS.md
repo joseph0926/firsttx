@@ -2,44 +2,30 @@
 
 ## Default
 
-- 기본 응답 언어는 한국어다.
+- CLAUDE.md는 `@AGENTS.md` 한줄만 유지한다.
 
-## Feature Workflow (Mandatory)
+## Project Map
 
-새 기능 구현 요청 시 아래 순서를 반드시 따른다.
+- 이 저장소는 `pnpm` + Turborepo 모노레포다.
+- Node 런타임은 `>=24` 기준이다.
+- 앱:
+  - `apps/docs`: Next.js 문서 사이트와 문서 기반 챗봇/RAG 표면
+  - `apps/playground`: Vite 기반 데모/시나리오 앱
+- 패키지:
+  - `packages/prepaint`: CSR 재방문 DOM snapshot/capture/restore
+  - `packages/local-first`: IndexedDB 기반 React data sync
+  - `packages/tx`: optimistic transaction/retry/rollback
+  - `packages/devtools`: Chromium DevTools companion
+  - `packages/shared`: 공통 상수/유틸/에러
 
-공통 근거 탐색 규칙:
+## Package And Runtime
 
-- 근거를 현재 저장소/합의 문서 범위에서 찾지 못한다고 판단되면 웹검색을 활용한다.
-- 웹검색으로 확보한 근거는 답변/문서에 출처와 함께 명시한다.
+- 패키지 작업은 `pnpm`을 사용한다.
+- 전체 실행보다 대상 workspace에 대한 `pnpm --filter <workspace> ...` 검증을 우선한다.
+- 루트 검증은 필요할 때만 `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test:run`으로 확장한다.
 
-1. RFC 합의
+## Verification
 
-- 사용자와 QnA를 통해 요구사항을 먼저 확정한다.
-- 문서 경로: `docs/rfcs/<주제>.md`
-- 참고: 사용자가 `docs/rfc/<주제>.md`라고 표현해도 동일 의미로 처리한다.
-- RFC 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
-- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
-- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, RFC 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
-
-2. Plan 확정
-
-- RFC가 합의되면 실행 계획을 작성/합의한다.
-- 문서 경로: `docs/plan/<주제>.md`
-- Plan 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
-- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
-- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, Plan 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
-
-3. Implementation
-
-- Plan이 합의되면 구현을 진행한다.
-- 구현 근거(왜 이렇게 구현했는지, 대안 대비 이유 포함)를 반드시 남긴다.
-- 문서 경로: `docs/impl/<주제>.md`
-- 구현 문서 초안/보완의 마지막에는 사용자와 QnA를 반드시 수행한다.
-- 질문 입력 포맷: 사용자가 `*.md` 문서에 `<!-- @Q. <질문> -->` 주석으로 남긴다.
-- 처리 규칙: 에이전트는 해당 질문에 대해 채팅으로 먼저 답변하고, 구현 문서 보완 시 QnA를 문서에 그대로 작성한다(사용자 오타/띄어쓰기만 교정 가능).
-
-## Completion Marker Rule
-
-- 문서 첫 줄이 `<!-- AI_STATUS: COMPLETED -->`면 완료 문서로 간주한다.
-- 완료 문서는 사용자가 명시적으로 수정 요청하지 않는 한, 다른 AI 채팅에서 즉시 종료(early return)한다.
+- 완료 전 가능한 가장 작은 관련 검증을 실행한다.
+- 검증을 실행할 수 없으면 이유와 가장 가까운 대체 확인 방법을 보고한다.
+- `turbo.json`상 `lint`, `typecheck`, `test*`는 의존 패키지의 `^build`를 동반할 수 있으므로 범위를 의식해 실행한다.
