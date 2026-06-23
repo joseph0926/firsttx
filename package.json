@@ -65,7 +65,7 @@
     "@eslint/js": "^9.39.2",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.6.2",
-    "@types/react": "^19.2.10",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
     "esbuild": "^0.27.2",
@@ -85,17 +85,17 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "dompurify": "^3.3.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "dompurify": "^3.3.3",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "pnpm": {
     "overrides": {
       "vite": "^7.3.1",
       "rollup": "^4.54.0",
-      "react": "^19.2.4",
-      "react-dom": "^19.2.4",
-      "@types/react": "^19.2.10",
+      "react": "^19.2.5",
+      "react-dom": "^19.2.5",
+      "@types/react": "^19.2.14",
       "@types/react-dom": "^19.2.3"
     }
   }
