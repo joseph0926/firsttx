@@ -9,7 +9,7 @@ inputs:
   pnpm-version:
     description: pnpm version to use
     required: false
-    default: '10.28.2'
+    default: '11.9.0'
 
 runs:
   using: composite
