@@ -25,6 +25,7 @@
     "build": "tsup",
     "clean": "rimraf dist",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",

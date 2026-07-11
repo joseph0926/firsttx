@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -61,5 +62,5 @@
     "typescript": "^5",
     "vitest": "^4.0.18"
   },
-  "packageManager": "pnpm@11.9.0"
+  "packageManager": "pnpm@11.11.0"
 }

@@ -8,9 +8,7 @@ describe('emitDevToolsEvent', () => {
   beforeEach(() => {
     originalWindow = global.window;
     mockEmit = vi.fn();
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue(
-      'test-uuid-1234-5678-9abc-def012345678' as `${string}-${string}-${string}-${string}-${string}`,
-    );
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-1234-5678-9abc-def012345678');
     vi.spyOn(Date, 'now').mockReturnValue(1700000000000);
   });
 
@@ -127,15 +125,9 @@ describe('emitDevToolsEvent', () => {
     it('generates unique IDs for each event', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       vi.mocked(crypto.randomUUID)
-        .mockReturnValueOnce(
-          'uuid-1111-2222-3333-444444444444' as `${string}-${string}-${string}-${string}-${string}`,
-        )
-        .mockReturnValueOnce(
-          'uuid-2222-3333-4444-555555555555' as `${string}-${string}-${string}-${string}-${string}`,
-        )
-        .mockReturnValueOnce(
-          'uuid-3333-4444-5555-666666666666' as `${string}-${string}-${string}-${string}-${string}`,
-        );
+        .mockReturnValueOnce('uuid-1111-2222-3333-444444444444')
+        .mockReturnValueOnce('uuid-2222-3333-4444-555555555555')
+        .mockReturnValueOnce('uuid-3333-4444-5555-666666666666');
 
       emitDevToolsEvent('capture', {
         route: '/',

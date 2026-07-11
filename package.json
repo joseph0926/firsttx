@@ -5,7 +5,7 @@
   "description": "CSR-first toolkit that combines Prepaint, Local-First, and Tx to replay the last UI instantly, keep React state synced with IndexedDB, and execute optimistic transactions atomically—no SSR required.",
   "license": "MIT",
   "author": "joseph0926",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.11.0",
   "engines": {
     "node": ">=24"
   },
@@ -34,6 +34,7 @@
     "test:run": "turbo run test:run",
     "test:coverage": "turbo run test:coverage",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -85,18 +86,8 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "dompurify": "^3.3.1",
+    "dompurify": "3.3.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "^7.3.1",
-      "rollup": "^4.54.0",
-      "react": "^19.2.4",
-      "react-dom": "^19.2.4",
-      "@types/react": "^19.2.10",
-      "@types/react-dom": "^19.2.3"
-    }
   }
 }

@@ -12,6 +12,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "metrics:sync": "node ./scripts/sync-metrics.mjs"

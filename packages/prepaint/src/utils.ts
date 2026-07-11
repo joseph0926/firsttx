@@ -40,8 +40,7 @@ const DEFAULT_SENSITIVE_SELECTORS = ['input[type="password"]', '[data-firsttx-se
 
 export function resolveRouteKey(): string {
   try {
-    const override = (window as typeof window & { __FIRSTTX_ROUTE_KEY__?: unknown })
-      .__FIRSTTX_ROUTE_KEY__;
+    const override = window.__FIRSTTX_ROUTE_KEY__;
     if (typeof override === 'function') {
       const route = override();
       if (typeof route === 'string' && route.trim().length > 0) return route;
@@ -61,8 +60,7 @@ export function resolveRouteKey(): string {
 
 function getCustomSensitiveSelectors(): string[] {
   try {
-    const raw = (window as typeof window & { __FIRSTTX_SENSITIVE_SELECTORS__?: unknown })
-      .__FIRSTTX_SENSITIVE_SELECTORS__;
+    const raw = window.__FIRSTTX_SENSITIVE_SELECTORS__;
     if (Array.isArray(raw)) {
       return raw
         .filter((value) => typeof value === 'string')

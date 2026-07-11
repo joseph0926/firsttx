@@ -110,9 +110,9 @@ export function useTx<TVariables, TResult = unknown, TSnapshot = void>(
       }
 
       setIsSuccess(true);
-      configRef.current.onSuccess?.(result as TResult, variables, snapshot);
+      configRef.current.onSuccess?.(result, variables, snapshot);
 
-      return result as TResult;
+      return result;
     } catch (err) {
       const error = err as Error;
       const isCancelled = isCancelledRef.current || error.message === 'Transaction cancelled';
