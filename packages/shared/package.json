@@ -20,6 +20,7 @@
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
