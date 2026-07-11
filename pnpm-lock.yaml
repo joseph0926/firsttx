@@ -17,8 +17,8 @@ importers:
   .:
     dependencies:
       dompurify:
-        specifier: ^3.3.1
-        version: 3.4.11
+        specifier: 3.3.1
+        version: 3.3.1
       react:
         specifier: ^19.2.4
         version: 19.2.7
@@ -398,7 +398,7 @@ importers:
         version: link:../shared
       dompurify:
         specifier: ^3.3.0
-        version: 3.4.11
+        version: 3.3.1
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
@@ -438,7 +438,7 @@ importers:
         version: 4.1.10(vitest@4.1.10)
       dompurify:
         specifier: ^3.3.1
-        version: 3.4.11
+        version: 3.3.1
       happy-dom:
         specifier: ^19.0.2
         version: 19.0.2
@@ -3029,8 +3029,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  dompurify@3.4.11:
-    resolution: {integrity: sha512-zhlUV12GsaRzMsf9q5M254YhA4+VuF0fG+QFqu6aYpoGlKtz+w8//jBcGVYBgQkR5GHjUomejY84AV+/uPbWdw==}
+  dompurify@3.3.1:
+    resolution: {integrity: sha512-qkdCKzLNtrgPFP1Vo+98FRzJnBRGe4ffyCea9IwHB1fyxPOeNTHpLKYGd4Uk9xvNoH0ZoOjwZxNptyMwqrId1Q==}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -7441,7 +7441,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  dompurify@3.4.11:
+  dompurify@3.3.1:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
