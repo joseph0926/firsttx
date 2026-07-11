@@ -88,15 +88,5 @@
     "dompurify": "^3.3.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "^7.3.1",
-      "rollup": "^4.54.0",
-      "react": "^19.2.4",
-      "react-dom": "^19.2.4",
-      "@types/react": "^19.2.10",
-      "@types/react-dom": "^19.2.3"
-    }
   }
 }
