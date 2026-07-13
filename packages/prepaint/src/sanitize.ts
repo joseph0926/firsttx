@@ -30,6 +30,9 @@ function fallbackSanitize(html: string): string {
     doc.querySelectorAll(tag).forEach((el) => el.remove());
   });
 
+  if (!doc.body?.querySelectorAll) {
+    return '';
+  }
   const allElements = doc.body.querySelectorAll('*');
   allElements.forEach((el) => {
     const attributes = Array.from(el.attributes);

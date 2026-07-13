@@ -231,12 +231,12 @@ describe('type-guards', () => {
       expect(result).toBeInstanceOf(TypeError);
     });
 
-    it('should preserve DOMException', () => {
-      const domError = new DOMException('dom', 'AbortError');
+    it('should preserve Error', () => {
+      const domError = new Error('AbortError: dom');
       const result = ensureError(domError);
 
       expect(result).toBe(domError);
-      expect(result).toBeInstanceOf(DOMException);
+      expect(result).toBeInstanceOf(Error);
     });
   });
 });

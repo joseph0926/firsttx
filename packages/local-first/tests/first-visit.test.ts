@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+// @vitest-environment jsdom
 
 import { describe, beforeEach, it, expect, vi, afterEach } from 'vitest';
 import { z } from 'zod';
