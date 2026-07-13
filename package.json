@@ -73,7 +73,6 @@
     "eslint": "^9.39.2",
     "fake-indexeddb": "^6.2.2",
     "globals": "^16.4.0",
-    "happy-dom": "^19.0.2",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^16.2.3",
