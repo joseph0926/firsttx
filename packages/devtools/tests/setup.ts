@@ -11,9 +11,8 @@ class MockBroadcastChannel {
     this.name = name;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   postMessage(_message: unknown) {
-    // Mock implementation - does nothing by default
+    void _message;
   }
 
   addEventListener(type: string, listener: (event: MessageEvent) => void) {
