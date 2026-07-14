@@ -26,34 +26,8 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           sync-labels: true
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup environment
-        uses: ./.github/actions/setup-pnpm
-
-      - name: Run lint
-        run: pnpm run lint
-
-  typecheck:
-    name: Typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup environment
-        uses: ./.github/actions/setup-pnpm
-
-      - name: Run typecheck
-        run: pnpm run typecheck
-
-  test:
-    name: Test
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,31 +39,31 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-pnpm
 
-      - name: Run tests with coverage
-        run: pnpm run test:coverage
+      - name: Run repository verification
+        run: pnpm run verify
 
       - name: Coverage report (prepaint)
         if: github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
         with:
-          json-summary-path: "./packages/prepaint/coverage/coverage-summary.json"
-          json-final-path: "./packages/prepaint/coverage/coverage-final.json"
+          json-summary-path: './packages/prepaint/coverage/coverage-summary.json'
+          json-final-path: './packages/prepaint/coverage/coverage-final.json'
           name: prepaint
 
       - name: Coverage report (local-first)
         if: github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
         with:
-          json-summary-path: "./packages/local-first/coverage/coverage-summary.json"
-          json-final-path: "./packages/local-first/coverage/coverage-final.json"
+          json-summary-path: './packages/local-first/coverage/coverage-summary.json'
+          json-final-path: './packages/local-first/coverage/coverage-final.json'
           name: local-first
 
       - name: Coverage report (tx)
         if: github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
         with:
-          json-summary-path: "./packages/tx/coverage/coverage-summary.json"
-          json-final-path: "./packages/tx/coverage/coverage-final.json"
+          json-summary-path: './packages/tx/coverage/coverage-summary.json'
+          json-final-path: './packages/tx/coverage/coverage-final.json'
           name: tx
 
   security:
@@ -108,7 +82,7 @@ jobs:
 
   build:
     name: Build
-    needs: [lint, typecheck, test]
+    needs: [verify]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
