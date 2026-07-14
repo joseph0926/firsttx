@@ -1,6 +1,6 @@
 {
   "name": "@firsttx/prepaint",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Boot-time visual snapshot replay for CSR apps, backed by IndexedDB and designed to reduce revisit blank time before the React app mounts.",
   "license": "MIT",
   "author": "joseph0926",
