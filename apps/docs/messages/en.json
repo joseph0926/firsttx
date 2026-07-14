@@ -1,14 +1,14 @@
 {
   "Hero": {
-    "badge": "No more blank CSR revisits",
-    "title": "Stop blank screens on CSR revisits.",
-    "subtitle": "A three-layer toolkit that restores the last screen instantly.",
+    "badge": "Reduce blank time on CSR revisits",
+    "title": "Replay the last screen while your CSR app starts.",
+    "subtitle": "A three-layer toolkit for visual replay, persistent client cache, and compensating rollback.",
     "bodyLine1": "FirstTx combines Prepaint, Local-First, and Tx into one toolkit.",
-    "bodyLine2": "Keep your CSR architecture while adding instant revisit recovery, offline resilience, and safe optimistic UI.",
+    "bodyLine2": "Keep your CSR architecture while adding measured revisit replay, persisted client state, and compensating optimistic UI.",
     "ctaInstall": "Install from npm",
     "ctaPlayground": "Try in the Playground",
     "tagInternal": "Internal tools / dashboards",
-    "tagOffline": "Offline-first apps",
+    "tagOffline": "Persistent client cache",
     "tagLargeCsr": "Large CSR apps"
   },
   "DemoCard": {
@@ -27,9 +27,9 @@
     "afterBootLabel": "Boot snippet",
     "afterBootDetail": "A tiny boot script runs right after the HTML is loaded.",
     "afterRestoreLabel": "Last screen restore",
-    "afterRestoreDetail": "Restores the last DOM snapshot from IndexedDB instantly on revisit.",
-    "afterHydrationLabel": "Hydration & sync",
-    "afterHydrationDetail": "React hydrates and data sync runs in the background while the user continues.",
+    "afterRestoreDetail": "Replays the last DOM snapshot from IndexedDB during revisit boot.",
+    "afterHydrationLabel": "App mount & sync",
+    "afterHydrationDetail": "The React app mounts and data revalidation can run in the background.",
 
     "viewTransitions": "With the View Transition API, restores can become smooth crossfades instead of hard cuts."
   },
@@ -57,19 +57,19 @@
         "name": "Prepaint",
         "role": "Render layer",
         "description": "Capture the last screen as a DOM snapshot and restore it before React loads.",
-        "points": ["Store full-screen snapshots in IndexedDB", "Restore on revisit before any JS runs", "Make CSR revisits feel close to SSR"]
+        "points": ["Store visual snapshots in IndexedDB", "Replay on revisit before the main app bundle runs", "Reduce the visible CSR boot interval"]
       },
       "localFirst": {
         "name": "Local-First",
         "role": "Data layer",
-        "description": "Use IndexedDB as the source of truth and automate server sync.",
-        "points": ["Type-safe models defined with zod", "TTL and staleness metadata built in", "Background sync for offline-friendly flows"]
+        "description": "Use IndexedDB as a persistent client cache with server revalidation hooks.",
+        "points": ["Type-safe models defined with zod", "TTL and staleness metadata built in", "Cross-tab invalidation and background revalidation"]
       },
       "tx": {
         "name": "Tx",
         "role": "Execution layer",
-        "description": "Wrap optimistic UI updates in transactions you can safely roll back.",
-        "points": ["Run multi-step updates as a single transaction", "Compensating rollback on failure", "Keep UI state consistent on network errors"]
+        "description": "Run optimistic UI steps with explicit compensating actions.",
+        "points": ["Run a sequence of optimistic steps", "Compensating rollback on failure", "Trace retry and rollback behavior"]
       }
     }
   },
@@ -80,7 +80,7 @@
     "cards": [
       {
         "title": "Internal tools with frequent revisits",
-        "description": "CRM, admin, and dashboard users jump between list and detail all day. Show the previous state instantly instead of reloading each time."
+        "description": "CRM, admin, and dashboard users jump between list and detail all day. Replay the previous visual state during boot instead of starting from a blank view."
       },
       {
         "title": "Refreshing in the middle of a task",
@@ -92,7 +92,7 @@
       },
       {
         "title": "Handling offline and flaky networks",
-        "description": "A simple sync hook turns your data layer into something that tolerates offline and reconnection, without users losing their place."
+        "description": "Persist the last client snapshot and revalidate it when the server is reachable again. Application-specific offline writes still need their own policy."
       }
     ]
   },

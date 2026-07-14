@@ -4,13 +4,13 @@
 
 FirstTx는 CSR(Client-Side Rendering) React 앱을 위한 최적화 도구입니다.
 
-재방문 시 빈 화면 제거, 오프라인 데이터 내구성, 낙관적 UI 트랜잭션을 제공합니다.
+재방문 시 빈 화면 시간 단축, 클라이언트 snapshot 보존, 낙관적 UI 보상 실행을 제공합니다.
 
 Firsttx는 세 가지 패키지로 구성됩니다
 
-- Prepaint: 마지막 화면을 DOM 스냅샷으로 저장하고 즉시 복원합니다
-- Local-First: IndexedDB 기반 데이터 레이어로 오프라인에서도 상태를 유지합니다
-- Tx: 낙관적 업데이트를 트랜잭션으로 묶어 실패 시 자동 롤백합니다
+- Prepaint: 마지막 화면을 DOM 스냅샷으로 저장하고 재방문 부트 구간에 replay합니다
+- Local-First: 모델 snapshot을 IndexedDB에 보존하고 서버 재검증 훅을 제공합니다
+- Tx: 낙관적 단계를 실행하고 실패 시 완료된 단계를 역순으로 보상합니다
 
 ## 설치
 
@@ -48,9 +48,9 @@ pnpm add @firsttx/local-first @firsttx/tx zod
 
 ### 요구 사항
 
-- React 18.2.0 이상: createRoot, hydrateRoot API를 사용합니다
+- React 18.2.0 이상: 현재 createFirstTxRoot 통합에 필요합니다
 - Vite 5 이상: Prepaint 플러그인 사용 시 필요합니다
-- Node.js 22 이상
+- 이 저장소와 빌드 도구는 Node.js 24 이상
 
 ## 기본 설정
 
@@ -71,7 +71,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ overlay: true }),
   ],
 });
 ```
@@ -94,9 +94,11 @@ createFirstTxRoot(
 createFirstTxRoot는 다음을 처리합니다:
 
 - 페이지를 떠날 때 현재 화면을 IndexedDB에 저장합니다
-- 재방문 시 React가 로드되기 전에 저장된 화면을 즉시 복원합니다
+- 재방문 시 메인 React 번들이 시작되기 전에 저장된 화면을 replay합니다
 - ViewTransition API를 지원하는 브라우저에서는 부드러운 전환 효과를 적용합니다
-- React 앱을 하이드레이션 또는 클라이언트 렌더로 마운트합니다
+- React 앱을 마운트하고 핸드오프 과정에서 임시 visual cache를 제거합니다
+
+현재 릴리스에서는 오버레이 모드를 권장합니다. legacy direct-restore 경로는 캐시된 client-rendered DOM에 하이드레이션을 시도할 수 있으며, 지원되는 렌더링 계약이 아닙니다.
 
 ### Local-First / Tx만 사용하는 경우
 

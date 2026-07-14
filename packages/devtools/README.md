@@ -409,7 +409,7 @@ HIGH priority events (errors, rollbacks) are:
 1. Sent immediately (no batching)
 2. Saved to IndexedDB (optional)
 
-This ensures you never lose critical errors, even if DevTools panel is closed.
+Persistence can make HIGH events available after the panel closes, but it is not a durability guarantee. Retention cleanup and storage failures can remove events.
 
 ### Batch Intervals
 
@@ -609,9 +609,9 @@ packages/devtools/
 
 ## Related Packages
 
-- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant page restoration
+- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Boot-time visual snapshot replay
 - [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
-- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Atomic transactions with rollback
+- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Optimistic sagas with compensating rollback
 
 ---
 

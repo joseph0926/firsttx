@@ -2,7 +2,9 @@
 
 ## Local-First란?
 
-Local-First는 IndexedDB 기반의 데이터 레이어입니다. 서버 데이터를 로컬에 캐싱하고, 오프라인에서도 데이터를 유지하며, 여러 탭 간에 실시간으로 동기화합니다.
+Local-First는 IndexedDB 기반 persistent client cache입니다. 오프라인에서 읽을 수 있도록 모델 snapshot을 저장하고, staleness 메타데이터와 서버 재검증 훅을 제공하며, 저장 데이터가 바뀌면 다른 탭에 알립니다.
+
+오프라인 쓰기를 queue하거나 동시 탭 충돌을 감지하지는 않습니다. `isConflicted`는 현재 항상 `false`이며, `merge`는 현재 데이터와 서버 replacement 데이터만 병합합니다.
 
 주요 특징:
 

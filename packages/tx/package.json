@@ -1,7 +1,7 @@
 {
   "name": "@firsttx/tx",
   "version": "0.8.1",
-  "description": "Atomic transaction engine for optimistic UI that sequences steps with compensation, built-in retry/backoff, and ViewTransition-ready rollbacks.",
+  "description": "Optimistic saga engine that sequences steps with compensation, built-in retry/backoff, and ViewTransition-ready rollbacks.",
   "license": "MIT",
   "author": "joseph0926",
   "type": "module",
@@ -36,7 +36,7 @@
     "transaction",
     "optimistic-ui",
     "undo-redo",
-    "atomic",
+    "compensation",
     "graph",
     "consistency",
     "navigation"

@@ -18,17 +18,17 @@ export const layers = [
 export const highlights = [
   {
     label: "Revisits",
-    value: "0 ms",
-    description: "재방문 시 빈 화면 없이 바로 이전 상태를 복원합니다.",
+    value: "Measured",
+    description: "재방문 부트 구간에 이전 visual snapshot을 표시해 빈 화면 시간을 줄입니다.",
   },
   {
     label: "Sync boilerplate",
-    value: "↓ ~90%",
+    value: "Reusable",
     description: "동기화 로직을 공통 레이어로 끌어올려, 비즈니스 코드에 집중합니다.",
   },
   {
     label: "Optimistic UI",
-    value: "Atomic",
-    description: "낙관적 업데이트 + 롤백을 트랜잭션으로 다룹니다.",
+    value: "Compensating",
+    description: "낙관적 단계를 실행하고 실패 시 완료된 단계를 역순으로 보상합니다.",
   },
 ] as const;

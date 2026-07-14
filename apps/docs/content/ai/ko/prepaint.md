@@ -2,7 +2,7 @@
 
 ## Prepaint란?
 
-Prepaint는 CSR React 앱의 재방문 시 빈 화면 문제를 해결합니다. 사용자가 페이지를 떠날 때 현재 DOM 상태를 IndexedDB에 저장하고, 다음 방문 시 React 번들이 로드되기 전에 저장된 스냅샷을 즉시 표시합니다. 이후 React가 준비되면 실제 앱으로 자연스럽게 전환됩니다.
+Prepaint는 CSR React 앱 재방문의 빈 화면 시간을 줄입니다. DOM snapshot을 IndexedDB에 저장하고 다음 방문 시 메인 React 번들보다 먼저 임시 비상호작용 visual cache로 표시할 수 있습니다. 시간은 기기, snapshot 크기, storage 상태에 따라 달라집니다.
 
 ## 동작 원리
 
@@ -25,12 +25,12 @@ Prepaint는 CSR React 앱의 재방문 시 빈 화면 문제를 해결합니다.
 2. 스냅샷이 있고 7일 이내라면 DOM에 즉시 삽입합니다
 3. 저장된 스타일을 적용합니다
 4. React 번들 로드를 기다립니다
-5. React가 준비되면 hydrateRoot로 실제 앱과 병합합니다
-6. ViewTransition API를 지원하는 브라우저에서는 부드러운 전환 효과가 적용됩니다
+5. 권장 오버레이 모드에서는 React가 빈 루트에 마운트되고 핸드오프 중 visual cache가 제거됩니다
+6. legacy direct-restore 경로는 캐시된 client DOM에 `hydrateRoot`를 시도할 수 있습니다. 이는 지원 계약이 아닌 구현 세부입니다
 
 ## createFirstTxRoot
 
-React 앱의 진입점에서 createRoot 대신 createFirstTxRoot를 사용합니다. 이 함수는 컨테이너와 React 엘리먼트를 함께 받으며, 내부적으로 스냅샷 복원 여부에 따라 hydrateRoot 또는 createRoot를 선택합니다.
+React 앱의 진입점에서 root API를 직접 호출하는 대신 createFirstTxRoot를 사용합니다. 이 함수는 snapshot 캡처, 핸드오프, React 마운트를 연결합니다. 캐시된 client DOM을 React 루트 밖에 두도록 오버레이 모드를 사용하세요.
 
 ```typescript
 import { createFirstTxRoot } from '@firsttx/prepaint';
@@ -59,12 +59,12 @@ createFirstTxRoot(
 );
 ```
 
-| 옵션               | 타입                                  | 기본값 | 설명                                                                                         |
-| ------------------ | ------------------------------------- | ------ | -------------------------------------------------------------------------------------------- |
-| `transition`       | `boolean`                             | `true` | ViewTransition API 사용 여부입니다                                                           |
-| `onCapture`        | `(snapshot: Snapshot) => void`        | -      | 스냅샷 캡처 완료 시 호출됩니다                                                               |
-| `onHandoff`        | `(strategy: HandoffStrategy) => void` | -      | 핸드오프 전략 결정 시 호출됩니다. strategy는 `'has-prepaint'` 또는 `'cold-start'`입니다      |
-| `onHydrationError` | `(error: HydrationError) => void`     | -      | 하이드레이션 불일치 발생 시 호출됩니다. Prepaint는 자동으로 클라이언트 렌더링으로 폴백합니다 |
+| 옵션               | 타입                                  | 기본값 | 설명                                                                                                     |
+| ------------------ | ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| `transition`       | `boolean`                             | `true` | ViewTransition API 사용 여부입니다                                                                       |
+| `onCapture`        | `(snapshot: Snapshot) => void`        | -      | 스냅샷 캡처 완료 시 호출됩니다                                                                           |
+| `onHandoff`        | `(strategy: HandoffStrategy) => void` | -      | 핸드오프 전략 결정 시 호출됩니다. strategy는 `'has-prepaint'` 또는 `'cold-start'`입니다                  |
+| `onHydrationError` | `(error: HydrationError) => void`     | -      | legacy direct-restore 경로에서 하이드레이션 불일치가 보고되고 clean client render를 시도할 때 호출됩니다 |
 
 ## Vite 플러그인
 
@@ -76,27 +76,29 @@ import react from '@vitejs/plugin-react';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [react(), firstTx()],
+  plugins: [react(), firstTx({ overlay: true })],
 });
 ```
 
 ### 플러그인 옵션
 
-| 옵션              | 타입                                                   | 기본값              | 설명                                                                           |
-| ----------------- | ------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------ |
-| `inline`          | `boolean`                                              | `true`              | 부트 스크립트를 HTML에 인라인으로 삽입합니다                                   |
-| `minify`          | `boolean`                                              | 프로덕션에서 `true` | 부트 스크립트 minify 여부입니다. 개발 환경에서는 기본 `false`입니다            |
-| `injectTo`        | `'head' \| 'head-prepend' \| 'body' \| 'body-prepend'` | `'head-prepend'`    | 스크립트 삽입 위치입니다                                                       |
-| `overlay`         | `boolean`                                              | -                   | 오버레이 모드를 전역으로 활성화합니다                                          |
-| `overlayRoutes`   | `string[]`                                             | -                   | 오버레이를 표시할 경로를 제한합니다                                            |
-| `nonce`           | `string \| (() => string)`                             | -                   | CSP nonce 값입니다. 함수로 전달하면 매 요청마다 동적으로 생성됩니다            |
-| `devFlagOverride` | `boolean`                                              | -                   | 개발 모드 플래그를 수동으로 설정합니다. 설정하지 않으면 Vite의 mode를 따릅니다 |
+| 옵션              | 타입                                                   | 기본값              | 설명                                                                                                      |
+| ----------------- | ------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------- |
+| `inline`          | `boolean`                                              | `true`              | 부트 스크립트를 HTML에 인라인으로 삽입합니다                                                              |
+| `minify`          | `boolean`                                              | 프로덕션에서 `true` | 부트 스크립트 minify 여부입니다. 개발 환경에서는 기본 `false`입니다                                       |
+| `injectTo`        | `'head' \| 'head-prepend' \| 'body' \| 'body-prepend'` | `'head-prepend'`    | 스크립트 삽입 위치입니다                                                                                  |
+| `overlay`         | `boolean`                                              | -                   | 오버레이 모드를 전역으로 활성화합니다                                                                     |
+| `overlayRoutes`   | `string[]`                                             | -                   | 오버레이를 표시할 경로를 제한합니다                                                                       |
+| `nonce`           | `string \| (() => string)`                             | -                   | Vite가 결과물을 생성할 때 포함하는 CSP nonce입니다. 정적 출력은 HTTP 응답마다 새 nonce를 만들 수 없습니다 |
+| `devFlagOverride` | `boolean`                                              | -                   | 개발 모드 플래그를 수동으로 설정합니다. 설정하지 않으면 Vite의 mode를 따릅니다                            |
 
 ## 민감 데이터 처리
 
 ### 기본 동작
 
 비밀번호 입력 필드(`input[type="password"]`)와 `data-firsttx-sensitive` 속성이 있는 요소는 스냅샷에서 값이 자동으로 제거됩니다.
+
+그 밖의 DOM 내용은 IndexedDB에 최대 7일간 남을 수 있습니다. 민감하지 않은 route에서만 캡처를 활성화하고 모든 민감 필드를 명시적으로 표시하세요.
 
 ### 커스텀 선택자 추가
 
@@ -119,11 +121,11 @@ window.__FIRSTTX_SENSITIVE_SELECTORS__ = [
 </div>
 ```
 
-이 요소의 내용은 스냅샷에서 비워지며, React 하이드레이션 후 실제 값으로 채워집니다.
+이 요소의 내용은 스냅샷에서 비워지며, React 앱 마운트 후 실제 값으로 채워집니다.
 
 ## 오버레이 모드
 
-오버레이 모드는 스냅샷을 `#root` 내부가 아닌 별도의 오버레이 레이어에 표시합니다. 개발 중 스냅샷 상태를 시각적으로 확인할 때 유용합니다.
+오버레이 모드는 스냅샷을 `#root` 내부가 아닌 별도 레이어에 표시합니다. 캐시된 client DOM과 React 루트를 분리하므로 권장 통합 모드입니다.
 
 ### 활성화 방법
 
@@ -189,7 +191,7 @@ interface Snapshot {
 
 createFirstTxRoot는 스냅샷 복원 여부에 따라 두 가지 전략 중 하나를 선택합니다:
 
-- `has-prepaint`: 스냅샷이 복원된 상태. hydrateRoot로 기존 DOM과 병합합니다.
+- `has-prepaint`: 스냅샷이 복원된 상태. 오버레이 모드는 React를 별도로 마운트하고, legacy direct-restore 경로만 `hydrateRoot`를 시도합니다.
 - `cold-start`: 스냅샷이 없거나 만료됨. createRoot로 새로 렌더링합니다.
 
 `onHandoff` 콜백으로 어떤 전략이 선택되었는지 확인할 수 있습니다.
@@ -224,7 +226,7 @@ ViewTransition API를 지원하지 않는 브라우저에서도 기본 기능은
 
 ## 에러 처리
 
-Prepaint는 모든 에러를 내부적으로 처리하며, 에러 발생 시 일반 CSR 앱처럼 동작합니다. 사용자 경험에 영향을 주지 않습니다.
+Prepaint는 boot, capture, legacy hydration 에러를 잡고 일반 client render를 계속 시도합니다. fallback도 실패할 수 있으므로 callback과 DevTools event를 관측해야 합니다.
 
 ### BootError
 
@@ -232,7 +234,7 @@ Prepaint는 모든 에러를 내부적으로 처리하며, 에러 발생 시 일
 
 ### HydrationError
 
-React 하이드레이션 중 DOM 불일치가 감지되면 발생합니다. `onHydrationError` 콜백으로 감지할 수 있으며, Prepaint는 자동으로 클라이언트 렌더링으로 폴백합니다.
+legacy direct-restore 하이드레이션에서 DOM 불일치가 감지되면 발생합니다. `onHydrationError` 콜백으로 감지할 수 있으며, Prepaint는 clean client render를 시도합니다.
 
 ### CaptureError
 

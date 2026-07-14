@@ -2,32 +2,32 @@
 
 ## Overview
 
-Ever struggled with blank screens on CSR revisits? Data conflicts during sync? Inconsistent rollback behavior? This interactive playground demonstrates how FirstTx addresses these challenges through 9 real-world scenarios.
+Ever struggled with blank screens on CSR revisits, stale client data, or inconsistent rollback behavior? This interactive playground demonstrates FirstTx behavior and limitations through 9 scenarios.
 
-FirstTx combines three layers—Prepaint (instant replay), Local-First (client-side state), and Tx (atomic transactions)—to deliver SSR-like revisit experiences without server complexity. This playground lets you experience each layer in action.
+FirstTx combines three layers—Prepaint (visual snapshot replay), Local-First (persistent client cache), and Tx (optimistic sagas)—for CSR revisit flows. This playground lets you inspect each layer in action.
 
 ## What You Can Experience
 
-### Prepaint: Instant Replay (2 scenarios)
+### Prepaint: Visual Snapshot Replay (2 scenarios)
 
-Eliminate blank screen time on revisits by restoring the last captured state instantly.
+Reduce blank screen time on revisits by displaying the last captured visual state before the app mounts.
 
-- **Heavy Page**: Experience 0ms blank screen time with 100+ product grids
+- **Heavy Page**: Measure warm-revisit blank time with 100+ product grids
 - **Route Switching**: See how prepaint integrates with React Router 7 across multiple routes
 
 ### Sync: Server Synchronization (3 scenarios)
 
 Handle the complexity of keeping local and server data in sync.
 
-- **Conflict Resolution**: Watch how local modifications resolve against incoming server data
+- **Server Replacement Merge**: Watch how the configured merge function combines local and incoming server data
 - **Timing Attack**: See what happens when server sync arrives during transaction execution
 - **Staleness Detection**: Understand TTL expiry and stale data handling strategies
 
-### Tx: Atomic Transactions (3 scenarios)
+### Tx: Optimistic Sagas (3 scenarios)
 
-Guarantee all-or-nothing updates with automatic rollback on failure.
+Run compensating rollback for completed steps when a later step fails.
 
-- **Concurrent Updates**: Execute multiple transactions simultaneously and verify data consistency
+- **Concurrent Updates**: Observe the current hook's shared pending/cancel state under overlapping requests
 - **Rollback Chain**: Observe multi-step transaction rollback in reverse order
 - **Network Chaos**: Test retry logic and error handling under unstable network conditions
 
@@ -37,13 +37,13 @@ Traditional CSR apps suffer from:
 
 - **Cold start penalty**: Every visit loads from scratch
 - **Fragmented rollback**: Partial failures leave inconsistent state
-- **Complex sync logic**: Manual conflict resolution and staleness checks
+- **Complex sync logic**: Manual server merge and staleness checks
 
 FirstTx provides:
 
-- **Instant revisit**: Prepaint captures and restores UI snapshots (0ms blank screen)
-- **Atomic rollback**: Tx ensures all-or-nothing updates with ViewTransition integration
-- **Predictable sync**: Local-First manages TTL, conflicts, and server reconciliation
+- **Measured revisit replay**: Prepaint captures and restores visual snapshots before the app mounts
+- **Compensating rollback**: Tx runs completed compensations in reverse order, with ViewTransition integration
+- **Persistent cache**: Local-First manages TTL, cross-tab invalidation, and server replacement merges
 
 This playground demonstrates these benefits through interactive scenarios that reveal both the strengths and edge cases of each approach.
 
@@ -86,12 +86,12 @@ Navigate to each scenario from the landing page to explore different FirstTx cap
 
 ## Performance Targets
 
-Each scenario measures specific metrics:
+The scenarios expose example metrics. Results depend on the browser, device, page size, and network profile:
 
-- **BlankScreenTime (BST)**: < 20ms on warm visits
-- **Hydration Success**: > 80% DOM reuse rate
-- **Tx Rollback Time**: < 100ms for multi-step rollback
-- **Sync Conflict Resolution**: < 100ms for data reconciliation
+- **BlankScreenTime (BST)** on warm visits
+- **Legacy direct-restore hydration outcome**
+- **Tx rollback duration** for multi-step compensation
+- **Server replacement merge duration**
 
 ## Learn More
 

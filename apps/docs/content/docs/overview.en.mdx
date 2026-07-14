@@ -4,12 +4,12 @@ export const metadata = {
 
 # FirstTx Overview
 
-FirstTx is a 3-layer toolkit designed to solve **revisit speed, offline durability and optimistic UI**  
+FirstTx is a 3-layer toolkit for **revisit visual replay, persisted client state, and optimistic UI compensation**
 in React-based CSR apps.
 
 - **Prepaint** - a **render layer** that stores the “last screen” as a DOM snapshot and restores it before React on the next visit
 - **Local-First** - a **data layer** that treats IndexedDB as the single source of truth, defines models via Zod schemas, and provides TTL + multi-tab sync
-- **Tx** - an **execution layer** that wraps UI updates and server requests into a single transaction, with safe rollback, retry and timeouts
+- **Tx** - an **execution layer** that runs UI updates and server requests as a saga-like sequence, with compensating rollback, retry and timeouts
 
 <Callout type="info" title="What you’ll get from this page">
   <ul>
@@ -44,12 +44,12 @@ Here are some very common issues in CSR apps,
 FirstTx splits these pain points into three layers,
 
 1. Use **Prepaint** to remember the "last screen".
-2. Use **Local-First** to keep local models always available.
+2. Use **Local-First** to persist client model snapshots.
 3. Use **Tx** to wrap UI changes in transactions.
 
 ### Key Differentiators
 
-1. **Prepaint**: The only solution that restores UI before JavaScript loads (SSR-level UX without SSR)
+1. **Prepaint**: Replays a visual snapshot before the main app bundle starts, without adding an SSR runtime
 2. **Sync + Async API**: `getCachedSnapshot()` for React rendering + `getSnapshot()` for async operations
 3. **Compensation Pattern**: Declare rollback once, auto-execute in reverse order on failure
 4. **ViewTransition**: Native integration for smooth UI transitions during rollback
@@ -58,11 +58,11 @@ FirstTx splits these pain points into three layers,
 
 ## 2. The three layers at a glance
 
-### Prepaint - “0ms revisit screen restore”
+### Prepaint - “boot-time visual snapshot replay”
 
 - Stores the last screen as a DOM + style snapshot.
 - On the next visit, restores that snapshot **before** the React bundle is even loaded.
-- Once React finishes hydration, it hands off to the actual app seamlessly.
+- The snapshot is temporary, non-interactive visual cache; the React app takes over during handoff.
 - When ViewTransition is available, it wraps the “restore → real render” handoff in a smooth transition.
 
 **Great fit when…**
@@ -84,13 +84,13 @@ FirstTx splits these pain points into three layers,
 
 **Great fit when…**
 
-- You need to show “the last known state” even when offline.
+- You need to show persisted “last known state” while offline.
 - You want list/form state to survive reloads in internal tools.
 - You need a **durable client-side data layer** but don’t want to manage IndexedDB by hand.
 
 ---
 
-### Tx - “transactional optimistic UI executor”
+### Tx - “optimistic saga executor”
 
 - Wraps multi-step operations (local updates + server requests + side effects)
   into a single transaction.
@@ -103,14 +103,14 @@ FirstTx splits these pain points into three layers,
 **Great fit when…**
 
 - You have multi-step flows combining several API calls and state updates
-  and want them to behave atomically.
+  and want completed steps to run compensating actions after a failure.
 - You already use optimistic UI, but failure cases sometimes leave the UI in a broken state.
 - You want to trace failure/retry/rollback as a single timeline in DevTools.
 
 <Callout type="info" title="Each layer is usable on its own">
   <ul>
     <li>
-      You can use Prepaint alone to focus on <strong>“no blank screen on revisit”</strong>.
+      You can use Prepaint alone to focus on <strong>reducing blank time on revisit</strong>.
     </li>
     <li>
       You can use Local-First alone to get an <strong>IndexedDB-backed data layer</strong>.
@@ -149,13 +149,13 @@ A common path looks like this,
 1. **Step 1 - Add Prepaint only (5-10 minutes)**
    - Wire the Prepaint plugin into Vite.
    - Replace your root entry with `createFirstTxRoot`.
-   - You already get “restore the last screen immediately on revisit”.
+   - The last visual snapshot can be replayed during revisit boot.
 
 2. **Step 2 - Add Local-First for durable data**
    - Start with a single model (e.g. `CartModel`, `UserSettingsModel`) via `defineModel`.
    - Connect it to the server using `useSyncedModel`.
 
-3. **Step 3 - Add Tx to transactionalize optimistic UI**
+3. **Step 3 - Add Tx for optimistic steps and compensation**
    - Wrap existing “optimistic UI + fetch” flows in Tx transactions.
    - Handle rollback/retry/timeout in a single place.
 

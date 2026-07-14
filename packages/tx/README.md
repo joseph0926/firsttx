@@ -1,14 +1,14 @@
 # @firsttx/tx
 
-**Safe optimistic updates with atomic transactions**
+**Safe optimistic updates with reverse-order compensation**
 
 <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400068/firsttx-tx-01_blkctj.gif" />
 
-Execute multi-step operations safely with automatic compensation on failure. Perfect for optimistic updates, API calls, and state synchronization.
+Execute multi-step operations with automatic compensation on failure. Tx provides saga-like rollback semantics; it does not make remote APIs and browser storage one atomic commit.
 
 ## Why Tx?
 
-**The only React library with automatic reverse-order compensation.**
+**Reverse-order compensation for completed optimistic steps.**
 
 - **Auto rollback**: Declare `compensate` once, auto-execute in reverse order on failure
 - **Step-level retry**: Exponential/linear backoff per step (not just whole operation)
@@ -770,7 +770,7 @@ A:
 ## Related Packages
 
 - [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
-- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant page restoration
+- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Boot-time visual snapshot replay
 
 ---
 

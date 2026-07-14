@@ -93,7 +93,7 @@ Capture failures do not affect the next visit.
 
 ### HydrationError
 
-This error is created when a DOM mismatch occurs during React hydration.
+This error is created when a DOM mismatch occurs in the legacy direct-restore hydration path.
 
 | Property       | Type                                      | Description                    |
 | -------------- | ----------------------------------------- | ------------------------------ |

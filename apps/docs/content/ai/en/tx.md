@@ -2,11 +2,13 @@
 
 ## What is Tx?
 
-Tx is a library that manages optimistic updates as transactions. It groups multiple steps into a single transaction and automatically rolls them back on failure.
+Tx is an optimistic saga library. It runs multiple steps in sequence and invokes completed steps' compensation functions in reverse order on failure.
+
+Tx does not provide an atomic commit across remote APIs, IndexedDB, and React state. Compensation is best-effort and can itself fail.
 
 Key features:
 
-- Supports safe rollback with step-by-step execution and compensate functions
+- Supports reverse-order compensation with step-by-step execution and explicit compensate functions
 - Recovers from transient failures automatically with retry settings
 - Prevents indefinite waiting with timeouts
 - Provides smooth UI transitions on rollback by using the ViewTransition API

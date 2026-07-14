@@ -15,9 +15,9 @@ export async function generateMetadata({ params }: PrepaintPageProps): Promise<M
   const { locale } = await params;
   const isKo = locale === "ko";
 
-  const title = isKo ? "Prepaint - 재방문 0ms 화면 복원 레이어" : "Prepaint - 0ms revisit restore layer";
+  const title = isKo ? "Prepaint - 재방문 visual snapshot replay" : "Prepaint - Revisit visual snapshot replay";
 
-  const description = isKo ? "Prepaint가 마지막 화면을 DOM 스냅샷으로 캡처해 IndexedDB에 저장하고, 다음 방문 시 React 하이드레이션 전에 복원하는 방법과 부트 스크립트, 오버레이 모드, ViewTransition 연동까지 자세히 설명합니다." : "Deep dive into Prepaint: how it captures DOM snapshots into IndexedDB, restores them before React hydration, and integrates the boot script, overlay mode and ViewTransition for smooth revisit experiences.";
+  const description = isKo ? "Prepaint가 마지막 화면을 DOM snapshot으로 캡처해 IndexedDB에 저장하고, 다음 방문의 부트 구간에 비상호작용 visual cache로 replay하는 방법과 권장 오버레이 모드, ViewTransition 연동을 설명합니다." : "Learn how Prepaint captures DOM snapshots in IndexedDB, replays a non-interactive visual cache during revisit boot, and integrates the recommended overlay mode and ViewTransition.";
 
   const canonical = `/${locale}${DOCS_PATH}`;
   const languages: Record<string, string> = Object.fromEntries(routing.locales.map((loc) => [loc, `/${loc}${DOCS_PATH}`]));

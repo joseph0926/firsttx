@@ -4,7 +4,7 @@ export const metadata = {
 
 # Tx
 
-Tx is an **execution layer that bundles optimistic UI updates and server requests into a single transaction and automatically rolls back on failure**.
+Tx is an **execution layer that runs optimistic UI updates and server requests as a saga-like sequence and compensates completed steps on failure**.
 
 - Run multiple steps in one go
 - If something fails in the middle, execute compensating steps in **reverse order** to restore the UI
@@ -16,11 +16,13 @@ Tx is an **execution layer that bundles optimistic UI updates and server request
       When you want optimistic UI but keep ending up in <strong>half-rolled-back states</strong>
     </li>
     <li>
-      When you want to treat multiple API calls/local model updates as a single <strong>atomic unit</strong>
+      When you want completed API calls/local model updates to have explicit <strong>compensating actions</strong>
     </li>
     <li>When you want to inspect failure cases end-to-end in DevTools</li>
   </ul>
 </Callout>
+
+Tx does not provide an atomic commit across remote APIs, IndexedDB, and React state. Compensation is a best-effort action and can itself fail.
 
 ---
 
@@ -546,9 +548,9 @@ The `priority` field controls importance in DevTools,
 
 Finally, Tx can be used on its own, but it really shines when combined with **Local-First + Prepaint**,
 
-- **Prepaint** - Restores the last screen immediately on revisit to avoid blank screens. ([GitHub][1])
+- **Prepaint** - Replays the last visual snapshot during revisit boot to reduce blank time. ([GitHub][1])
 - **Local-First** - Uses IndexedDB as the single source of truth so state survives reloads and offline usage. ([GitHub][1])
-- **Tx** - Sits on top to group optimistic updates into atomic transactions and roll them back cleanly on failure. ([GitHub][1])
+- **Tx** - Sits on top to run optimistic steps and compensate completed steps in reverse order on failure. ([GitHub][1])
 
 These layers are separate packages,
 

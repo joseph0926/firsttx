@@ -2,17 +2,17 @@
 
 **Bridge IndexedDB (async) and React state (sync) seamlessly.**
 
-Type-safe IndexedDB models with React integration via `useSyncExternalStore`. Eliminates 90% of server sync boilerplate. Works with `@firsttx/tx` for atomic optimistic updates.
+Type-safe IndexedDB models with React integration via `useSyncExternalStore`, staleness metadata, server revalidation hooks, and cross-tab invalidation.
 
 ## Why Local-First?
 
-**The only IndexedDB library with synchronous React API + automatic multi-tab sync.**
+**A persistent client cache with synchronous React snapshots and BroadcastChannel updates.**
 
 - **Sync API**: `getCachedSnapshot()` returns instantly (no async/await in render)
-- **Multi-tab sync**: BroadcastChannel-based real-time sync across tabs (~1ms latency)
+- **Multi-tab updates**: BroadcastChannel notifies other tabs to reload the stored snapshot
 - **TTL metadata**: Automatic staleness detection with `history.isStale`
 - **Zod validation**: Type-safe schema with runtime validation
-- **Zero boilerplate**: 3 lines to define a persistent model
+- **Concise model definition**: Schema, TTL, version, and initial data live together
 
 <img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760400559/firsttx-local-01_zwhtge.gif" />
 
@@ -147,7 +147,7 @@ const Model = defineModel('cart', {
   - Set to `0` for always-stale behavior
 - `options.version?: number` - Schema version. When changed, existing data is deleted
 - `options.initialData?: T` - Default value when no data exists. Required for `patch()`
-- `options.merge?: (current: T, incoming: T) => T` - Custom conflict resolution for cross-tab sync
+- `options.merge?: (current: T, incoming: T) => T` - Merge current data with incoming server replacement data
 
 **Returns** `Model<T>`
 
@@ -156,7 +156,7 @@ const Model = defineModel('cart', {
 - `name: string` - Model key
 - `schema: ZodSchema` - Validation schema
 - `ttl: number` - Effective TTL value
-- `merge: (current, incoming) => T` - Conflict resolver
+- `merge: (current, incoming) => T` - Server replacement merge function
 
 **Model Methods**
 
@@ -220,7 +220,7 @@ const { data, status, patch, history, error } = useModel(CartModel);
   - `updatedAt: number` - Unix timestamp of last update
   - `age: number` - Time elapsed since last update (ms)
   - `isStale: boolean` - Whether `age > ttl`
-  - `isConflicted: boolean` - Whether cross-tab conflict occurred
+  - `isConflicted: boolean` - Reserved conflict flag; currently always `false`
 - `error: FirstTxError | null` - Validation or storage error
 
 **Example**
@@ -309,7 +309,7 @@ function App() {
 2. **Revisit (fresh cache)**: Return cached data instantly → no network request
 3. **Revisit (stale cache)**: Return cached data instantly → revalidate in background
 
-This eliminates blank screens on page refresh, providing SSR-level UX without SSR.
+This can restore cached data during rendering and reduce the time spent in a loading fallback on revisit.
 
 **Key Differences from `useSyncedModel`**
 
@@ -463,19 +463,19 @@ Automatically syncs changes across all open tabs using BroadcastChannel API.
 // Tab 1
 await CartModel.patch((draft) => draft.items.push(item));
 
-// Tab 2 (instantly receives update via BroadcastChannel)
-// React re-renders with new data (~1ms latency)
+// Tab 2 receives a BroadcastChannel notification
+// React reloads the latest stored snapshot
 ```
 
 **How it works**
 
 - Every `patch()` or `replace()` broadcasts to other tabs
 - Tabs auto-reload from IndexedDB on receiving broadcast
-- Custom `merge()` function resolves conflicts
+- Concurrent writes are not conflict-detected; the latest completed IndexedDB write wins
 - Zero network overhead (browser-internal communication)
-- Graceful degradation (97%+ browser support)
+- Without BroadcastChannel, cross-tab propagation is skipped
 
-**Conflict Resolution**
+**Server Replacement Merge**
 
 ```ts
 const Model = defineModel('cart', {
@@ -489,6 +489,8 @@ const Model = defineModel('cart', {
   },
 });
 ```
+
+`merge()` is applied when incoming server data replaces the current record. It does not detect or resolve concurrent cross-tab writes, and `isConflicted` currently remains `false`.
 
 ---
 
@@ -592,8 +594,8 @@ try {
 
 ## Related Packages
 
-- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Atomic transactions for optimistic updates
-- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Instant page restoration
+- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Optimistic sagas with compensating rollback
+- [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Boot-time visual snapshot replay
 
 ---
 

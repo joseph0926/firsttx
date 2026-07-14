@@ -11,15 +11,15 @@
 
 > 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.
 
-**Eliminate blank screens on revisits - Restore last state instantly**
+**Reduce blank time on CSR revisits by replaying the last visual state**
 
 ## TL;DR
 
-FirstTx elevates CSR app revisit experience to SSR-level:
+FirstTx combines three client-side layers for CSR revisits:
 
-- **Prepaint**: Instantly restore last screen before JS loads (0ms blank screen)
-- **Local-First**: Auto-sync IndexedDB + React (data persists on refresh)
-- **Tx**: Optimistic updates + auto-rollback (safe even on failure)
+- **Prepaint**: Replay a sanitized visual snapshot before the app bundle starts
+- **Local-First**: Persist React model snapshots in IndexedDB and revalidate them from the server
+- **Tx**: Run optimistic steps with retry and reverse-order compensating rollback
 
 ## Demo
 
@@ -34,7 +34,7 @@ FirstTx elevates CSR app revisit experience to SSR-level:
 </tr>
 <tr>
 <td align="center"><sub>Slow 4G: Blank screen</sub></td>
-<td align="center"><sub>Slow 4G: Instant restore</sub></td>
+<td align="center"><sub>Slow 4G: Snapshot replay</sub></td>
 </tr>
 </table>
 
@@ -42,7 +42,7 @@ FirstTx elevates CSR app revisit experience to SSR-level:
 
 ## Why FirstTx?
 
-Traditional solutions for revisit UX (SSR/SSG) add infrastructure complexity. Manual IndexedDB requires 500+ lines of boilerplate. FirstTx provides SSR-level UX while keeping CSR architecture simple.
+FirstTx adds reusable visual snapshot, persistent client cache, and compensation primitives while keeping a CSR architecture.
 
 ## Installation
 
@@ -72,9 +72,11 @@ pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [firstTx()],
+  plugins: [firstTx({ overlay: true })],
 });
 ```
+
+> Overlay mode is recommended in current releases. The legacy direct-restore path may attempt to hydrate cached client DOM and is not a supported rendering contract.
 
 ### 2. Entry Point
 
@@ -119,7 +121,7 @@ function CartPage() {
 
 **UI duplicates on refresh**: Enable `overlay: true` in Vite plugin.
 
-**Hydration warnings**: Add `data-firsttx-volatile` to frequently changing elements.
+**Legacy direct-restore mismatch warnings**: Prefer `overlay: true` and add `data-firsttx-volatile` to frequently changing elements.
 
 **TypeScript errors**: Add `declare const __FIRSTTX_DEV__: boolean`.
 

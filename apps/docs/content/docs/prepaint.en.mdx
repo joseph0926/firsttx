@@ -7,11 +7,11 @@ export const metadata = {
 Prepaint is the **render layer** of FirstTx.
 
 - On user revisit, it **restores the last screen from a DOM snapshot**
-- Hides the “blank screen” while the React bundle and data are loading
+- Reduces the visible blank interval while the React bundle and data are loading
 - And when ViewTransition is available, it wraps the restore → real render handoff in a smooth animation.
 
 <Callout type="info" title="One-line summary">
-  “Prepaint = the layer that gives you a <strong>SSR-like revisit experience in CSR apps</strong>.” On refresh, back navigation, or re-entering an internal tool from outside, it immediately shows the last screen the user saw.
+  Prepaint is a <strong>boot-time visual cache for CSR revisits</strong>. On refresh, back navigation, or re-entering an internal tool from outside, it can show the last captured screen before the main app bundle starts.
 </Callout>
 
 ---
@@ -32,11 +32,11 @@ If you want to try Prepaint first, you can install it alone,
 
 <Callout type="info" title="Combining with Local-First / Tx">
   <ul>
-    <li>Prepaint alone fixes most “blank screen on revisit” problems.</li>
+    <li>Prepaint alone can reduce the visible blank interval on revisit.</li>
     <li>
       Adding Local-First keeps <strong>data state</strong> around across offline / revisits.
     </li>
-    <li>Adding Tx lets you wrap optimistic UI updates in safe transactions, with rollback.</li>
+    <li>Adding Tx lets you run optimistic UI steps with explicit compensating actions.</li>
   </ul>
 </Callout>
 
@@ -56,7 +56,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(), // automatically injects the Prepaint boot script
+    firstTx({ overlay: true }), // recommended: keep cached DOM outside the React root
   ],
 });
 ```
@@ -78,11 +78,13 @@ export default defineConfig({
       <code>overlayRoutes: string[]</code> - enable overlay mode only for specific route prefixes
     </li>
     <li>
-      <code>nonce: string</code> - CSP nonce for the injected scripts
+      <code>nonce: string</code> - nonce embedded in generated output; static Vite output cannot create a per-response nonce
     </li>
   </ul>
-  The defaults are usually enough, but for complex router/layout setups, overlay mode can make things safer.
+  Overlay mode is recommended for current releases because it keeps cached client DOM outside the React root. The legacy direct-restore path is documented below only for migration and debugging.
 </Callout>
+
+For static hosting, prefer an external boot asset or a CSP hash. A nonce passed to the Vite plugin is generated at build time, not once per HTTP response.
 
 ---
 
@@ -133,7 +135,7 @@ This function wires Prepaint’s restore logic and the React mount together.
       defaultValue: "true",
       description: (
         <>
-          Whether to use <code>document.startViewTransition</code>. In supported browsers, the “restore DOM → hydrate / re-render” handoff is wrapped in a smooth, cross-fade-style transition. In unsupported browsers it gracefully degrades.
+          Whether to use <code>document.startViewTransition</code>. In supported browsers, the visual snapshot → React app handoff is wrapped in a transition. In unsupported browsers the handoff runs without that effect.
         </>
       ),
     },
@@ -293,14 +295,15 @@ This information becomes `Snapshot.styles`. On restore, `style-utils` turns them
 
 ---
 
-## 4. React hydration & root guard
+## 4. Legacy direct-restore hydration & root guard
 
-After Prepaint restores a snapshot, React mounts and attempts hydration.
-Because of **CSS-in-JS, random IDs, timestamps, non-deterministic rendering**, hydration mismatches can occur.
+The current legacy direct-restore path inserts the cached client DOM into the React root and attempts hydration. Cached client-rendered DOM is not a supported React hydration input, so this behavior is an implementation detail rather than a supported rendering contract. Use overlay mode for new integrations.
+
+Because of **CSS-in-JS, random IDs, timestamps, non-deterministic rendering**, the legacy path can also produce hydration mismatches.
 
 ### 4-1. Hydration → clean render fallback
 
-`createFirstTxRoot` wraps this process safely,
+The current implementation handles this process as follows,
 
 1. It checks the <code>data-prepaint</code> marker to see whether Prepaint restoration happened, and whether hydration is allowed.
 2. If a restored DOM is present and <code>container.children.length === 1</code>,
@@ -319,7 +322,7 @@ Because of **CSS-in-JS, random IDs, timestamps, non-deterministic rendering**, h
 
 ### 4-2. Root guard behavior
 
-`installRootGuard` ensures that,
+The current `installRootGuard` responds to structural changes as follows,
 
 - If the number of children under <code>#root</code> becomes anything other than 1
   (e.g., some code adds sibling nodes directly under <code>#root</code>),
@@ -397,8 +400,8 @@ Prepaint works fine on its own, but the experience is best when combined with th
 Example revisit flow,
 
 1. The user opens the same dashboard they were looking at yesterday.
-2. **Prepaint** restores yesterday’s DOM snapshot in ~0ms.
-3. React + **Local-First** hydrate state from IndexedDB and fill in the data.
+2. **Prepaint** replays yesterday’s visual snapshot during boot.
+3. React mounts and **Local-First** reads persisted state from IndexedDB.
 4. If the TTL has expired, `useSyncedModel` runs a background server sync.
 5. User actions (filter changes, form submissions, etc.) are handled by **Tx** as optimistic transactions, and rolled back cleanly—with ViewTransition—if needed.
 
@@ -414,7 +417,7 @@ Example revisit flow,
       Tx: safety for the <strong>change path</strong>
     </li>
   </ul>
-  Together, they let a CSR app feel like “the screen is always ready when you come back.”
+  Together, they preserve visual and data snapshots while the current app starts and revalidates.
 </Callout>
 
 ---
@@ -438,5 +441,4 @@ Based on the internal design and reference docs, here are some practical tips,
 - **Overlay routes**
   - <code>overlayRoutes</code> matches by prefix. For more complex patterns (e.g. parameterized routes or regex), handle logic in your app (e.g. set <code>window.**FIRSTTX_OVERLAY**</code>) and let Prepaint read that flag.
 
-With this setup, Prepaint becomes a straightforward way to deliver
-a **“0ms revisit screen”** on top of your existing CSR React app.
+With this setup, Prepaint can reduce the visible boot interval on revisit. Measure replay and handoff timing with the snapshot sizes, devices, and network profiles your app actually supports.
