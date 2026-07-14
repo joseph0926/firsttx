@@ -7,6 +7,14 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@turbo/darwin-64@2.10.5'
+  - '@turbo/darwin-arm64@2.10.5'
+  - '@turbo/linux-64@2.10.5'
+  - '@turbo/linux-arm64@2.10.5'
+  - '@turbo/windows-64@2.10.5'
+  - '@turbo/windows-arm64@2.10.5'
+  - turbo@2.10.5
 overrides:
   'vite': '^7.3.1'
   'rollup': '^4.54.0'
