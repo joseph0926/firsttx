@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: LocalFirstPageProps): Promise
 
   const title = isKo ? "Local-First - IndexedDB 기반 동기 데이터 레이어" : "Local-First - IndexedDB-backed data layer";
 
-  const description = isKo ? "Local-First로 Zod 스키마 기반 모델을 정의하고, IndexedDB를 단일 소스로 사용하며, TTL, 버전, 멀티 탭 브로드캐스트, Suspense 통합으로 오프라인 내구성을 확보하는 방법을 다룹니다." : "Learn how Local-First defines Zod-based models on top of IndexedDB as the single source of truth, with TTL, versioning, cross-tab broadcast and Suspense integration for offline-durable state.";
+  const description = isKo ? "Local-First로 Zod 스키마 기반 모델을 정의하고 IndexedDB snapshot, TTL, 버전, 탭 간 invalidation, 서버 재검증, Suspense를 사용하는 방법을 다룹니다." : "Learn how Local-First provides Zod-based models with IndexedDB snapshots, TTL, versioning, cross-tab invalidation, server revalidation, and Suspense integration.";
 
   const canonical = `/${locale}${DOCS_PATH}`;
   const languages: Record<string, string> = Object.fromEntries(routing.locales.map((loc) => [loc, `/${loc}${DOCS_PATH}`]));

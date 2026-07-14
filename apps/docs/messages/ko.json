@@ -1,14 +1,14 @@
 {
   "Hero": {
-    "badge": "CSR 재방문에서 빈 화면 제거",
-    "title": "CSR 재방문, 빈 화면은 끝.",
-    "subtitle": "마지막 화면을 즉시 복구하는 3-레이어 툴킷.",
+    "badge": "CSR 재방문의 빈 화면 시간 단축",
+    "title": "CSR 앱이 시작되는 동안 마지막 화면을 다시 표시합니다.",
+    "subtitle": "visual replay·persistent client cache·보상 롤백을 묶은 3-레이어 툴킷.",
     "bodyLine1": "FirstTx는 Prepaint, Local-First, Tx 세 레이어를 하나의 툴킷으로 묶었습니다.",
-    "bodyLine2": "CSR 아키텍처는 그대로 두고, 재방문 복원·오프라인 내구성·안전한 낙관적 UI를 한 번에 더하세요.",
+    "bodyLine2": "CSR 아키텍처는 그대로 두고, 측정 가능한 재방문 replay·클라이언트 상태 보존·보상형 낙관적 UI를 더하세요.",
     "ctaInstall": "npm에서 바로 설치하기",
     "ctaPlayground": "Playground에서 직접 보기",
     "tagInternal": "내부 도구 / 대시보드",
-    "tagOffline": "오프라인 우선 앱",
+    "tagOffline": "persistent client cache",
     "tagLargeCsr": "대규모 CSR 앱"
   },
   "DemoCard": {
@@ -27,9 +27,9 @@
     "afterBootLabel": "부트 스니펫",
     "afterBootDetail": "HTML 로드 직후, 작은 부트 스크립트가 한 번 실행됩니다.",
     "afterRestoreLabel": "마지막 화면 복원",
-    "afterRestoreDetail": "IndexedDB에 저장된 마지막 DOM 스냅샷을 재방문 직후 바로 복원합니다.",
-    "afterHydrationLabel": "Hydration & 동기화",
-    "afterHydrationDetail": "사용자는 복원된 화면을 보고 있는 동안, React 마운트와 데이터 동기화가 백그라운드에서 진행됩니다.",
+    "afterRestoreDetail": "재방문 부트 구간에 IndexedDB의 마지막 DOM 스냅샷을 다시 표시합니다.",
+    "afterHydrationLabel": "앱 마운트 & 동기화",
+    "afterHydrationDetail": "React 앱이 마운트되고 데이터 재검증은 백그라운드에서 실행할 수 있습니다.",
 
     "viewTransitions": "View Transition API가 있을 경우 이 복원 과정을 부드러운 크로스페이드로 연출할 수 있습니다."
   },
@@ -57,19 +57,19 @@
         "name": "Prepaint",
         "role": "Render layer",
         "description": "마지막 화면을 DOM 스냅샷으로 저장하고, 재방문 시 React보다 먼저 복원합니다.",
-        "points": ["전체 화면 스냅샷을 IndexedDB에 보관", "재방문 시 JS 실행 전에 바로 복원", "CSR 구조는 그대로 두고 SSR에 가까운 재방문 경험 제공"]
+        "points": ["visual snapshot을 IndexedDB에 보관", "재방문 시 메인 앱 번들보다 먼저 replay", "CSR 부트 구간의 빈 화면 시간 단축"]
       },
       "localFirst": {
         "name": "Local-First",
         "role": "Data layer",
-        "description": "IndexedDB를 단일 소스로 두고 서버 동기화를 자동화합니다.",
-        "points": ["zod 기반 타입 세이프 모델 정의", "TTL·staleness 메타데이터 기본 제공", "백그라운드 동기화로 오프라인 친화적 플로우"]
+        "description": "IndexedDB를 persistent client cache로 사용하고 서버 재검증 훅을 제공합니다.",
+        "points": ["zod 기반 타입 세이프 모델 정의", "TTL·staleness 메타데이터 기본 제공", "탭 간 invalidation과 백그라운드 재검증"]
       },
       "tx": {
         "name": "Tx",
         "role": "Execution layer",
-        "description": "UI 업데이트를 트랜잭션으로 감싸 낙관적 업데이트를 안전하게 만듭니다.",
-        "points": ["여러 단계를 하나의 트랜잭션으로 실행", "실패 시 보상(rollback) 로직 자동 실행", "네트워크 오류에서도 일관된 UI 상태 유지"]
+        "description": "낙관적 UI 단계를 실행하고 명시적인 보상 작업을 연결합니다.",
+        "points": ["낙관적 단계를 순서대로 실행", "실패 시 보상(rollback) 로직 자동 실행", "재시도와 롤백 동작 추적"]
       }
     }
   },
@@ -92,7 +92,7 @@
       },
       {
         "title": "오프라인·불안정한 네트워크",
-        "description": "간단한 동기화 훅 하나로, 오프라인/재연결을 견디면서도 유저의 위치와 컨텍스트를 잃지 않는 데이터 레이어를 만들 수 있습니다."
+        "description": "마지막 클라이언트 snapshot을 보존하고 서버가 다시 연결되면 재검증합니다. 오프라인 쓰기 정책은 앱에서 별도로 정의해야 합니다."
       }
     ]
   },

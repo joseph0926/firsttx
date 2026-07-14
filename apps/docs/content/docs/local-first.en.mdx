@@ -4,11 +4,11 @@ export const metadata = {
 
 # Local-First
 
-Local-First is a package for building an **“offline-durable data layer”**  
+Local-First is a package for building a **persistent client cache**
 on top of **IndexedDB + a synchronous React store + Zod schemas**.
 
 - Uses IndexedDB as the single source of truth
-- Ensures type and integrity with Zod schemas
+- Validates type and integrity with Zod schemas
 - Comes with TTL, versioning, multi-tab sync, server sync hooks, and Suspense integration built in.
 
 > Module format: ESM-only. CommonJS users should use `import()` (dynamic import).
@@ -17,7 +17,7 @@ on top of **IndexedDB + a synchronous React store + Zod schemas**.
   <ul>
     <li>When you want to keep list/form state intact across refreshes and revisits</li>
     <li>
-      When you want to guarantee <strong>“the last state the user saw”</strong> even on offline/unstable networks
+      When you want to read persisted <strong>“last known state”</strong> on offline/unstable networks
     </li>
     <li>When you need local durability for internal tools/dashboards but don’t want to deal with IndexedDB directly</li>
   </ul>
@@ -51,7 +51,7 @@ export const CartModel = defineModel("cart", {
   ttl: 5 * 60 * 1000,
 
   // Optional: bump version to reset if the data shape breaks
-  version: "1",
+  version: 1,
 
   // Recommended when using version: initial value on disk
   initialData: {
@@ -408,10 +408,10 @@ export function CartPage() {
   ]}
 />
 
-<Callout type="info" title="Avoiding duplicate sync with syncInProgressRef">
+<Callout type="info" title="Avoiding duplicate sync within one hook instance">
   <ul>
     <li>
-      Inside <code>useSyncedModel</code>, a <code>syncInProgressRef</code> is used to track whether a sync is already running. Even if multiple components call <code>sync()</code> at the same time for the same model, only one network request is actually made.
+      Each <code>useSyncedModel</code> hook instance uses its own <code>syncInProgressRef</code> to deduplicate overlapping <code>sync()</code> calls from that instance. Separate component instances can still issue separate requests.
     </li>
   </ul>
 </Callout>
@@ -435,7 +435,9 @@ When the same app is open in multiple tabs and data is modified, Local-First pro
     <li>
       The current implementation exposes an <code>isConflicted</code> flag, but it always remains <code>false</code>. In other words, multi-tab contention does not trigger conflict detection yet.
     </li>
-    <li>If real-time conflict resolution is important for your domain, you should implement your own business rules on top, such as last-writer-wins or timestamp-based merge strategies.</li>
+    <li>
+      The model&apos;s <code>merge</code> option only combines current data with incoming server replacement data. It does not detect or resolve concurrent cross-tab writes.
+    </li>
   </ul>
 </Callout>
 

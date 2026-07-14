@@ -60,10 +60,9 @@ describe('Re-initialization behavior', () => {
     });
   });
 
-  it('replaces root-guard listeners across repeated createFirstTxRoot calls', async () => {
+  it('does not install root-guard listeners across repeated createFirstTxRoot calls', async () => {
     const { createFirstTxRoot } = await import('../src/helpers');
     const addSpy = vi.spyOn(window, 'addEventListener');
-    const removeSpy = vi.spyOn(window, 'removeEventListener');
 
     const root1 = setupRoot();
     act(() => {
@@ -84,13 +83,9 @@ describe('Re-initialization behavior', () => {
 
     const addedPopstate = addSpy.mock.calls.filter((call) => call[0] === 'popstate').length;
     const addedPageshow = addSpy.mock.calls.filter((call) => call[0] === 'pageshow').length;
-    const removedPopstate = removeSpy.mock.calls.filter((call) => call[0] === 'popstate').length;
-    const removedPageshow = removeSpy.mock.calls.filter((call) => call[0] === 'pageshow').length;
 
-    expect(addedPopstate).toBe(3);
-    expect(addedPageshow).toBe(3);
-    expect(removedPopstate).toBe(2);
-    expect(removedPageshow).toBe(2);
+    expect(addedPopstate).toBe(0);
+    expect(addedPageshow).toBe(0);
   });
 
   it('applies second setupCapture options on repeated setup', async () => {

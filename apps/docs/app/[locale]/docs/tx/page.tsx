@@ -15,9 +15,9 @@ export async function generateMetadata({ params }: TxPageProps): Promise<Metadat
   const { locale } = await params;
   const isKo = locale === "ko";
 
-  const title = isKo ? "Tx - 트랜잭션 기반 낙관적 UI 실행기" : "Tx - Transactional optimistic UI executor";
+  const title = isKo ? "Tx - 낙관적 saga 실행기" : "Tx - Optimistic saga executor";
 
-  const description = isKo ? "Tx로 낙관적 UI 업데이트와 서버 요청을 하나의 트랜잭션으로 묶고, 재시도, 타임아웃, 보상(rollback), ViewTransition을 포함해 복잡한 다단계 작업을 안전하게 처리하는 방법을 설명합니다." : "See how Tx wraps optimistic UI updates and server requests in a single transaction, with retry, timeouts, compensation-based rollback and ViewTransition support for complex multi-step flows.";
+  const description = isKo ? "Tx로 낙관적 UI 업데이트와 서버 요청을 순서대로 실행하고, 재시도, 타임아웃, 역순 보상, ViewTransition을 연결하는 방법을 설명합니다." : "See how Tx sequences optimistic UI updates and server requests with retry, timeouts, reverse-order compensation, and ViewTransition support.";
 
   const canonical = `/${locale}${DOCS_PATH}`;
   const languages: Record<string, string> = Object.fromEntries(routing.locales.map((loc) => [loc, `/${loc}${DOCS_PATH}`]));

@@ -6,8 +6,8 @@ export const metadata = {
 
 This guide uses a Vite + React CSR app as the running example and walks through,
 
-1. **Level 1 - Prepaint only**: experience “no blank screen on revisit”
-2. **Level 2 - Local-First**: add offline-durable data
+1. **Level 1 - Prepaint only**: replay the last visual snapshot during revisit boot
+2. **Level 2 - Local-First**: add persisted client data
 3. **Level 3 - Tx**: wrap optimistic UI in transactions
 
 <Callout type="info" title="How far should you go?">
@@ -62,7 +62,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(), // ✅ injects the Prepaint boot script
+    firstTx(),
   ],
 });
 ```
@@ -71,7 +71,11 @@ At build time, this plugin injects a small boot script into your HTML. The scrip
 
 1. Reads the last DOM snapshot from IndexedDB on page load.
 2. If a valid snapshot is found, restores it before React.
-3. Then lets React hydrate / render the real app.
+3. Then lets React mount the real app.
+
+<Callout type="info" title="Visual overlay is the default">
+  Snapshots always render in a non-interactive overlay outside the React root. React mounts into an empty root, and the overlay is removed after the first commit.
+</Callout>
 
 ---
 
@@ -98,15 +102,13 @@ createFirstTxRoot(
 1. Captures the current screen into IndexedDB before the user leaves the page.
 2. On revisit, restores the snapshot before React loads.
 3. Wraps the restore in a ViewTransition cross-fade when supported.
-4. Finally mounts the React app via hydration or client render.
+4. Finally mounts the React app and removes the temporary visual cache during handoff.
 
 <Callout type="success" title="Quick check: is Prepaint working?">
   <ol>
     <li>Open any page in your app and scroll down a bit.</li>
     <li>Hit refresh or go back/forward a few times.</li>
-    <li>
-      If you see the <strong>last screen immediately, without a white flash</strong>, Prepaint is working.
-    </li>
+    <li>If the last visual snapshot appears before the React app mounts, Prepaint is working. Record the timing under your target device and network profile.</li>
   </ol>
   At this point, Prepaint is effectively “installed”. The next steps add Local-First and Tx on top.
 </Callout>
@@ -274,10 +276,10 @@ export async function addToCart(item: CartItem) {
 }
 ```
 
-This ensures that,
+This flow is designed so that,
 
 1. The user immediately sees the item added to the UI.
-2. If the server request fails, `compensate` runs and the UI returns to its previous state.
+2. If the server request fails, `compensate` runs and attempts to return the UI to its previous state.
 3. The whole flow appears as a single transaction timeline in DevTools.
 4. With `transition: true` and ViewTransition support, the rollback path is wrapped in a smooth visual transition.
 
@@ -309,9 +311,9 @@ You’ll be able to see,
 
 If you followed steps 1-6, your app now provides,
 
-1. **No blank screen on revisit** - the last screen is restored instantly (Prepaint)
+1. **Boot-time visual snapshot replay** to reduce revisit blank time (Prepaint)
 2. **IndexedDB-backed local data with TTL/multi-tab sync** (Local-First)
-3. **Transactional optimistic updates with retry/rollback/timeout** (Tx)
+3. **Saga-like optimistic steps with retry/compensation/timeout** (Tx)
 
 To dive deeper into each layer,
 

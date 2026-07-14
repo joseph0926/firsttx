@@ -6,7 +6,7 @@ export const metadata = {
 
 FirstTx DevTools is a **Chrome extension that gives you full visibility into Prepaint, Local-First, and Tx runtime events**.
 
-- Prepaint: restore/capture/hydration events
+- Prepaint: restore/capture/handoff events
 - Local-First: model sync, patch/replace, TTL metadata
 - Tx: transaction start/steps/commit/rollback/failures
 
@@ -16,7 +16,7 @@ All in a single **timeline + event list** UI, with category/priority/text filter
   From the README examples,
   <ul>
     <li>
-      <strong>"Why didn't Prepaint restore?"</strong> → Check <code>prepaint.restore</code> and <code>prepaint.hydration.error</code>.
+      <strong>"Why didn't Prepaint restore?"</strong> → Check <code>prepaint.restore</code> and <code>prepaint.handoff</code>.
     </li>
     <li>
       <strong>"Which model keeps re-syncing?"</strong> → Filter by Model and inspect <code>model.sync.start</code>.

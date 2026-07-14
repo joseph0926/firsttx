@@ -5,10 +5,10 @@ export const metadata = {
 # Local-First
 
 Local-First는 **IndexedDB + React 동기 스토어 + Zod 스키마**로  
-“오프라인 내구성 있는 데이터 레이어”를 만드는 패키지입니다.
+**persistent client cache**를 만드는 패키지입니다.
 
 - IndexedDB를 단일 소스로 두고
-- Zod 스키마로 타입·무결성을 보장하며
+- Zod 스키마로 타입·무결성을 검증하며
 - TTL/버전/멀티 탭 동기화, 서버 동기화 훅, Suspense 연동까지 기본 내장합니다.
 
 > 모듈 형식: ESM-only. CommonJS 환경에서는 `import()`(dynamic import)를 사용하세요.
@@ -17,7 +17,7 @@ Local-First는 **IndexedDB + React 동기 스토어 + Zod 스키마**로
   <ul>
     <li>새로고침·재방문 시에도 목록/폼 상태를 그대로 유지하고 싶을 때</li>
     <li>
-      오프라인/불안정한 네트워크에서도 <strong>“마지막으로 보던 상태”</strong>만큼은 보장하고 싶을 때
+      오프라인/불안정한 네트워크에서 저장된 <strong>“마지막으로 알던 상태”</strong>를 읽고 싶을 때
     </li>
     <li>IndexedDB를 직접 다루고 싶지는 않지만, 로컬 내구성이 필요한 내부 도구/대시보드가 있을 때</li>
   </ul>
@@ -51,7 +51,7 @@ export const CartModel = defineModel("cart", {
   ttl: 5 * 60 * 1000,
 
   // 선택: 데이터 구조가 깨지면 version을 올려 초기화
-  version: "1",
+  version: 1,
 
   // version을 쓰는 경우 권장: 초기 디스크 값
   initialData: {
@@ -408,13 +408,10 @@ export function CartPage() {
   ]}
 />
 
-<Callout type="info" title="syncInProgressRef로 중복 동기화 방지">
+<Callout type="info" title="훅 인스턴스 안에서 중복 동기화 방지">
   <ul>
     <li>
-      <code>useSyncedModel</code> 내부에서는 <code>syncInProgressRef</code>로 동기화가 이미 진행 중인지 추적합니다. 동일 모델에 대한 중복 <code>sync()</code> 호출이 들어와도, 한 번만 실행되도록 보장합니다.
-    </li>
-    <li>
-      동시에 여러 컴포넌트에서 <code>sync()</code>를 호출하더라도, 실제 네트워크 요청은 1회로 합쳐집니다.
+      각 <code>useSyncedModel</code> 훅 인스턴스는 자체 <code>syncInProgressRef</code>로 그 인스턴스에서 겹친 <code>sync()</code> 호출을 합칩니다. 서로 다른 컴포넌트 인스턴스에서는 별도 요청이 실행될 수 있습니다.
     </li>
   </ul>
 </Callout>
@@ -439,7 +436,9 @@ export function CartPage() {
     <li>
       현재 구현에서 모델에는 <code>isConflicted</code>라는 플래그가 준비되어 있지만, 항상 <code>false</code>로 유지됩니다. 즉, 다중 탭 경합에 대한 충돌 감지는 아직 TODO 상태입니다.
     </li>
-    <li>실시간 충돌 해결이 중요한 도메인이라면, “마지막 기록 우선”, “타임스탬프 기준 머지” 등 별도의 비즈니스 로직으로 최종 승자/머지 전략을 구현하는 것이 좋습니다.</li>
+    <li>
+      모델의 <code>merge</code> 옵션은 현재 데이터와 서버 replacement 데이터를 병합할 뿐, 동시 탭 쓰기를 감지하거나 해결하지 않습니다.
+    </li>
   </ul>
 </Callout>
 

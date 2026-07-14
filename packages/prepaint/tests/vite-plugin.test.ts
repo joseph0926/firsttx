@@ -281,23 +281,17 @@ describe('firstTx Vite Plugin', () => {
       expect(() => handler(html)).toThrow('[FirstTx] Invalid nonce value');
     });
 
-    it('adds overlay flag script when overlay is true', async () => {
-      const handler = await getTransformHandler({ overlay: true });
+    it('keeps deprecated overlay options as no-ops', async () => {
+      const handler = await getTransformHandler({
+        overlay: true,
+        overlayRoutes: ['/cart', '/checkout'],
+      });
       const html = '<html><head></head><body></body></html>';
 
       const result = handler(html);
 
-      expect(result).toContain('window.__FIRSTTX_OVERLAY__=true');
-    });
-
-    it('adds overlayRoutes to localStorage when provided', async () => {
-      const handler = await getTransformHandler({ overlayRoutes: ['/cart', '/checkout'] });
-      const html = '<html><head></head><body></body></html>';
-
-      const result = handler(html);
-
-      expect(result).toContain('firsttx:overlayRoutes');
-      expect(result).toContain('/cart,/checkout');
+      expect(result).not.toContain('window.__FIRSTTX_OVERLAY__');
+      expect(result).not.toContain('firsttx:overlayRoutes');
     });
 
     it('wraps boot script in try-catch', async () => {

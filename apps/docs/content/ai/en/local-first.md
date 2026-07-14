@@ -2,7 +2,9 @@
 
 ## What is Local-First?
 
-Local-First is an IndexedDB-based data layer. It caches server data locally, preserves data in offline scenarios, and synchronizes it in real time across multiple tabs.
+Local-First is an IndexedDB-backed persistent client cache. It stores model snapshots for offline reads, exposes staleness metadata and server revalidation hooks, and notifies other tabs when stored data changes.
+
+It does not queue offline writes or detect concurrent cross-tab conflicts. `isConflicted` currently remains `false`, and `merge` only combines current data with incoming server replacement data.
 
 Key features:
 

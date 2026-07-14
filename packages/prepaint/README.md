@@ -1,8 +1,8 @@
 # @firsttx/prepaint
 
-**Instant replay for CSR apps — ~0ms blank screen on revisit**
+**Boot-time visual snapshot replay for CSR apps**
 
-Restores your app's last visual state from IndexedDB before JavaScript loads. No blank screens. Automatic React hydration with graceful fallback.
+Replays your app's last visual state from IndexedDB before the main app bundle starts, reducing the blank interval while React mounts. The snapshot is a temporary, non-interactive visual cache.
 
 <table>
 <tr>
@@ -15,7 +15,7 @@ Restores your app's last visual state from IndexedDB before JavaScript loads. No
 </tr>
 <tr>
 <td align="center"><sub>Slow 4G: Blank screen exposed</sub></td>
-<td align="center"><sub>Slow 4G: Instant restore</sub></td>
+<td align="center"><sub>Slow 4G: Snapshot replay</sub></td>
 </tr>
 </table>
 
@@ -32,11 +32,11 @@ npm install @firsttx/prepaint
 
 ## Why Prepaint?
 
-**The only solution that restores UI before JavaScript loads.**
+**Replay the last visual state without adding an SSR runtime.**
 
 - No SSR/SSG infrastructure needed
-- Works with any existing CSR React app
-- Automatic React hydration with graceful fallback
+- Designed for Vite-based CSR React apps
+- Shadow DOM overlay keeps cached DOM separate from the React root
 - Native ViewTransition support
 
 ### The Problem
@@ -46,10 +46,10 @@ Traditional CSR on revisit:
 User clicks → Blank screen (2000ms) → Content appears
 
 With Prepaint:
-User clicks → Last snapshot (~0ms) → React hydrates → Fresh data
+User clicks → Last visual snapshot → React app mounts → Fresh data
 ```
 
-Prepaint captures DOM snapshots per route and replays them instantly on the next visit.
+Prepaint captures DOM snapshots per route and replays them during boot on the next visit. Replay time depends on the device, snapshot size, and storage state.
 
 ---
 
@@ -68,6 +68,8 @@ export default defineConfig({
 });
 ```
 
+Snapshot restore always uses a non-interactive overlay outside the React root.
+
 ### 2. React Entry
 
 ```tsx
@@ -79,9 +81,9 @@ createFirstTxRoot(document.getElementById('root')!, <App />);
 
 **Done.** Prepaint now:
 
-- Captures snapshots on page hide/unload
-- Restores them in ~0ms on revisit
-- Hydrates with React (or falls back gracefully)
+- Captures snapshots on page lifecycle events
+- Replays a visual snapshot during boot on revisit
+- Hands control to the React app when the main bundle runs
 
 ---
 
@@ -99,16 +101,16 @@ createFirstTxRoot(document.getElementById('root')!, <App />);
 └─────────────────────────────────┘
               ↓
 ┌─────────────────────────────────┐
-│ 2) Boot (~0ms on revisit)       │
+│ 2) Boot (measured on revisit)   │
 │  - Inline script runs           │
 │  - Reads snapshot from IndexedDB│
-│  - Injects into #root           │
+│  - Paints cached visual DOM     │
 └─────────────────────────────────┘
               ↓
 ┌─────────────────────────────────┐
-│ 3) Handoff (~500ms)             │
+│ 3) Handoff                      │
 │  - Main bundle loads            │
-│  - Hydrates or client-renders   │
+│  - Mounts the React app         │
 │  - Cleans up prepaint artifacts │
 └─────────────────────────────────┘
 ```
@@ -134,16 +136,16 @@ createFirstTxRoot(
     transition?: boolean;  // ViewTransition (default: true)
     onCapture?: (snapshot: Snapshot) => void;
     onHandoff?: (strategy: 'has-prepaint' | 'cold-start') => void;
-    onHydrationError?: (error: Error) => void;
   }
 );
 ```
 
 **Behavior**
 
-- If snapshot exists + `#root` has 1 child → `hydrateRoot()`
-- Otherwise → `createRoot()` fresh render
-- On hydration error → fallback to clean render (with ViewTransition)
+- The cached DOM always stays in a non-interactive overlay outside `#root`
+- React always mounts with `createRoot()` into an empty container
+- The overlay is removed only after React's first commit
+- `onHydrationError` remains as a deprecated no-op for one release
 
 ### `firstTx(options?)` (Vite Plugin)
 
@@ -153,39 +155,24 @@ firstTx({
   minify?: boolean,              // Minify boot script (default: !isDev)
   injectTo?: 'head-prepend' | 'head' | 'body-prepend' | 'body',
   nonce?: string | (() => string),
-  overlay?: boolean,             // Enable overlay mode globally
-  overlayRoutes?: string[],      // Overlay for specific routes
 })
 ```
 
+For static Vite output, `nonce` is embedded at build time even when supplied as a function; it does not create a per-response nonce. Prefer an external boot asset or a CSP hash for static hosting.
+
+The previous `overlay` and `overlayRoutes` options remain accepted as deprecated no-ops for one release. Use capture and restore route policies instead of choosing a direct-restore path.
+
 ---
 
-## Overlay Mode
+## Visual Overlay
 
-**Problem** Direct injection into `#root` can race with routers, causing duplicate DOM.
+Prepaint paints the cached snapshot **above** your app in Shadow DOM. The overlay is non-interactive and does not modify the React container.
 
-**Solution** Overlay mode paints the snapshot **above** your app in Shadow DOM, then fades out after hydration.
+During handoff, React mounts with `createRoot()` into an empty container. Prepaint removes the overlay only after the first React commit, optionally using ViewTransition.
 
-### Enable Overlay
-
-```js
-// Option 1: Global flag
-window.__FIRSTTX_OVERLAY__ = true;
-
-// Option 2: localStorage (persists)
-localStorage.setItem('firsttx:overlay', '1');
-
-// Option 3: Specific routes
-localStorage.setItem('firsttx:overlayRoutes', '/prepaint,/dashboard');
-
-// Option 4: Vite plugin
-firstTx({ overlay: true });
-```
-
-### Disable
+The following legacy configuration is no longer required:
 
 ```js
-delete window.__FIRSTTX_OVERLAY__;
 localStorage.removeItem('firsttx:overlay');
 localStorage.removeItem('firsttx:overlayRoutes');
 ```
@@ -225,32 +212,20 @@ function ProductsPage() {
 createFirstTxRoot(root, <App />, {
   onCapture: (snapshot) => console.log('Captured:', snapshot.route),
   onHandoff: (strategy) => console.log('Strategy:', strategy),
-  onHydrationError: (err) => console.error('Hydration failed:', err),
 });
 ```
 
 ---
 
-## Hydration & Fallback
+## Visual Handoff Behavior
 
-### Single-Child Rule
-
-Prepaint only attempts hydration if `#root` has **exactly 1 child**. Otherwise → fresh render.
-
-### Root Guard
-
-After mount, a MutationObserver watches `#root`:
-
-- Detects extra children (e.g., router appending siblings)
-- Unmounts → clears → re-renders cleanly
-- Prevents "double UI" issues
+The restored snapshot is visual cache only. Prepaint never hydrates cached client DOM and does not enforce a single-child React root. Fragments and multiple top-level React nodes are valid.
 
 ### Cleanup
 
 Post-mount:
 
 - Removes `<html data-prepaint="true">`
-- Removes `style[data-firsttx-prepaint]`
 - Removes overlay host `#__firsttx_prepaint__`
 
 ---
@@ -371,19 +346,13 @@ On revisit, look for:
 
 - `<html data-prepaint="true" data-prepaint-timestamp="...">`
 - Boot script near `<head>` top
-- Temporary `style[data-firsttx-prepaint]`
+- Temporary overlay host `#__firsttx_prepaint__`
 
 ---
 
 ## Performance
 
-| Metric            | Target | Actual  |
-| ----------------- | ------ | ------- |
-| Boot script size  | <2KB   | ~1.7KB  |
-| Boot execution    | <20ms  | ~15ms   |
-| Hydration success | >80%   | ~80-85% |
-
-**Hydration mismatches** (timestamps, random IDs, client-only branches) automatically fallback to clean render with ViewTransition.
+Measure boot execution, visual replay duration, snapshot size, and handoff timing in your target browser and device profile. Prepaint does not guarantee a universal blank-screen duration.
 
 ---
 
@@ -424,11 +393,7 @@ A: Snapshots live in IndexedDB (disk). Memory overhead is minimal during boot.
 
 **Q: How do I prevent duplicate UI?**
 
-A: Use overlay mode or rely on the root guard:
-
-```tsx
-firstTx({ overlay: true });
-```
+A: Snapshot restore always uses an overlay outside the React root. No additional option is required.
 
 ---
 
@@ -438,9 +403,9 @@ A: Use `setupCapture()` manually or filter at app layer. Default captures all ro
 
 ---
 
-**Q: What if hydration fails?**
+**Q: Does Prepaint hydrate the saved DOM?**
 
-A: Automatic fallback to clean client render (with ViewTransition if enabled). No manual intervention needed.
+A: No. Saved DOM is visual cache only. React always mounts into an empty root with `createRoot()`.
 
 ---
 
@@ -491,7 +456,7 @@ This release introduces significant improvements to snapshot capture and hydrati
 ## Related Packages
 
 - [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
-- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Atomic transactions with rollback
+- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Optimistic sagas with compensating rollback
 
 ---
 

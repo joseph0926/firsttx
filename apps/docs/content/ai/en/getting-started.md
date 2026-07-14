@@ -4,13 +4,13 @@
 
 FirstTx is an optimization toolkit for CSR (Client-Side Rendering) React applications.
 
-It removes blank screens on revisit, provides offline data durability, and offers optimistic UI transactions.
+It reduces blank time on revisit, persists client snapshots, and offers optimistic UI compensation.
 
 FirstTx is composed of three packages:
 
-- Prepaint: Stores the last screen as a DOM snapshot and restores it instantly.
-- Local-First: Maintains state offline with an IndexedDB-based data layer.
-- Tx: Groups optimistic updates into a transaction and automatically rolls them back on failure.
+- Prepaint: Stores the last screen as a DOM snapshot and replays it during revisit boot.
+- Local-First: Persists model snapshots in IndexedDB and provides server revalidation hooks.
+- Tx: Runs optimistic steps and compensates completed steps in reverse order on failure.
 
 ## Installation
 
@@ -48,9 +48,9 @@ pnpm add @firsttx/local-first @firsttx/tx zod
 
 ### Requirements
 
-- React 18.2.0 or higher: uses the `createRoot` and `hydrateRoot` APIs
+- React 18.2.0 or higher: required by the current `createFirstTxRoot` integration
 - Vite 5 or higher: required when using the Prepaint plugin
-- Node.js 22 or higher
+- Node.js 24 or higher for this repository and its build tooling
 
 ## Basic setup
 
@@ -94,9 +94,11 @@ createFirstTxRoot(
 `createFirstTxRoot` handles the following:
 
 - Saves the current screen to IndexedDB when the page is left
-- Restores the stored screen immediately on revisit before React is loaded
+- Replays the stored screen during revisit boot before the main React bundle starts
 - Applies smooth transition effects in browsers that support the ViewTransition API
-- Mounts the React app via hydration or client rendering
+- Mounts the React app and removes the temporary visual cache during handoff
+
+Snapshots always render in a non-interactive overlay outside the React root. React mounts into an empty root, and the overlay is removed after the first commit.
 
 ### Using only Local-First / Tx
 

@@ -35,9 +35,9 @@ const SYSTEM_PROMPTS = {
 ## FirstTx 소개
 
 FirstTx는 CSR React 앱을 위한 최적화 라이브러리입니다:
-- **Prepaint**: 페이지 이탈 시 DOM 스냅샷을 IndexedDB에 저장하고, 재방문 시 React 로드 전에 복원하여 빈 화면 방지
-- **Local-First**: IndexedDB 기반 오프라인 우선 데이터 레이어
-- **Tx**: 낙관적 업데이트 트랜잭션 관리
+- **Prepaint**: DOM snapshot을 IndexedDB에 저장하고 재방문 부트 구간에 비상호작용 visual cache로 replay하여 빈 화면 시간 단축
+- **Local-First**: IndexedDB 기반 persistent client cache와 서버 재검증 훅
+- **Tx**: 낙관적 saga와 역순 보상 작업 관리
 
 ## 핵심 규칙 (반드시 준수)
 
@@ -70,9 +70,9 @@ ${contextDescription}`,
 ## About FirstTx
 
 FirstTx is an optimization library for CSR React apps:
-- **Prepaint**: Saves DOM snapshots to IndexedDB when leaving a page, restores them before React loads on revisit to prevent blank screens
-- **Local-First**: Offline-first data layer based on IndexedDB
-- **Tx**: Optimistic update transaction management
+- **Prepaint**: Saves DOM snapshots to IndexedDB and replays a non-interactive visual cache during revisit boot to reduce blank time
+- **Local-First**: IndexedDB-backed persistent client cache with server revalidation hooks
+- **Tx**: Optimistic saga with reverse-order compensation
 
 ## Core Rules (Must Follow)
 

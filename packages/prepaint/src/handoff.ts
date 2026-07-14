@@ -3,7 +3,7 @@ declare const __FIRSTTX_DEV__: boolean;
 /**
  * The strategy used for React rendering based on prepaint availability.
  *
- * - `'has-prepaint'`: A prepaint snapshot was restored; hydration should be attempted.
+ * - `'has-prepaint'`: A prepaint overlay was restored and remains visible until React commits.
  * - `'cold-start'`: No snapshot available; standard client-side rendering is used.
  */
 export type HandoffStrategy = 'has-prepaint' | 'cold-start';
@@ -23,13 +23,7 @@ export type HandoffStrategy = 'has-prepaint' | 'cold-start';
  * import { handoff } from '@firsttx/prepaint';
  *
  * const strategy = handoff();
- * if (strategy === 'has-prepaint') {
- *   // Attempt hydration
- *   hydrateRoot(container, <App />);
- * } else {
- *   // Standard client render
- *   createRoot(container).render(<App />);
- * }
+ * createRoot(container).render(<App />);
  * ```
  */
 export function handoff(): HandoffStrategy {

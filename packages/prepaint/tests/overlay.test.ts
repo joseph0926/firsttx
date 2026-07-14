@@ -1,19 +1,29 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mountOverlay } from '../src/overlay';
+import { mountOverlay, removeOverlay } from '../src/overlay';
 
 describe('Overlay', () => {
   afterEach(() => {
+    removeOverlay();
     if (!document.body) {
       const body = document.createElement('body');
       document.documentElement.appendChild(body);
     }
-    const existing = document.getElementById('__firsttx_prepaint__');
-    if (existing) existing.remove();
   });
 
   it('should not throw when document.body is unavailable', () => {
     document.body?.remove();
     expect(() => mountOverlay('<div>test</div>')).not.toThrow();
+  });
+
+  it('cancels a deferred mount when handoff finishes before body exists', () => {
+    document.body?.remove();
+    mountOverlay('<div>test</div>');
+    removeOverlay();
+    const body = document.createElement('body');
+    document.documentElement.appendChild(body);
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    expect(document.getElementById('__firsttx_prepaint__')).toBeNull();
   });
 
   it('injects inline and external styles into the overlay shadow root', () => {

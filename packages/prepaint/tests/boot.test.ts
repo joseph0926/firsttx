@@ -47,8 +47,8 @@ describe('boot', () => {
     document.body.innerHTML = `<div id="root">${inner}</div>`;
   }
 
-  it('injects first child into #root when valid snapshot exists', async () => {
-    mountRoot('');
+  it('mounts the snapshot as an overlay without changing #root', async () => {
+    mountRoot('<div id="current-content">Current content</div>');
     const snapshot: Snapshot = {
       route: '/',
       timestamp: Date.now(),
@@ -57,10 +57,13 @@ describe('boot', () => {
     };
     await saveSnapshot(snapshot);
     await boot();
+    const overlay = document.getElementById('__firsttx_prepaint__');
+    expect(overlay?.shadowRoot?.querySelector('#test-content')?.textContent).toBe('Hello World');
     expect(document.getElementById('root')!.innerHTML).toBe(
-      '<div id="test-content">Hello World</div>',
+      '<div id="current-content">Current content</div>',
     );
     expect(document.documentElement.hasAttribute('data-prepaint')).toBe(true);
+    expect(document.documentElement.getAttribute('data-prepaint-overlay')).toBe('true');
   });
 
   it('does nothing when snapshot does not exist', async () => {
@@ -86,7 +89,7 @@ describe('boot', () => {
     expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
   });
 
-  it('injects styles with prepaint marker when snapshot has styles', async () => {
+  it('injects styles into the overlay shadow root', async () => {
     mountRoot('<div>Content</div>');
     const snapshot: Snapshot = {
       route: '/',
@@ -99,7 +102,9 @@ describe('boot', () => {
     };
     await saveSnapshot(snapshot);
     await boot();
-    const els = Array.from(document.head.querySelectorAll('style[data-firsttx-prepaint]'));
+    const els = Array.from(
+      document.getElementById('__firsttx_prepaint__')!.shadowRoot!.querySelectorAll('style'),
+    );
     const texts = els.map((e) => e.textContent);
     expect(texts).toContain('.test { color: red; }');
     expect(texts).toContain('.another { font-size: 16px; }');
@@ -115,9 +120,9 @@ describe('boot', () => {
     };
     await saveSnapshot(snapshot);
     await boot();
-    const texts = Array.from(document.head.querySelectorAll('style[data-firsttx-prepaint]')).map(
-      (node) => node.textContent,
-    );
+    const texts = Array.from(
+      document.getElementById('__firsttx_prepaint__')!.shadowRoot!.querySelectorAll('style'),
+    ).map((node) => node.textContent);
     expect(texts).toContain('.legacy { display: block; }');
   });
 
@@ -149,13 +154,15 @@ describe('boot', () => {
     };
     await saveSnapshot(snapshot);
     await boot();
-    expect(document.getElementById('root')!.innerHTML).toBe('<div>Cart Content</div>');
+    expect(document.getElementById('__firsttx_prepaint__')?.shadowRoot?.textContent).toContain(
+      'Cart Content',
+    );
+    expect(document.getElementById('root')!.innerHTML).toBe('');
     window.history.pushState(null, '', originalPathname || '/');
   });
 
-  it('mounts overlay and marks attributes when overlay is enabled', async () => {
+  it('uses overlay restore without an opt-in flag', async () => {
     mountRoot('<div id="original">X</div>');
-    window.__FIRSTTX_OVERLAY__ = true;
     const snapshot: Snapshot = {
       route: '/',
       timestamp: Date.now(),
@@ -168,7 +175,6 @@ describe('boot', () => {
     expect(document.documentElement.getAttribute('data-prepaint')).toBe('true');
     expect(document.documentElement.getAttribute('data-prepaint-overlay')).toBe('true');
     expect(document.getElementById('root')!.innerHTML).toBe('<div id="original">X</div>');
-    delete window.__FIRSTTX_OVERLAY__;
   });
 
   describe('Error Handling', () => {
@@ -247,17 +253,21 @@ describe('boot', () => {
       logSpy.mockRestore();
     });
 
-    it('handles DOM restoration errors silently', async () => {
+    it('handles overlay mount errors silently', async () => {
       mountRoot('');
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const snapshot: Snapshot = {
         route: '/',
         timestamp: Date.now(),
-        body: '',
+        body: '<div>Content</div>',
         styles: [],
       };
       await saveSnapshot(snapshot);
+
+      vi.spyOn(HTMLElement.prototype, 'attachShadow').mockImplementationOnce(() => {
+        throw new Error('attachShadow failed');
+      });
 
       await boot();
 
@@ -266,33 +276,6 @@ describe('boot', () => {
       expect(errorCall).toContain('[BootError]');
       expect(errorCall).toContain('dom-restore');
       expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
-
-      spy.mockRestore();
-    });
-
-    it('handles style injection errors gracefully', async () => {
-      mountRoot('<div>Content</div>');
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const snapshot: Snapshot = {
-        route: '/',
-        timestamp: Date.now(),
-        body: '<div>Content</div>',
-        styles: [{ type: 'inline', content: '.test { color: red; }' }],
-      };
-      await saveSnapshot(snapshot);
-
-      vi.spyOn(document.head, 'appendChild').mockImplementationOnce(() => {
-        throw new Error('appendChild failed');
-      });
-
-      await boot();
-
-      expect(spy).toHaveBeenCalled();
-      const errorCalls = spy.mock.calls.filter(
-        (call) => typeof call[0] === 'string' && call[0].includes('style-injection'),
-      );
-      expect(errorCalls.length).toBeGreaterThan(0);
 
       spy.mockRestore();
     });
