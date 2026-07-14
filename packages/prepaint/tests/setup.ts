@@ -16,6 +16,14 @@ const mockFetch = vi.fn(() => {
 
 vi.stubGlobal('fetch', mockFetch);
 
+const jsdomWindow = (
+  globalThis as typeof globalThis & {
+    jsdom: { window: { localStorage: Storage } };
+  }
+).jsdom.window;
+
+vi.stubGlobal('localStorage', jsdomWindow.localStorage);
+
 // Prevent happy-dom from attempting real stylesheet fetches when link elements are connected
 const LinkProto = (globalThis as unknown as { HTMLLinkElement?: { prototype: HTMLElement } })
   .HTMLLinkElement?.prototype as HTMLElement & {
