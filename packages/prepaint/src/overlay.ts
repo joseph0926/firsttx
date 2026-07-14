@@ -3,13 +3,16 @@ import type { SnapshotStyle } from './types';
 import { sanitizeSnapshotHTMLSync } from './sanitize';
 
 const isTestEnv = typeof process !== 'undefined' && !!process.env?.VITEST;
+let overlayRequest = 0;
 
 export function mountOverlay(html: string, styles?: Array<SnapshotStyle | string>): void {
+  const request = ++overlayRequest;
   const existing = document.getElementById('__firsttx_prepaint__');
   if (existing) return;
 
   if (!document.body) {
     const deferred = () => {
+      if (request !== overlayRequest) return;
       if (!document.body) {
         requestAnimationFrame(deferred);
         return;
@@ -76,6 +79,7 @@ export function mountOverlay(html: string, styles?: Array<SnapshotStyle | string
 }
 
 export function removeOverlay(): void {
+  overlayRequest += 1;
   const host = document.getElementById('__firsttx_prepaint__');
   if (host && host.parentElement) host.parentElement.removeChild(host);
 }

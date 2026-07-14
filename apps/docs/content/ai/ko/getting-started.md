@@ -71,7 +71,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx({ overlay: true }),
+    firstTx(),
   ],
 });
 ```
@@ -98,7 +98,7 @@ createFirstTxRoot는 다음을 처리합니다:
 - ViewTransition API를 지원하는 브라우저에서는 부드러운 전환 효과를 적용합니다
 - React 앱을 마운트하고 핸드오프 과정에서 임시 visual cache를 제거합니다
 
-현재 릴리스에서는 오버레이 모드를 권장합니다. legacy direct-restore 경로는 캐시된 client-rendered DOM에 하이드레이션을 시도할 수 있으며, 지원되는 렌더링 계약이 아닙니다.
+스냅샷은 항상 React root 밖의 비상호작용 overlay에 표시됩니다. React는 빈 root에 마운트되고 첫 commit 뒤 overlay가 제거됩니다.
 
 ### Local-First / Tx만 사용하는 경우
 

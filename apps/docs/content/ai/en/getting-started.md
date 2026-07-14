@@ -71,7 +71,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx({ overlay: true }),
+    firstTx(),
   ],
 });
 ```
@@ -98,7 +98,7 @@ createFirstTxRoot(
 - Applies smooth transition effects in browsers that support the ViewTransition API
 - Mounts the React app and removes the temporary visual cache during handoff
 
-Overlay mode is recommended in current releases. The legacy direct-restore path may attempt to hydrate cached client-rendered DOM and is not a supported rendering contract.
+Snapshots always render in a non-interactive overlay outside the React root. React mounts into an empty root, and the overlay is removed after the first commit.
 
 ### Using only Local-First / Tx
 

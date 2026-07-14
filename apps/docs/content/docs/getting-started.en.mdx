@@ -62,7 +62,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx({ overlay: true }), // injects the boot script and keeps cached DOM outside the React root
+    firstTx(),
   ],
 });
 ```
@@ -73,8 +73,8 @@ At build time, this plugin injects a small boot script into your HTML. The scrip
 2. If a valid snapshot is found, restores it before React.
 3. Then lets React mount the real app.
 
-<Callout type="warning" title="Use overlay mode in current releases">
-  The legacy direct-restore path may attempt to hydrate cached client-rendered DOM. That path is documented for migration and debugging, but it is not a supported rendering contract. Keep <code>overlay: true</code> for new integrations.
+<Callout type="info" title="Visual overlay is the default">
+  Snapshots always render in a non-interactive overlay outside the React root. React mounts into an empty root, and the overlay is removed after the first commit.
 </Callout>
 
 ---

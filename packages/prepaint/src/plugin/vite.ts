@@ -8,7 +8,9 @@ export interface FirstTxPluginOptions {
   minify?: boolean;
   injectTo?: 'head' | 'head-prepend' | 'body' | 'body-prepend';
   nonce?: string | (() => string);
+  /** @deprecated Snapshot restore always uses an overlay. */
   overlay?: boolean;
+  /** @deprecated Snapshot restore always uses an overlay. */
   overlayRoutes?: string[];
   devFlagOverride?: boolean;
 }
@@ -21,8 +23,6 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
     minify: userMinify,
     injectTo = 'head-prepend',
     nonce,
-    overlay,
-    overlayRoutes,
     devFlagOverride,
   } = options;
 
@@ -70,27 +70,12 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
         if (!bootScriptCode) return html;
         const nonceValue = resolveAndValidateNonce(nonce);
 
-        const cfg: string[] = [];
-        if (overlay === true) cfg.push('window.__FIRSTTX_OVERLAY__=true;');
-        if (overlayRoutes && overlayRoutes.length > 0) {
-          const routes = JSON.stringify(overlayRoutes.join(','));
-          cfg.push(
-            `(function(){try{if(!localStorage.getItem('firsttx:overlayRoutes')) localStorage.setItem('firsttx:overlayRoutes', ${routes});}catch(e){}})();`,
-          );
-        }
-        const configTag =
-          cfg.length > 0
-            ? `<script${nonceValue ? ` nonce="${nonceValue}"` : ''}>${cfg.join('')}</script>`
-            : '';
-
         if (inline) {
           const bootTag = `<script${nonceValue ? ` nonce="${nonceValue}"` : ''}>try{${bootScriptCode};__firsttx_boot__.boot();}catch(e){console.error('[FirstTx] Boot script failed:',e);}</script>`;
-          return injectScript(html, `${configTag}\n${bootTag}`, injectTo);
+          return injectScript(html, bootTag, injectTo);
         } else {
-          const configAndBoot =
-            configTag +
-            `\n<script${nonceValue ? ` nonce="${nonceValue}"` : ''} src="/firsttx-boot.js"></script>`;
-          return injectScript(html, configAndBoot, injectTo);
+          const bootTag = `<script${nonceValue ? ` nonce="${nonceValue}"` : ''} src="/firsttx-boot.js"></script>`;
+          return injectScript(html, bootTag, injectTo);
         }
       },
     },

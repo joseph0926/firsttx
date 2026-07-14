@@ -22,15 +22,15 @@ When the user leaves the page (on `visibilitychange`, `pagehide`, or `beforeunlo
 On revisit, the boot script injected by the Vite plugin runs:
 
 1. It looks up the snapshot for the current route in IndexedDB.
-2. If a snapshot exists and is not older than 7 days, it is immediately inserted into the DOM.
-3. Stored styles are applied.
+2. If a snapshot exists and is not older than 7 days, it is displayed in a non-interactive Shadow DOM overlay.
+3. Stored styles are applied inside the overlay while `#root` remains untouched.
 4. The script waits for the React bundle to load.
-5. In the recommended overlay mode, React mounts into an empty root and the visual cache is removed during handoff.
-6. The legacy direct-restore path may attempt `hydrateRoot` on cached client DOM. This is an implementation detail, not a supported rendering contract.
+5. React mounts into an empty root with `createRoot()`.
+6. The visual overlay is removed after the first React commit.
 
 ## createFirstTxRoot
 
-In the React entry point, use `createFirstTxRoot` instead of calling the root API directly. This function connects snapshot capture, handoff, and the React mount. Use overlay mode so cached client DOM stays outside the React root.
+In the React entry point, use `createFirstTxRoot` instead of calling the root API directly. This function connects snapshot capture, handoff, and a clean React mount.
 
 ```typescript
 import { createFirstTxRoot } from '@firsttx/prepaint';
@@ -54,17 +54,15 @@ createFirstTxRoot(
     transition: true,
     onCapture: (snapshot) => console.log('Captured:', snapshot.route),
     onHandoff: (strategy) => console.log('Strategy:', strategy),
-    onHydrationError: (error) => console.error('Hydration failed:', error),
   }
 );
 ```
 
-| Option             | Type                                  | Default | Description                                                                                                 |
-| ------------------ | ------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
-| `transition`       | `boolean`                             | `true`  | Whether to use the ViewTransition API                                                                       |
-| `onCapture`        | `(snapshot: Snapshot) => void`        | -       | Called when snapshot capture is completed                                                                   |
-| `onHandoff`        | `(strategy: HandoffStrategy) => void` | -       | Called when the handoff strategy is decided. `strategy` is `'has-prepaint'` or `'cold-start'`.              |
-| `onHydrationError` | `(error: HydrationError) => void`     | -       | Called when the legacy direct-restore path reports a hydration mismatch and attempts a clean client render. |
+| Option       | Type                                  | Default | Description                                                                        |
+| ------------ | ------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| `transition` | `boolean`                             | `true`  | Whether to use the ViewTransition API                                              |
+| `onCapture`  | `(snapshot: Snapshot) => void`        | -       | Called when snapshot capture is completed                                          |
+| `onHandoff`  | `(strategy: HandoffStrategy) => void` | -       | Called with either `'has-prepaint'` or `'cold-start'` when the strategy is decided |
 
 ## Vite plugin
 
@@ -76,7 +74,7 @@ import react from '@vitejs/plugin-react';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [react(), firstTx({ overlay: true })],
+  plugins: [react(), firstTx()],
 });
 ```
 
@@ -87,8 +85,6 @@ export default defineConfig({
 | `inline`          | `boolean`                                              | `true`               | Inlines the boot script into HTML                                                                    |
 | `minify`          | `boolean`                                              | `true` in production | Whether to minify the boot script. In development, the default is `false`.                           |
 | `injectTo`        | `'head' \| 'head-prepend' \| 'body' \| 'body-prepend'` | `'head-prepend'`     | Where to inject the script                                                                           |
-| `overlay`         | `boolean`                                              | -                    | Enables overlay mode globally                                                                        |
-| `overlayRoutes`   | `string[]`                                             | -                    | Restricts overlay display to specified routes                                                        |
 | `nonce`           | `string \| (() => string)`                             | -                    | CSP nonce embedded when Vite generates the output; static output cannot create one per HTTP response |
 | `devFlagOverride` | `boolean`                                              | -                    | Manually sets the development mode flag. If omitted, it follows Vite’s `mode`.                       |
 
@@ -123,29 +119,20 @@ For content that should not be stored in snapshots, such as real-time data, use 
 
 The contents of this element are cleared in the snapshot and filled with actual values after the React app mounts.
 
-## Overlay mode
+The previous `overlay` and `overlayRoutes` options remain accepted as deprecated no-ops for one release.
 
-Overlay mode displays the snapshot in a separate layer instead of inside `#root`. It is the recommended integration mode because it separates cached client DOM from the React root.
+## Visual overlay
 
-### How to enable
+Snapshots are always displayed in a non-interactive Shadow DOM overlay outside `#root`. No enablement setting is required.
 
-You can enable it via `localStorage`:
-
-```typescript
-// Enable globally
-localStorage.setItem('firsttx:overlay', 'true');
-
-// Enable only on specific routes
-localStorage.setItem('firsttx:overlayRoutes', '/dashboard,/settings');
-```
-
-Or set it via a global variable:
+Previous settings can be removed:
 
 ```typescript
-window.__FIRSTTX_OVERLAY__ = true;
+localStorage.removeItem('firsttx:overlay');
+localStorage.removeItem('firsttx:overlayRoutes');
 ```
 
-In overlay mode, the attribute `data-prepaint-overlay="true"` is added to the `<html>` element.
+During restore, `data-prepaint-overlay="true"` is added to `<html>` and removed after the first React commit.
 
 ## Custom route keys
 
@@ -191,8 +178,8 @@ interface Snapshot {
 
 `createFirstTxRoot` chooses between two strategies depending on whether a snapshot has been restored:
 
-- `has-prepaint`: A snapshot has been restored. Overlay mode mounts React separately; the legacy direct-restore path attempts `hydrateRoot`.
-- `cold-start`: No snapshot exists or it has expired. It uses `createRoot` for a fresh render.
+- `has-prepaint`: A visual overlay has been restored. React mounts into an empty root with `createRoot()`.
+- `cold-start`: No snapshot exists or it has expired. React uses the same `createRoot()` path.
 
 You can use the `onHandoff` callback to check which strategy was selected.
 
@@ -226,7 +213,7 @@ Even in browsers that do not support the ViewTransition API, the core functional
 
 ## Error handling
 
-Prepaint catches its boot, capture, and legacy hydration errors and attempts to continue with a normal client render. Applications should still observe callbacks and DevTools events because fallback and compensation can fail.
+Prepaint catches boot and capture errors and attempts to continue with a normal client render. Applications should still observe callbacks and DevTools events.
 
 ### BootError
 
@@ -234,7 +221,7 @@ Occurs when snapshot restoration fails in the boot script. Because it occurs bef
 
 ### HydrationError
 
-Occurs when a DOM mismatch is detected in the legacy direct-restore hydration path. You can detect it via the `onHydrationError` callback; Prepaint then attempts a clean client render.
+Deprecated error type retained for legacy consumers. It is not created by the current restore and handoff path.
 
 ### CaptureError
 

@@ -93,7 +93,7 @@ Capture failures do not affect the next visit.
 
 ### HydrationError
 
-This error is created when a DOM mismatch occurs in the legacy direct-restore hydration path.
+This deprecated type is retained for legacy consumers. The current Prepaint restore and handoff path does not create it.
 
 | Property       | Type                                      | Description                    |
 | -------------- | ----------------------------------------- | ------------------------------ |
@@ -110,7 +110,7 @@ This error is created when a DOM mismatch occurs in the legacy direct-restore hy
 - getUserMessage(): `"Page content has been updated. Loading fresh version."`
 - isRecoverable(): always `true`
 
-You can detect this via the `onHydrationError` callback. Prepaint automatically falls back to client rendering.
+The `onHydrationError` option also remains as a deprecated no-op for one release.
 
 ### PrepaintStorageError
 

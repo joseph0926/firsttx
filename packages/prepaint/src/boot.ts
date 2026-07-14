@@ -1,12 +1,10 @@
 declare const __FIRSTTX_DEV__: boolean;
 
-import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
+import { STORAGE_CONFIG, type Snapshot } from './types';
 import { openDB, resolveRouteKey } from './utils';
 import { mountOverlay } from './overlay';
-import { normalizeSnapshotStyleEntry } from './style-utils';
 import { BootError, PrepaintStorageError, convertDOMException } from './errors';
 import { emitDevToolsEvent } from './devtools';
-import { sanitizeSnapshotHTMLSync } from './sanitize';
 
 function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   return new Promise((resolve, reject) => {
@@ -36,32 +34,6 @@ function deleteSnapshot(db: IDBDatabase, route: string): Promise<void> {
   });
 }
 
-function extractSingleRoot(html: string): string | null {
-  const sanitized = sanitizeSnapshotHTMLSync(html);
-  const tmp = document.createElement('div');
-  tmp.innerHTML = sanitized;
-  const first = tmp.firstElementChild as HTMLElement | null;
-  return first ? first.outerHTML : null;
-}
-
-function shouldUseOverlay(route: string): boolean {
-  try {
-    const g = window.__FIRSTTX_OVERLAY__;
-    if (g === true) return true;
-    const v = localStorage.getItem('firsttx:overlay');
-    if (v === '1' || v === 'true') return true;
-    const list = localStorage.getItem('firsttx:overlayRoutes');
-    if (list) {
-      const arr = list
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      for (const pat of arr) if (route.startsWith(pat)) return true;
-    }
-  } catch {}
-  return false;
-}
-
 /**
  * Restores a cached DOM snapshot from IndexedDB during initial page load.
  *
@@ -73,12 +45,9 @@ function shouldUseOverlay(route: string): boolean {
  * The boot process:
  * 1. Opens IndexedDB and retrieves the snapshot for the current route
  * 2. Validates the snapshot structure and checks TTL (max 7 days)
- * 3. Restores the DOM by injecting the cached HTML into `#root`
- * 4. Injects cached styles with `data-firsttx-prepaint` markers
+ * 3. Restores the cached HTML and styles into a non-interactive overlay
+ * 4. Leaves the React root untouched for a clean client render
  * 5. Sets `data-prepaint` attribute on `<html>` for handoff detection
- *
- * If overlay mode is enabled (via `window.__FIRSTTX_OVERLAY__` or localStorage),
- * the snapshot is rendered in a shadow DOM overlay instead of replacing #root.
  *
  * @returns Resolves when boot is complete (success or graceful failure)
  *
@@ -186,53 +155,10 @@ export async function boot(): Promise<void> {
     return;
   }
 
-  const overlay = shouldUseOverlay(route);
-
-  if (overlay) {
-    try {
-      mountOverlay(snapshot.body, snapshot.styles);
-      document.documentElement.setAttribute('data-prepaint', 'true');
-      document.documentElement.setAttribute('data-prepaint-overlay', 'true');
-      document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));
-
-      const restoreDuration = performance.now() - restoreStartTime;
-      emitDevToolsEvent('restore', {
-        route,
-        strategy: 'has-prepaint',
-        snapshotAge: age,
-        restoreDuration,
-      });
-
-      if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
-        console.log(`[FirstTx] Snapshot restored as overlay (age: ${age}ms)`);
-      }
-      return;
-    } catch (error) {
-      const bootError = new BootError('Failed to mount overlay', 'dom-restore', error as Error);
-      console.error(bootError.getDebugInfo());
-      return;
-    }
-  }
-
   try {
-    const root = document.getElementById('root');
-    if (!root) {
-      throw new BootError('Root element not found', 'dom-restore');
-    }
-    const clean = extractSingleRoot(snapshot.body);
-    if (!clean) {
-      throw new BootError('No valid child in snapshot body', 'dom-restore');
-    }
-    root.innerHTML = clean;
-
-    if (snapshot.styles) {
-      snapshot.styles.forEach((entry) => {
-        const normalized = normalizeSnapshotStyleEntry(entry);
-        if (normalized) appendStyleResource(normalized);
-      });
-    }
-
+    mountOverlay(snapshot.body, snapshot.styles);
     document.documentElement.setAttribute('data-prepaint', 'true');
+    document.documentElement.setAttribute('data-prepaint-overlay', 'true');
     document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));
 
     const restoreDuration = performance.now() - restoreStartTime;
@@ -244,33 +170,10 @@ export async function boot(): Promise<void> {
     });
 
     if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
-      console.log(`[FirstTx] Snapshot restored (age: ${age}ms)`);
+      console.log(`[FirstTx] Snapshot restored as overlay (age: ${age}ms)`);
     }
   } catch (error) {
-    const bootError =
-      error instanceof BootError
-        ? error
-        : new BootError('Failed to restore DOM', 'dom-restore', error as Error);
-    console.error(bootError.getDebugInfo());
-  }
-}
-
-function appendStyleResource(style: SnapshotStyle): void {
-  try {
-    if (style.type === 'inline' || style.content) {
-      const element = document.createElement('style');
-      element.setAttribute('data-firsttx-prepaint', '');
-      element.textContent = style.type === 'inline' ? style.content : (style.content ?? '');
-      document.head.appendChild(element);
-      return;
-    }
-    const link = document.createElement('link');
-    link.setAttribute('data-firsttx-prepaint', '');
-    link.rel = 'stylesheet';
-    link.href = style.href;
-    document.head.appendChild(link);
-  } catch (error) {
-    const bootError = new BootError('Failed to inject style', 'style-injection', error as Error);
+    const bootError = new BootError('Failed to mount overlay', 'dom-restore', error as Error);
     console.error(bootError.getDebugInfo());
   }
 }
