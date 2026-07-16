@@ -1,3 +1,4 @@
+import { shouldPruneSnapshot, type ResolvedPrepaintPolicy } from './policy';
 import { STORAGE_CONFIG } from './types';
 
 export function openDB(): Promise<IDBDatabase> {
@@ -17,11 +18,52 @@ export function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      let store: IDBObjectStore;
       if (!db.objectStoreNames.contains(STORAGE_CONFIG.STORE_SNAPSHOTS)) {
-        db.createObjectStore(STORAGE_CONFIG.STORE_SNAPSHOTS, { keyPath: 'route' });
+        store = db.createObjectStore(STORAGE_CONFIG.STORE_SNAPSHOTS, { keyPath: 'route' });
+      } else {
+        store = request.transaction!.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+      }
+      if (event.oldVersion > 0 && event.oldVersion < STORAGE_CONFIG.DB_VERSION) {
+        store.clear();
       }
     };
   });
+}
+
+export function pruneSnapshots(
+  db: IDBDatabase,
+  policy: ResolvedPrepaintPolicy | null,
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readwrite');
+    const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+    const request = store.openCursor();
+    let deleted = 0;
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      if (shouldPruneSnapshot(cursor.value, policy)) {
+        cursor.delete();
+        deleted += 1;
+      }
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error ?? new Error('Failed to scan snapshots'));
+    tx.oncomplete = () => resolve(deleted);
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to prune snapshots'));
+    tx.onabort = () => reject(tx.error ?? new Error('Snapshot prune aborted'));
+  });
+}
+
+export async function pruneStoredSnapshots(policy: ResolvedPrepaintPolicy | null): Promise<number> {
+  const db = await openDB();
+  try {
+    return await pruneSnapshots(db, policy);
+  } finally {
+    db.close();
+  }
 }
 
 /**

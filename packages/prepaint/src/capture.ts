@@ -1,8 +1,14 @@
 declare const __FIRSTTX_DEV__: boolean;
 
 import { DANGEROUS_ATTRIBUTES } from '@firsttx/shared';
-import { STORAGE_CONFIG, type Snapshot, type SnapshotStyle } from './types';
-import { openDB, resolveRouteKey, scrubSensitiveFields } from './utils';
+import {
+  getSnapshotPayloadBytes,
+  isRouteAllowed,
+  resolvePrepaintPolicy,
+  type ResolvedPrepaintPolicy,
+} from './policy';
+import { STORAGE_CONFIG, type PrepaintPolicy, type Snapshot, type SnapshotStyle } from './types';
+import { openDB, pruneStoredSnapshots, resolveRouteKey, scrubSensitiveFields } from './utils';
 import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
 import { emitDevToolsEvent } from './devtools';
 
@@ -199,9 +205,11 @@ function serializeRoot(rootEl: HTMLElement): string {
  * }
  * ```
  */
-export async function captureSnapshot(): Promise<Snapshot | null> {
+export async function captureSnapshot(policy?: PrepaintPolicy | null): Promise<Snapshot | null> {
   const captureStartTime = performance.now();
   const route = resolveRouteKey();
+  const resolvedPolicy = resolvePrepaintPolicy(policy);
+  if (!resolvedPolicy || !isRouteAllowed(resolvedPolicy, route)) return null;
 
   let root: HTMLElement | null = null;
   let body: string;
@@ -226,7 +234,7 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
 
   let styles: SnapshotStyle[];
   try {
-    styles = await collectStyles();
+    styles = resolvedPolicy.includeStyles ? await collectStyles() : [];
   } catch (error) {
     const captureError = new CaptureError(
       'Failed to collect styles',
@@ -246,6 +254,15 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
     timestamp: Date.now(),
     styles: styles.length > 0 ? styles : undefined,
   };
+
+  if (getSnapshotPayloadBytes(snapshot) > resolvedPolicy.maxSnapshotBytes) {
+    if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
+      console.warn(
+        `[FirstTx] Snapshot exceeds ${resolvedPolicy.maxSnapshotBytes} bytes for ${route}`,
+      );
+    }
+    return null;
+  }
 
   let db: IDBDatabase | null = null;
   try {
@@ -293,7 +310,8 @@ export async function captureSnapshot(): Promise<Snapshot | null> {
  * Options for configuring automatic snapshot capture.
  */
 export interface SetupCaptureOptions {
-  /** Limit capture to specific routes. If omitted, all routes are captured. */
+  policy?: PrepaintPolicy | null;
+  /** @deprecated Configure `policy.routes` in the Vite plugin. */
   routes?: string[];
   /** Callback invoked after each successful capture. */
   onCapture?: (snapshot: Snapshot) => void;
@@ -303,13 +321,22 @@ let captureInitialized = false;
 let captureOptions: SetupCaptureOptions | undefined = undefined;
 let captureCleanup: (() => void) | null = null;
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+function resolveCapturePolicy(options?: SetupCaptureOptions): ResolvedPrepaintPolicy | null {
+  if (options?.policy !== undefined) return resolvePrepaintPolicy(options.policy);
+  if (options?.routes !== undefined) return resolvePrepaintPolicy({ routes: options.routes });
+  return resolvePrepaintPolicy();
+}
+
 /**
- * Registers event listeners to automatically capture snapshots when the page
- * is about to be hidden or unloaded.
+ * Registers event listeners to prepare snapshots while idle and persist the
+ * latest visual state when the page is hidden.
  *
- * This function sets up listeners for `visibilitychange`, `pagehide`, and
- * `beforeunload` events to trigger snapshot capture at the optimal moment
- * (when the user navigates away or switches tabs).
+ * This function uses idle time plus `visibilitychange` and `pagehide`.
  *
  * @param options - Configuration options for capture behavior
  * @returns A cleanup function that removes all registered listeners
@@ -320,7 +347,7 @@ let captureCleanup: (() => void) | null = null;
  * import { setupCapture } from '@firsttx/prepaint';
  *
  * const cleanup = setupCapture({
- *   routes: ['/dashboard', '/profile'],
+ *   policy: { routes: ['/dashboard', '/profile'] },
  *   onCapture: (snapshot) => {
  *     console.log('Snapshot saved:', snapshot.route);
  *   },
@@ -332,47 +359,80 @@ let captureCleanup: (() => void) | null = null;
  *
  * @remarks
  * - Only one capture listener set is registered per page.
- * - Subsequent calls update options (routes/onCapture) and reuse existing listeners.
- * - Captures are debounced using `queueMicrotask` to prevent duplicates.
+ * - Subsequent calls update options and reuse existing listeners.
+ * - Captures are deduplicated while a write is in flight.
  * - The cleanup function resets the initialization flag, allowing re-setup.
  */
 export function setupCapture(options?: SetupCaptureOptions): () => void {
   captureOptions = options;
+  const initialPolicy = resolveCapturePolicy(options);
+  void pruneStoredSnapshots(initialPolicy).catch(() => {});
+
+  if (!initialPolicy) {
+    captureCleanup?.();
+    return () => {};
+  }
+
   if (captureCleanup) return captureCleanup;
 
   captureInitialized = true;
-  let scheduled = false;
+  let captureInFlight: Promise<void> | null = null;
+  let idleHandle: number | null = null;
+  const idleWindow = window as IdleWindow;
+
   const maybeSave = () => {
-    if (scheduled) return;
-    scheduled = true;
-    queueMicrotask(() => {
-      scheduled = false;
-      const route = window.location.pathname;
-      const activeOptions = captureOptions;
-      if (activeOptions?.routes && !activeOptions.routes.includes(route)) return;
-      void captureSnapshot().then((snapshot) => {
+    if (captureInFlight) return;
+    const activeOptions = captureOptions;
+    const activePolicy = resolveCapturePolicy(activeOptions);
+    if (!activePolicy || !isRouteAllowed(activePolicy, resolveRouteKey())) return;
+
+    captureInFlight = captureSnapshot(activePolicy)
+      .then((snapshot) => {
         if (snapshot) activeOptions?.onCapture?.(snapshot);
+      })
+      .finally(() => {
+        captureInFlight = null;
       });
-    });
   };
-  const onHidden = () => {
-    if (document.visibilityState === 'hidden') maybeSave();
+
+  const scheduleIdleCapture = () => {
+    if (idleHandle !== null) return;
+    const run = () => {
+      idleHandle = null;
+      maybeSave();
+    };
+    idleHandle = idleWindow.requestIdleCallback
+      ? idleWindow.requestIdleCallback(run, { timeout: STORAGE_CONFIG.IDLE_CAPTURE_TIMEOUT })
+      : window.setTimeout(run, STORAGE_CONFIG.IDLE_CAPTURE_TIMEOUT);
   };
-  document.addEventListener('visibilitychange', onHidden, { capture: true });
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      maybeSave();
+      return;
+    }
+    scheduleIdleCapture();
+  };
+
+  const onPageShow = () => scheduleIdleCapture();
+
+  document.addEventListener('visibilitychange', onVisibilityChange, { capture: true });
   window.addEventListener('pagehide', maybeSave, { capture: true });
-  const onBeforeUnload = () => {
-    maybeSave();
-  };
-  window.addEventListener('beforeunload', onBeforeUnload);
+  window.addEventListener('pageshow', onPageShow, { capture: true });
+  scheduleIdleCapture();
 
   captureCleanup = () => {
     if (!captureInitialized) return;
     captureInitialized = false;
     captureOptions = undefined;
-    scheduled = false;
-    document.removeEventListener('visibilitychange', onHidden, { capture: true });
+    if (idleHandle !== null) {
+      if (idleWindow.cancelIdleCallback) idleWindow.cancelIdleCallback(idleHandle);
+      else window.clearTimeout(idleHandle);
+      idleHandle = null;
+    }
+    document.removeEventListener('visibilitychange', onVisibilityChange, { capture: true });
     window.removeEventListener('pagehide', maybeSave, { capture: true });
-    window.removeEventListener('beforeunload', onBeforeUnload);
+    window.removeEventListener('pageshow', onPageShow, { capture: true });
     captureCleanup = null;
   };
 

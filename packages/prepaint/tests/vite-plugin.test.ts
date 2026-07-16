@@ -56,6 +56,7 @@ describe('firstTx Vite Plugin', () => {
         nonce: 'test-nonce',
         overlay: true,
         overlayRoutes: ['/cart', '/checkout'],
+        policy: { routes: ['/cart', '/checkout'] },
         devFlagOverride: true,
       };
       const plugin = firstTx(options);
@@ -83,7 +84,7 @@ describe('firstTx Vite Plugin', () => {
       const plugin = firstTx();
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
 
-      configResolved({ mode: 'production' } as ResolvedConfig);
+      configResolved({ mode: 'production', command: 'build' } as ResolvedConfig);
 
       const buildStart = plugin.buildStart as () => Promise<void>;
       await buildStart();
@@ -97,7 +98,7 @@ describe('firstTx Vite Plugin', () => {
       const plugin = firstTx({ devFlagOverride: true });
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
 
-      configResolved({ mode: 'production' } as ResolvedConfig);
+      configResolved({ mode: 'production', command: 'build' } as ResolvedConfig);
 
       const buildStart = plugin.buildStart as () => Promise<void>;
       await buildStart();
@@ -206,29 +207,29 @@ describe('firstTx Vite Plugin', () => {
       return transformIndexHtml.handler;
     }
 
-    it('injects inline script to head-prepend by default', async () => {
-      const handler = await getTransformHandler();
+    it('injects an inline script when explicitly enabled', async () => {
+      const handler = await getTransformHandler({ inline: true });
       const html = '<html><head><title>Test</title></head><body></body></html>';
 
       const result = handler(html);
 
       expect(result).toContain('<head>');
-      expect(result).toContain('__firsttx_boot__.boot()');
+      expect(result).toContain('__firsttx_boot__.boot(globalThis.__FIRSTTX_PREPAINT_POLICY__)');
       expect(result).toMatch(/<head>\s*<script>/);
     });
 
     it('injects script to head position', async () => {
-      const handler = await getTransformHandler({ injectTo: 'head' });
+      const handler = await getTransformHandler({ injectTo: 'head', inline: true });
       const html = '<html><head><title>Test</title></head><body></body></html>';
 
       const result = handler(html);
 
       expect(result).toMatch(/<\/head>/);
-      expect(result).toContain('__firsttx_boot__.boot()');
+      expect(result).toContain('__firsttx_boot__.boot(globalThis.__FIRSTTX_PREPAINT_POLICY__)');
     });
 
     it('injects script to body-prepend position', async () => {
-      const handler = await getTransformHandler({ injectTo: 'body-prepend' });
+      const handler = await getTransformHandler({ injectTo: 'body-prepend', inline: true });
       const html = '<html><head></head><body><div>Content</div></body></html>';
 
       const result = handler(html);
@@ -237,7 +238,7 @@ describe('firstTx Vite Plugin', () => {
     });
 
     it('injects script to body position', async () => {
-      const handler = await getTransformHandler({ injectTo: 'body' });
+      const handler = await getTransformHandler({ injectTo: 'body', inline: true });
       const html = '<html><head></head><body><div>Content</div></body></html>';
 
       const result = handler(html);
@@ -281,6 +282,26 @@ describe('firstTx Vite Plugin', () => {
       expect(() => handler(html)).toThrow('[FirstTx] Invalid nonce value');
     });
 
+    it('rejects invalid snapshot policy values', () => {
+      expect(() => firstTx({ policy: { routes: ['dashboard'] } })).toThrow(
+        '[FirstTx] Invalid prepaint policy',
+      );
+      expect(() => firstTx({ policy: { routes: ['/'], ttlMs: 0 } })).toThrow(
+        '[FirstTx] Invalid prepaint policy',
+      );
+    });
+
+    it('escapes policy values in inline output', async () => {
+      const handler = await getTransformHandler({
+        inline: true,
+        policy: { routes: ['/</script>\u2028'] },
+      });
+      const result = handler('<html><head></head><body></body></html>');
+
+      expect(result).not.toContain('</script>\u2028');
+      expect(result).toContain('\\u003c/script\\u003e\\u2028');
+    });
+
     it('keeps deprecated overlay options as no-ops', async () => {
       const handler = await getTransformHandler({
         overlay: true,
@@ -295,7 +316,7 @@ describe('firstTx Vite Plugin', () => {
     });
 
     it('wraps boot script in try-catch', async () => {
-      const handler = await getTransformHandler();
+      const handler = await getTransformHandler({ inline: true });
       const html = '<html><head></head><body></body></html>';
 
       const result = handler(html);
@@ -307,8 +328,8 @@ describe('firstTx Vite Plugin', () => {
   });
 
   describe('non-inline mode', () => {
-    it('uses external script when inline is false', async () => {
-      const plugin = firstTx({ inline: false });
+    it('uses an external script by default', async () => {
+      const plugin = firstTx();
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
       configResolved({ mode: 'production' } as ResolvedConfig);
 
@@ -321,53 +342,48 @@ describe('firstTx Vite Plugin', () => {
       };
       const result = transformIndexHtml.handler('<html><head></head><body></body></html>');
 
+      expect(result).toContain('<script vite-ignore');
       expect(result).toContain('src="/firsttx-boot.js"');
       expect(result).not.toContain('__firsttx_boot__.boot()');
     });
 
-    it('resolves virtual module id', () => {
-      const plugin = firstTx({ inline: false });
-      const resolveId = plugin.resolveId as (id: string) => string | undefined;
+    it('emits a self-starting boot asset', async () => {
+      const plugin = firstTx({ policy: { routes: ['/cart'] } });
+      const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
+      configResolved({ mode: 'production', command: 'build' } as ResolvedConfig);
 
-      expect(resolveId('/firsttx-boot.js')).toBe('/firsttx-boot.js');
-      expect(resolveId('/other.js')).toBeUndefined();
+      const emitFile = vi.fn((file: unknown) => String(file));
+      const buildStart = plugin.buildStart as unknown as (this: {
+        emitFile: typeof emitFile;
+      }) => Promise<void>;
+      await buildStart.call({ emitFile });
+
+      expect(emitFile).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'asset', fileName: 'firsttx-boot.js' }),
+      );
+      const emitted = emitFile.mock.calls[0]?.[0];
+      if (!emitted || typeof emitted !== 'object' || !('source' in emitted)) {
+        throw new Error('Expected an emitted asset source');
+      }
+      const source = String(emitted.source);
+      expect(source).toContain('console.log("boot script");');
+      expect(source).toContain('globalThis.__FIRSTTX_PREPAINT_POLICY__=');
+      expect(source).toContain('"routes":["/cart"]');
+      expect(source).toContain('__firsttx_boot__.boot(globalThis.__FIRSTTX_PREPAINT_POLICY__)');
     });
 
-    it('does not resolve virtual module when inline is true', () => {
+    it('does not emit an external asset in inline mode', async () => {
       const plugin = firstTx({ inline: true });
-      const resolveId = plugin.resolveId as (id: string) => string | undefined;
-
-      expect(resolveId('/firsttx-boot.js')).toBeUndefined();
-    });
-
-    it('loads virtual module with boot script code', async () => {
-      const plugin = firstTx({ inline: false });
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
-      configResolved({ mode: 'production' } as ResolvedConfig);
+      configResolved({ mode: 'production', command: 'build' } as ResolvedConfig);
 
-      const buildStart = plugin.buildStart as () => Promise<void>;
-      await buildStart();
+      const emitFile = vi.fn();
+      const buildStart = plugin.buildStart as unknown as (this: {
+        emitFile: typeof emitFile;
+      }) => Promise<void>;
+      await buildStart.call({ emitFile });
 
-      const load = plugin.load as (id: string) => { code: string; map: null } | undefined;
-      const result = load('/firsttx-boot.js');
-
-      expect(result).toEqual({
-        code: 'console.log("boot script");',
-        map: null,
-      });
-    });
-
-    it('does not load non-virtual modules', async () => {
-      const plugin = firstTx({ inline: false });
-      const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
-      configResolved({ mode: 'production' } as ResolvedConfig);
-
-      const buildStart = plugin.buildStart as () => Promise<void>;
-      await buildStart();
-
-      const load = plugin.load as (id: string) => { code: string; map: null } | undefined;
-
-      expect(load('/other.js')).toBeUndefined();
+      expect(emitFile).not.toHaveBeenCalled();
     });
   });
 });
@@ -386,7 +402,7 @@ describe('injectScript helper', () => {
       mangleCache: undefined,
     });
 
-    const plugin = firstTx({ injectTo: position });
+    const plugin = firstTx({ injectTo: position, inline: true });
     const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
     configResolved({ mode: 'production' } as ResolvedConfig);
 
@@ -425,7 +441,7 @@ describe('injectScript helper', () => {
       mangleCache: undefined,
     });
 
-    const plugin = firstTx({ injectTo: 'unknown' as 'head' });
+    const plugin = firstTx({ injectTo: 'unknown' as 'head', inline: true });
     const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
     configResolved({ mode: 'production' } as ResolvedConfig);
 

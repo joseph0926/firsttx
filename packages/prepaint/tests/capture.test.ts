@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setupCapture, captureSnapshot } from '../src/capture';
 import * as utilsModule from '../src/utils';
-import type { Snapshot } from '../src/types';
+import type { PrepaintPolicy, Snapshot } from '../src/types';
+
+const TEST_POLICY = {
+  routes: ['/', '/allowed', '/blocked', '/products', '/custom-key'],
+} satisfies PrepaintPolicy;
 
 const tick = () => Promise.resolve();
 
@@ -76,28 +80,52 @@ describe('setupCapture', () => {
     }
   });
 
-  it('registers visibilitychange, pagehide, beforeunload listeners', () => {
+  it('registers visibilitychange, pagehide, and pageshow without beforeunload', () => {
     const addWin = vi.spyOn(window, 'addEventListener');
     const addDoc = vi.spyOn(document, 'addEventListener');
-    cleanup = setupCapture();
+    cleanup = setupCapture({ policy: TEST_POLICY });
     const winEvents = addWin.mock.calls.map((c) => c[0]);
     const docEvents = addDoc.mock.calls.map((c) => c[0]);
     expect(winEvents).toContain('pagehide');
-    expect(winEvents).toContain('beforeunload');
+    expect(winEvents).toContain('pageshow');
+    expect(winEvents).not.toContain('beforeunload');
     expect(docEvents).toContain('visibilitychange');
+  });
+
+  it('prepares a snapshot through requestIdleCallback', async () => {
+    let idleCallback: (() => void) | undefined;
+    const requestIdleCallback = vi.fn((callback: () => void) => {
+      idleCallback = callback;
+      return 1;
+    });
+    Object.defineProperty(window, 'requestIdleCallback', {
+      configurable: true,
+      value: requestIdleCallback,
+    });
+
+    cleanup = setupCapture({ policy: TEST_POLICY });
+    expect(requestIdleCallback).toHaveBeenCalledWith(expect.any(Function), { timeout: 2_000 });
+
+    idleCallback?.();
+    await tick();
+    await tick();
+
+    expect(getSnapshot('/')).toBeDefined();
+    Reflect.deleteProperty(window, 'requestIdleCallback');
   });
 
   it('is idempotent and returns noop cleanup on duplicate call', () => {
     const addWin = vi.spyOn(window, 'addEventListener');
     const addDoc = vi.spyOn(document, 'addEventListener');
-    const c1 = setupCapture();
-    const c2 = setupCapture();
+    const c1 = setupCapture({ policy: TEST_POLICY });
+    const c2 = setupCapture({ policy: TEST_POLICY });
     cleanup = c1;
     const winEvents = addWin.mock.calls.map((c) => c[0]);
     const docEvents = addDoc.mock.calls.map((c) => c[0]);
     const count = (arr: unknown[], ev: string) => arr.filter((x) => x === ev).length;
-    expect(count(winEvents, 'beforeunload')).toBe(1);
+    expect(count(winEvents, 'beforeunload')).toBe(0);
     expect(count(winEvents, 'pagehide')).toBe(1);
+    expect(count(winEvents, 'pageshow')).toBe(1);
     expect(count(docEvents, 'visibilitychange')).toBe(1);
     expect(typeof c2).toBe('function');
   });
@@ -105,13 +133,14 @@ describe('setupCapture', () => {
   it('cleans up all listeners on cleanup call', () => {
     const removeWin = vi.spyOn(window, 'removeEventListener');
     const removeDoc = vi.spyOn(document, 'removeEventListener');
-    cleanup = setupCapture();
+    cleanup = setupCapture({ policy: TEST_POLICY });
     cleanup();
     cleanup = null;
     const winEvents = removeWin.mock.calls.map((c) => c[0]);
     const docEvents = removeDoc.mock.calls.map((c) => c[0]);
-    expect(winEvents).toContain('beforeunload');
+    expect(winEvents).not.toContain('beforeunload');
     expect(winEvents).toContain('pagehide');
+    expect(winEvents).toContain('pageshow');
     expect(docEvents).toContain('visibilitychange');
   });
 
@@ -120,8 +149,8 @@ describe('setupCapture', () => {
     window.history.pushState(null, '', '/blocked');
 
     const addWin = vi.spyOn(window, 'addEventListener');
-    cleanup = setupCapture({ routes: ['/allowed'] });
-    const handler = addWin.mock.calls.find((c) => c[0] === 'beforeunload')![1] as () => void;
+    cleanup = setupCapture({ policy: { routes: ['/allowed'] } });
+    const handler = addWin.mock.calls.find((c) => c[0] === 'pagehide')![1] as () => void;
 
     handler();
     await tick();
@@ -140,6 +169,20 @@ describe('setupCapture', () => {
     expect(allowed).toBeDefined();
 
     window.history.pushState(null, '', orig || '/');
+  });
+
+  it('does not register capture listeners without an allowlist policy', () => {
+    const addWin = vi.spyOn(window, 'addEventListener');
+    const addDoc = vi.spyOn(document, 'addEventListener');
+
+    cleanup = setupCapture({ policy: null });
+
+    expect(addWin).not.toHaveBeenCalledWith('pagehide', expect.any(Function), expect.anything());
+    expect(addDoc).not.toHaveBeenCalledWith(
+      'visibilitychange',
+      expect.any(Function),
+      expect.anything(),
+    );
   });
 });
 
@@ -175,7 +218,7 @@ describe('captureSnapshot', () => {
   };
 
   it('captures first child of #root', async () => {
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/');
     expect(snapshot).not.toBeNull();
     expect(snapshot!.body).toBe('<div id="app">Test Content</div>');
@@ -192,7 +235,7 @@ describe('captureSnapshot', () => {
     s2.textContent = '.ignore { display:none; }';
     document.head.appendChild(s2);
 
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/');
     expect(snapshot).not.toBeNull();
     expect(snapshot!.styles).toBeDefined();
@@ -207,8 +250,32 @@ describe('captureSnapshot', () => {
     expect(ignored).toHaveLength(0);
   });
 
+  it('does not collect styles when policy disables them', async () => {
+    const style = document.createElement('style');
+    style.textContent = '.test { color: red; }';
+    document.head.appendChild(style);
+
+    await captureSnapshot({ routes: ['/'], includeStyles: false });
+
+    expect(getSnapshot('/')?.styles).toBeUndefined();
+  });
+
+  it('does not store snapshots larger than the configured byte limit', async () => {
+    const result = await captureSnapshot({ routes: ['/'], maxSnapshotBytes: 8 });
+
+    expect(result).toBeNull();
+    expect(getSnapshot('/')).toBeNull();
+  });
+
+  it('defaults to off when policy is missing', async () => {
+    const result = await captureSnapshot(null);
+
+    expect(result).toBeNull();
+    expect(getSnapshot('/')).toBeNull();
+  });
+
   it('handles empty styles', async () => {
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/');
     expect(snapshot).not.toBeNull();
     expect(snapshot!.styles).toBeUndefined();
@@ -220,7 +287,7 @@ describe('captureSnapshot', () => {
       .spyOn(document, 'querySelectorAll')
       .mockReturnValue([createFakeLink(href, true)] as unknown as NodeListOf<Element>);
 
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/');
     expect(snapshot).not.toBeNull();
     expect(snapshot!.styles).toContainEqual({
@@ -236,7 +303,7 @@ describe('captureSnapshot', () => {
     window.history.pushState(null, '', '/products');
     document.body.innerHTML = '<div id="root"><div>Products Page</div></div>';
 
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/products');
 
     expect(snapshot).not.toBeNull();
@@ -253,7 +320,7 @@ describe('captureSnapshot', () => {
     window.history.pushState(null, '', '/original');
     document.body.innerHTML = '<div id="root"><div>Custom Route</div></div>';
 
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/custom-key');
     const originalSnapshot = getSnapshot('/original');
 
@@ -277,7 +344,7 @@ describe('captureSnapshot', () => {
       </div>
     `;
 
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/');
 
     expect(snapshot).not.toBeNull();
@@ -288,7 +355,7 @@ describe('captureSnapshot', () => {
 
   it('sets timestamp on snapshot', async () => {
     const before = Date.now();
-    await captureSnapshot();
+    await captureSnapshot(TEST_POLICY);
     const snapshot = getSnapshot('/');
     const after = Date.now();
 
@@ -303,7 +370,7 @@ describe('captureSnapshot', () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       document.body.innerHTML = '<div>No root</div>';
 
-      const result = await captureSnapshot();
+      const result = await captureSnapshot(TEST_POLICY);
 
       expect(result).toBeNull();
       expect(spy).toHaveBeenCalled();
@@ -319,7 +386,7 @@ describe('captureSnapshot', () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       document.body.innerHTML = '<div id="root"></div>';
 
-      const result = await captureSnapshot();
+      const result = await captureSnapshot(TEST_POLICY);
 
       expect(result).toBeNull();
       expect(spy).toHaveBeenCalled();
@@ -337,7 +404,7 @@ describe('captureSnapshot', () => {
         throw new Error('querySelectorAll failed');
       });
 
-      const result = await captureSnapshot();
+      const result = await captureSnapshot(TEST_POLICY);
 
       expect(result).toBeNull();
       expect(spy).toHaveBeenCalled();
@@ -353,7 +420,7 @@ describe('captureSnapshot', () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const openSpy = vi.spyOn(utilsModule, 'openDB').mockRejectedValueOnce(new Error('DB Error'));
 
-      const result = await captureSnapshot();
+      const result = await captureSnapshot(TEST_POLICY);
 
       expect(result).toBeNull();
       expect(errSpy).toHaveBeenCalled();
@@ -385,7 +452,7 @@ describe('captureSnapshot', () => {
 
       vi.spyOn(utilsModule, 'openDB').mockResolvedValueOnce(dbMock as unknown as IDBDatabase);
 
-      const capturePromise = captureSnapshot();
+      const capturePromise = captureSnapshot(TEST_POLICY);
 
       const quotaError = new Error('QuotaExceededError');
       quotaError.name = 'QuotaExceededError';
@@ -410,14 +477,14 @@ describe('captureSnapshot', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       document.body.innerHTML = '';
 
-      await expect(captureSnapshot()).resolves.not.toThrow();
+      await expect(captureSnapshot(TEST_POLICY)).resolves.not.toThrow();
     });
 
     it('returns null on any error and continues gracefully', async () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const openSpy = vi.spyOn(utilsModule, 'openDB').mockRejectedValue(new Error('Fatal error'));
 
-      const result = await captureSnapshot();
+      const result = await captureSnapshot(TEST_POLICY);
 
       expect(result).toBeNull();
 
@@ -438,7 +505,7 @@ describe('captureSnapshot', () => {
       </div>
     `;
 
-      await captureSnapshot();
+      await captureSnapshot(TEST_POLICY);
       const snapshot = getSnapshot('/');
 
       expect(snapshot).not.toBeNull();
@@ -460,7 +527,7 @@ describe('captureSnapshot', () => {
       </div>
     `;
 
-      await captureSnapshot();
+      await captureSnapshot(TEST_POLICY);
       const snapshot = getSnapshot('/');
 
       expect(snapshot).not.toBeNull();
@@ -480,7 +547,7 @@ describe('captureSnapshot', () => {
       </div>
     `;
 
-      await captureSnapshot();
+      await captureSnapshot(TEST_POLICY);
       const snapshot = getSnapshot('/');
 
       expect(snapshot).not.toBeNull();
@@ -502,7 +569,7 @@ describe('captureSnapshot', () => {
 
       document.body.innerHTML = '<div id="root"><div>Test</div></div>';
 
-      await captureSnapshot();
+      await captureSnapshot(TEST_POLICY);
       const snapshot = getSnapshot('/');
 
       expect(snapshot).not.toBeNull();
@@ -526,7 +593,7 @@ describe('captureSnapshot', () => {
 
       document.body.innerHTML = '<div id="root"><div>Test</div></div>';
 
-      await captureSnapshot();
+      await captureSnapshot(TEST_POLICY);
       const snapshot = getSnapshot('/');
 
       expect(snapshot).not.toBeNull();
@@ -550,7 +617,7 @@ describe('captureSnapshot', () => {
 
       document.body.innerHTML = '<div id="root"><div>Test</div></div>';
 
-      await captureSnapshot();
+      await captureSnapshot(TEST_POLICY);
       const snapshot = getSnapshot('/');
 
       expect(snapshot).not.toBeNull();

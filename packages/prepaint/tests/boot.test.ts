@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { boot } from '../src/boot';
 import { openDB } from '../src/utils';
-import { STORAGE_CONFIG, type Snapshot } from '../src/types';
+import { STORAGE_CONFIG, type PrepaintPolicy, type Snapshot } from '../src/types';
+
+const TEST_POLICY = {
+  routes: ['/', '/cart'],
+} satisfies PrepaintPolicy;
 
 describe('boot', () => {
   let db: IDBDatabase | null = null;
@@ -43,6 +47,19 @@ describe('boot', () => {
     });
   }
 
+  async function readSnapshot(route: string): Promise<Snapshot | undefined> {
+    const readDb = await openDB();
+    const tx = readDb.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
+    const store = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS);
+    const snapshot = await new Promise<Snapshot | undefined>((resolve) => {
+      const request = store.get(route) as IDBRequest<Snapshot>;
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(undefined);
+    });
+    readDb.close();
+    return snapshot;
+  }
+
   function mountRoot(inner = '') {
     document.body.innerHTML = `<div id="root">${inner}</div>`;
   }
@@ -56,7 +73,7 @@ describe('boot', () => {
       styles: [],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     const overlay = document.getElementById('__firsttx_prepaint__');
     expect(overlay?.shadowRoot?.querySelector('#test-content')?.textContent).toBe('Hello World');
     expect(document.getElementById('root')!.innerHTML).toBe(
@@ -69,9 +86,39 @@ describe('boot', () => {
   it('does nothing when snapshot does not exist', async () => {
     mountRoot('<div>Original</div>');
     const original = document.getElementById('root')!.innerHTML;
-    await boot();
+    await boot(TEST_POLICY);
     expect(document.getElementById('root')!.innerHTML).toBe(original);
     expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
+  });
+
+  it('defaults to off and removes stored snapshots when policy is missing', async () => {
+    mountRoot('<div>Current</div>');
+    await saveSnapshot({
+      route: '/',
+      timestamp: Date.now(),
+      body: '<div>Stored</div>',
+      styles: [],
+    });
+
+    await boot(null);
+
+    expect(document.getElementById('__firsttx_prepaint__')).toBeNull();
+    expect(await readSnapshot('/')).toBeUndefined();
+  });
+
+  it('prunes snapshots outside the exact route allowlist', async () => {
+    mountRoot('<div>Current</div>');
+    await saveSnapshot({
+      route: '/',
+      timestamp: Date.now(),
+      body: '<div>Stored</div>',
+      styles: [],
+    });
+
+    await boot({ routes: ['/cart'] });
+
+    expect(document.getElementById('__firsttx_prepaint__')).toBeNull();
+    expect(await readSnapshot('/')).toBeUndefined();
   });
 
   it('does not inject expired snapshot', async () => {
@@ -84,9 +131,24 @@ describe('boot', () => {
       styles: [],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     expect(document.getElementById('root')!.innerHTML).toBe('<div>Current</div>');
     expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
+  });
+
+  it('uses the configured TTL when pruning snapshots', async () => {
+    mountRoot('<div>Current</div>');
+    await saveSnapshot({
+      route: '/',
+      timestamp: Date.now() - 2_000,
+      body: '<div>Expired by policy</div>',
+      styles: [],
+    });
+
+    await boot({ routes: ['/'], ttlMs: 1_000 });
+
+    expect(document.getElementById('__firsttx_prepaint__')).toBeNull();
+    expect(await readSnapshot('/')).toBeUndefined();
   });
 
   it('injects styles into the overlay shadow root', async () => {
@@ -101,13 +163,43 @@ describe('boot', () => {
       ],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     const els = Array.from(
       document.getElementById('__firsttx_prepaint__')!.shadowRoot!.querySelectorAll('style'),
     );
     const texts = els.map((e) => e.textContent);
     expect(texts).toContain('.test { color: red; }');
     expect(texts).toContain('.another { font-size: 16px; }');
+  });
+
+  it('prunes styled snapshots when styles are disabled', async () => {
+    mountRoot('<div>Current</div>');
+    await saveSnapshot({
+      route: '/',
+      timestamp: Date.now(),
+      body: '<div>Stored</div>',
+      styles: [{ type: 'inline', content: '.stored { color: red; }' }],
+    });
+
+    await boot({ routes: ['/'], includeStyles: false });
+
+    expect(document.getElementById('__firsttx_prepaint__')).toBeNull();
+    expect(await readSnapshot('/')).toBeUndefined();
+  });
+
+  it('prunes snapshots larger than the configured byte limit', async () => {
+    mountRoot('<div>Current</div>');
+    await saveSnapshot({
+      route: '/',
+      timestamp: Date.now(),
+      body: '<div>Stored content</div>',
+      styles: [],
+    });
+
+    await boot({ routes: ['/'], maxSnapshotBytes: 8 });
+
+    expect(document.getElementById('__firsttx_prepaint__')).toBeNull();
+    expect(await readSnapshot('/')).toBeUndefined();
   });
 
   it('normalizes legacy string snapshot styles', async () => {
@@ -119,7 +211,7 @@ describe('boot', () => {
       styles: ['.legacy { display: block; }'],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     const texts = Array.from(
       document.getElementById('__firsttx_prepaint__')!.shadowRoot!.querySelectorAll('style'),
     ).map((node) => node.textContent);
@@ -136,7 +228,7 @@ describe('boot', () => {
       styles: [],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     expect(document.documentElement.getAttribute('data-prepaint-timestamp')).toBe(
       String(timestamp),
     );
@@ -153,7 +245,7 @@ describe('boot', () => {
       styles: [],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     expect(document.getElementById('__firsttx_prepaint__')?.shadowRoot?.textContent).toContain(
       'Cart Content',
     );
@@ -170,7 +262,7 @@ describe('boot', () => {
       styles: [{ type: 'inline', content: '.x{opacity:1;}' }],
     };
     await saveSnapshot(snapshot);
-    await boot();
+    await boot(TEST_POLICY);
     expect(document.getElementById('__firsttx_prepaint__')).toBeTruthy();
     expect(document.documentElement.getAttribute('data-prepaint')).toBe('true');
     expect(document.documentElement.getAttribute('data-prepaint-overlay')).toBe('true');
@@ -184,7 +276,7 @@ describe('boot', () => {
         throw new Error('DB Error');
       });
 
-      await boot();
+      await boot(TEST_POLICY);
 
       expect(spy).toHaveBeenCalled();
       const errorCall = spy.mock.calls[0][0] as string;
@@ -211,7 +303,7 @@ describe('boot', () => {
       });
       db.close();
 
-      await boot();
+      await boot(TEST_POLICY);
 
       expect(document.documentElement.hasAttribute('data-prepaint')).toBe(false);
 
@@ -235,7 +327,7 @@ describe('boot', () => {
       });
       db.close();
 
-      await boot();
+      await boot(TEST_POLICY);
 
       const db2 = await openDB();
       const tx2 = db2.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
@@ -269,7 +361,7 @@ describe('boot', () => {
         throw new Error('attachShadow failed');
       });
 
-      await boot();
+      await boot(TEST_POLICY);
 
       expect(spy).toHaveBeenCalled();
       const errorCall = spy.mock.calls[0][0] as string;
@@ -287,7 +379,7 @@ describe('boot', () => {
         throw new Error('Complete failure');
       });
 
-      await expect(boot()).resolves.not.toThrow();
+      await expect(boot(TEST_POLICY)).resolves.not.toThrow();
     });
   });
 });

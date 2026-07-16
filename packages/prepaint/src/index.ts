@@ -14,3 +14,4 @@ export {
 
 export type { HandoffStrategy } from './handoff';
 export type { CreateFirstTxRootOptions } from './helpers';
+export type { PrepaintPolicy } from './types';
