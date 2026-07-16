@@ -71,10 +71,12 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ policy: { routes: ['/dashboard', '/cart'] } }),
   ],
 });
 ```
+
+Prepaint is disabled until `policy.routes` explicitly opts exact pathnames in.
 
 #### 2. Entry point configuration
 

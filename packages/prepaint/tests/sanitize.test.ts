@@ -146,6 +146,20 @@ describe('sanitize', () => {
         expect(result).not.toContain('JAVASCRIPT:');
       });
 
+      it('removes javascript: href with embedded control characters', () => {
+        const html = '<a href="java&#10;script:alert(1)">Click</a>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).not.toContain('href=');
+      });
+
+      it('removes data:text/html URLs with embedded whitespace', () => {
+        const html = '<a href="data: text/html,<p>unsafe</p>">Click</a>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).not.toContain('href=');
+      });
+
       it('removes data:text/html URLs', () => {
         const html = '<a href="data:text/html,<script>alert(1)</script>">Click</a>';
         const result = sanitizeSnapshotHTMLSync(html);

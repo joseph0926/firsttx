@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { boot } from '../src/boot';
 import { createFirstTxRoot } from '../src/helpers';
 import { removeOverlay } from '../src/overlay';
-import type { Snapshot } from '../src/types';
+import { STORAGE_CONFIG, type PrepaintPolicy, type Snapshot } from '../src/types';
+
+const TEST_POLICY = {
+  routes: ['/'],
+} satisfies PrepaintPolicy;
 
 function setupRoot(inner = ''): HTMLElement {
   document.getElementById('root')?.remove();
@@ -17,7 +21,7 @@ function setupRoot(inner = ''): HTMLElement {
 
 async function saveSnapshot(snapshot: Snapshot): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open('firsttx-prepaint', 1);
+    const request = indexedDB.open('firsttx-prepaint', STORAGE_CONFIG.DB_VERSION);
     request.onerror = () => reject(request.error ?? new Error('Failed to open snapshot database'));
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -69,7 +73,7 @@ describe('visual snapshot handoff', () => {
       styles: [],
     });
 
-    await boot();
+    await boot(TEST_POLICY);
 
     expect(root.querySelector('#legacy-root')).toBeTruthy();
     expect(document.getElementById('__firsttx_prepaint__')).toBeTruthy();
@@ -109,7 +113,7 @@ describe('visual snapshot handoff', () => {
       body: '<div>Snapshot content</div>',
       styles: [],
     });
-    await boot();
+    await boot(TEST_POLICY);
 
     act(() => {
       createFirstTxRoot(root, <App />, { transition: false });
@@ -182,7 +186,7 @@ describe('visual snapshot handoff', () => {
       body: '<div>Snapshot content</div>',
       styles: [],
     });
-    await boot();
+    await boot(TEST_POLICY);
 
     act(() => {
       createFirstTxRoot(root, <div>React content</div>, { transition: true });

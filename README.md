@@ -72,11 +72,15 @@ pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [firstTx()],
+  plugins: [
+    firstTx({
+      policy: { routes: ['/dashboard', '/cart'] },
+    }),
+  ],
 });
 ```
 
-> Snapshot restore always uses a non-interactive overlay outside the React root. The legacy `overlay` and `overlayRoutes` options are deprecated no-ops.
+> Prepaint is off until `policy.routes` explicitly opts paths in. Snapshot restore always uses a non-interactive overlay outside the React root.
 
 ### 2. Entry Point
 

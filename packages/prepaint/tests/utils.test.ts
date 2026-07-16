@@ -50,4 +50,42 @@ describe('openDB', () => {
 
     expect(db.version).toBe(STORAGE_CONFIG.DB_VERSION);
   });
+
+  it('should purge version 1 snapshots during the version 2 upgrade', async () => {
+    const legacyRequest = indexedDB.open(STORAGE_CONFIG.DB_NAME, 1);
+    const legacyDb = await new Promise<IDBDatabase>((resolve, reject) => {
+      legacyRequest.onupgradeneeded = () => {
+        legacyRequest.result.createObjectStore(STORAGE_CONFIG.STORE_SNAPSHOTS, {
+          keyPath: 'route',
+        });
+      };
+      legacyRequest.onsuccess = () => resolve(legacyRequest.result);
+      legacyRequest.onerror = () =>
+        reject(legacyRequest.error ?? new Error('Failed to open legacy database'));
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = legacyDb.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readwrite');
+      const request = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS).put({
+        route: '/',
+        body: '<div>Legacy</div>',
+        timestamp: Date.now(),
+      });
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error ?? new Error('Failed to store legacy snapshot'));
+    });
+    legacyDb.close();
+
+    db = await openDB();
+
+    const stored = await new Promise<unknown>((resolve, reject) => {
+      const tx = db!.transaction(STORAGE_CONFIG.STORE_SNAPSHOTS, 'readonly');
+      const request = tx.objectStore(STORAGE_CONFIG.STORE_SNAPSHOTS).get('/');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () =>
+        reject(request.error ?? new Error('Failed to read migrated snapshot'));
+    });
+
+    expect(stored).toBeUndefined();
+  });
 });

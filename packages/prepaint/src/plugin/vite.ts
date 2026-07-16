@@ -2,12 +2,15 @@ import type { Plugin } from 'vite';
 import { build } from 'esbuild';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { serializePrepaintPolicy } from '../policy';
+import type { PrepaintPolicy } from '../types';
 
 export interface FirstTxPluginOptions {
   inline?: boolean;
   minify?: boolean;
   injectTo?: 'head' | 'head-prepend' | 'body' | 'body-prepend';
   nonce?: string | (() => string);
+  policy?: PrepaintPolicy;
   /** @deprecated Snapshot restore always uses an overlay. */
   overlay?: boolean;
   /** @deprecated Snapshot restore always uses an overlay. */
@@ -19,21 +22,26 @@ const NONCE_PATTERN = /^[A-Za-z0-9+/_-]+=*$/;
 
 export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
   const {
-    inline = true,
+    inline = false,
     minify: userMinify,
     injectTo = 'head-prepend',
     nonce,
     devFlagOverride,
   } = options;
+  const serializedPolicy = serializePrepaintPolicy(options.policy);
 
   let bootScriptCode: string | null = null;
   let isDev = false;
+  let isBuild = false;
+  let base = '/';
 
   return {
     name: 'vite-plugin-firsttx',
     configResolved(config) {
       isDev =
         typeof devFlagOverride === 'boolean' ? devFlagOverride : config.mode === 'development';
+      isBuild = config.command === 'build';
+      base = config.base || '/';
     },
     async buildStart() {
       const minify = userMinify ?? !isDev;
@@ -58,6 +66,13 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
         });
         if (result.outputFiles && result.outputFiles[0]) {
           bootScriptCode = result.outputFiles[0].text;
+          if (!inline && isBuild && this?.emitFile) {
+            this.emitFile({
+              type: 'asset',
+              fileName: 'firsttx-boot.js',
+              source: createExecutableBootScript(bootScriptCode, serializedPolicy),
+            });
+          }
         }
       } catch (error) {
         console.error('[FirstTx] Failed to build boot script:', error);
@@ -71,23 +86,32 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
         const nonceValue = resolveAndValidateNonce(nonce);
 
         if (inline) {
-          const bootTag = `<script${nonceValue ? ` nonce="${nonceValue}"` : ''}>try{${bootScriptCode};__firsttx_boot__.boot();}catch(e){console.error('[FirstTx] Boot script failed:',e);}</script>`;
+          const executableCode = createExecutableBootScript(bootScriptCode, serializedPolicy);
+          const bootTag = `<script${nonceValue ? ` nonce="${nonceValue}"` : ''}>${executableCode}</script>`;
           return injectScript(html, bootTag, injectTo);
         } else {
-          const bootTag = `<script${nonceValue ? ` nonce="${nonceValue}"` : ''} src="/firsttx-boot.js"></script>`;
+          const bootTag = `<script vite-ignore${nonceValue ? ` nonce="${nonceValue}"` : ''} src="${base}firsttx-boot.js"></script>`;
           return injectScript(html, bootTag, injectTo);
         }
       },
     },
-    resolveId(id) {
-      if (!inline && id === '/firsttx-boot.js') return id;
-    },
-    load(id) {
-      if (!inline && id === '/firsttx-boot.js' && bootScriptCode) {
-        return { code: bootScriptCode, map: null };
-      }
+    configureServer(server) {
+      if (inline) return;
+      server.middlewares.use('/firsttx-boot.js', (_request, response, next) => {
+        if (!bootScriptCode) {
+          next();
+          return;
+        }
+        response.statusCode = 200;
+        response.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+        response.end(createExecutableBootScript(bootScriptCode, serializedPolicy));
+      });
     },
   };
+}
+
+function createExecutableBootScript(bootScriptCode: string, serializedPolicy: string): string {
+  return `${bootScriptCode};try{globalThis.__FIRSTTX_PREPAINT_POLICY__=${serializedPolicy};__firsttx_boot__.boot(globalThis.__FIRSTTX_PREPAINT_POLICY__);}catch(e){console.error('[FirstTx] Boot script failed:',e);}`;
 }
 
 function resolveAndValidateNonce(nonceOption: FirstTxPluginOptions['nonce']): string | undefined {

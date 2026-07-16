@@ -1,7 +1,8 @@
 declare const __FIRSTTX_DEV__: boolean;
 
-import { STORAGE_CONFIG, type Snapshot } from './types';
-import { openDB, resolveRouteKey } from './utils';
+import { isRouteAllowed, resolvePrepaintPolicy } from './policy';
+import { STORAGE_CONFIG, type PrepaintPolicy, type Snapshot } from './types';
+import { openDB, pruneSnapshots, resolveRouteKey } from './utils';
 import { mountOverlay } from './overlay';
 import { BootError, PrepaintStorageError, convertDOMException } from './errors';
 import { emitDevToolsEvent } from './devtools';
@@ -63,9 +64,10 @@ function deleteSnapshot(db: IDBDatabase, route: string): Promise<void> {
  * @throws Never throws - all errors are caught, logged, and recovered from.
  * The app will continue with a cold start if boot fails.
  */
-export async function boot(): Promise<void> {
+export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
   const restoreStartTime = performance.now();
   const route = resolveRouteKey();
+  const resolvedPolicy = resolvePrepaintPolicy(policy);
   let db: IDBDatabase | null = null;
 
   try {
@@ -80,6 +82,30 @@ export async function boot(): Promise<void> {
 
     const bootError = new BootError('Failed to open IndexedDB', 'db-open', error as Error);
     console.error(bootError.getDebugInfo());
+    return;
+  }
+
+  try {
+    await pruneSnapshots(db, resolvedPolicy);
+  } catch (error) {
+    db.close();
+    emitDevToolsEvent('storage.error', {
+      operation: 'write',
+      code: error instanceof Error ? error.name : 'UNKNOWN',
+      recoverable: true,
+      route,
+    });
+    const bootError = new BootError(
+      'Failed to prune ineligible snapshots',
+      'snapshot-read',
+      error as Error,
+    );
+    console.error(bootError.getDebugInfo());
+    return;
+  }
+
+  if (!resolvedPolicy || !isRouteAllowed(resolvedPolicy, route)) {
+    db.close();
     return;
   }
 
@@ -122,7 +148,7 @@ export async function boot(): Promise<void> {
   if (
     typeof snapshot.timestamp !== 'number' ||
     typeof snapshot.body !== 'string' ||
-    typeof snapshot.route !== 'string'
+    snapshot.route !== route
   ) {
     try {
       const db2 = await openDB();
@@ -140,7 +166,7 @@ export async function boot(): Promise<void> {
   }
 
   const age = Date.now() - snapshot.timestamp;
-  if (age > STORAGE_CONFIG.MAX_SNAPSHOT_AGE) {
+  if (age > resolvedPolicy.ttlMs) {
     emitDevToolsEvent('restore', {
       route,
       strategy: 'cold-start',
@@ -149,14 +175,14 @@ export async function boot(): Promise<void> {
     });
     if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
       console.log(
-        `[FirstTx] Snapshot too old (age: ${age}ms, max: ${STORAGE_CONFIG.MAX_SNAPSHOT_AGE}ms), skipping restore`,
+        `[FirstTx] Snapshot too old (age: ${age}ms, max: ${resolvedPolicy.ttlMs}ms), skipping restore`,
       );
     }
     return;
   }
 
   try {
-    mountOverlay(snapshot.body, snapshot.styles);
+    mountOverlay(snapshot.body, resolvedPolicy.includeStyles ? snapshot.styles : undefined);
     document.documentElement.setAttribute('data-prepaint', 'true');
     document.documentElement.setAttribute('data-prepaint-overlay', 'true');
     document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));

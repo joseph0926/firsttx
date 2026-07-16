@@ -42,7 +42,7 @@ function fallbackSanitize(html: string): string {
         el.removeAttribute(attr.name);
         return;
       }
-      const value = attr.value.toLowerCase().trim();
+      const value = attr.value.toLowerCase().replace(/[\u0000-\u0020]+/g, '');
       if (value.startsWith('javascript:') || value.startsWith('data:text/html')) {
         el.removeAttribute(attr.name);
       }

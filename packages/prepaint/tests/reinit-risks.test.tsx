@@ -25,11 +25,21 @@ describe('Re-initialization behavior', () => {
     window.history.pushState(null, '', '/');
     vi.restoreAllMocks();
     vi.resetModules();
+    (
+      globalThis as typeof globalThis & {
+        __FIRSTTX_PREPAINT_POLICY__?: unknown;
+      }
+    ).__FIRSTTX_PREPAINT_POLICY__ = { routes: ['/', '/allowed', '/blocked'] };
   });
 
   afterEach(() => {
     cleanupRoots();
     vi.restoreAllMocks();
+    delete (
+      globalThis as typeof globalThis & {
+        __FIRSTTX_PREPAINT_POLICY__?: unknown;
+      }
+    ).__FIRSTTX_PREPAINT_POLICY__;
   });
 
   it('uses the latest onCapture callback after createFirstTxRoot re-init', async () => {
@@ -51,7 +61,7 @@ describe('Re-initialization behavior', () => {
     });
 
     act(() => {
-      window.dispatchEvent(new Event('beforeunload'));
+      window.dispatchEvent(new Event('pagehide'));
     });
 
     await waitFor(() => {
@@ -60,7 +70,7 @@ describe('Re-initialization behavior', () => {
     });
   });
 
-  it('does not install root-guard listeners across repeated createFirstTxRoot calls', async () => {
+  it('does not duplicate capture lifecycle listeners across repeated roots', async () => {
     const { createFirstTxRoot } = await import('../src/helpers');
     const addSpy = vi.spyOn(window, 'addEventListener');
 
@@ -85,7 +95,7 @@ describe('Re-initialization behavior', () => {
     const addedPageshow = addSpy.mock.calls.filter((call) => call[0] === 'pageshow').length;
 
     expect(addedPopstate).toBe(0);
-    expect(addedPageshow).toBe(0);
+    expect(addedPageshow).toBe(1);
   });
 
   it('applies second setupCapture options on repeated setup', async () => {
@@ -97,12 +107,15 @@ describe('Re-initialization behavior', () => {
     const firstOnCapture = vi.fn();
     const secondOnCapture = vi.fn();
 
-    const cleanup = setupCapture({ routes: ['/allowed'], onCapture: firstOnCapture });
-    setupCapture({ routes: ['/blocked'], onCapture: secondOnCapture });
+    const cleanup = setupCapture({
+      policy: { routes: ['/allowed'] },
+      onCapture: firstOnCapture,
+    });
+    setupCapture({ policy: { routes: ['/blocked'] }, onCapture: secondOnCapture });
 
     act(() => {
       window.history.pushState(null, '', '/blocked');
-      window.dispatchEvent(new Event('beforeunload'));
+      window.dispatchEvent(new Event('pagehide'));
     });
 
     await waitFor(() => {
@@ -122,7 +135,7 @@ describe('Re-initialization behavior', () => {
       <div id="app-b">App B</div>
     `;
 
-    const snapshot = await captureSnapshot();
+    const snapshot = await captureSnapshot({ routes: ['/'] });
 
     expect(snapshot).not.toBeNull();
     expect(snapshot?.body).toContain('app-a');

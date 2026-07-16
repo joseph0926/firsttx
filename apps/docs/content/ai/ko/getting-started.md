@@ -71,10 +71,12 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ policy: { routes: ['/dashboard', '/cart'] } }),
   ],
 });
 ```
+
+`policy.routes`에 정확한 pathname을 명시하기 전에는 Prepaint가 비활성화됩니다.
 
 #### 2. 엔트리 포인트 설정
 
