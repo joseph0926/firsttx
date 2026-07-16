@@ -9,8 +9,11 @@ appeared on `main` at least once.
 - Enable CodeQL default setup for JavaScript/TypeScript.
 - Confirm that there are no open High or Medium code scanning alerts.
 - Enable Dependabot alerts and Dependabot security updates.
-- Confirm that `.github/dependabot.yml` creates grouped weekly updates for npm and GitHub
-  Actions.
+- Enable grouped Dependabot security updates in repository settings.
+- Keep Dependabot version updates disabled; this repository intentionally does not include
+  `.github/dependabot.yml` because routine update pull requests are not part of its maintenance
+  workflow.
+- Review npm dependencies and pinned GitHub Action SHAs manually at least once per quarter.
 - Change the Actions policy to require actions to be pinned to a full commit SHA.
 - Allow only GitHub-owned actions plus the pnpm, Changesets, Vitest coverage, and OpenSSF
   Scorecard actions used by this repository.
