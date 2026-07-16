@@ -11,6 +11,8 @@ out/
 build/
 .cache/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # Turborepo

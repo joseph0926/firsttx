@@ -122,7 +122,7 @@ describe('sanitize', () => {
       });
     });
 
-    describe('javascript: URL removal', () => {
+    describe('unsafe URL removal', () => {
       it('removes javascript: href', () => {
         const html = '<a href="javascript:alert(1)">Click</a>';
         const result = sanitizeSnapshotHTMLSync(html);
@@ -165,6 +165,36 @@ describe('sanitize', () => {
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('data:text/html');
+      });
+
+      it('removes vbscript URLs and control-character variants', () => {
+        const html = '<a href="vB\tsCrIpT:msgbox(1)">Click</a>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).not.toContain('href=');
+      });
+
+      it.each(['png', 'jpeg', 'gif', 'webp', 'avif'])(
+        'preserves valid base64 image/%s data URLs',
+        (mime) => {
+          const html = `<img src="data:image/${mime};base64,QUJDRA==" alt="preview">`;
+          const result = sanitizeSnapshotHTMLSync(html);
+
+          expect(result).toContain(`src="data:image/${mime};base64,QUJDRA=="`);
+        },
+      );
+
+      it.each([
+        'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+        'data:text/html;base64,PGgxPkJhZDwvaDE+',
+        'data:image/png,not-base64',
+        'data:image/png;base64,',
+        'data:image/png;base64,%%%%',
+        'data: image/png;base64,QUJDRA==',
+      ])('removes disallowed or malformed data URL %s', (url) => {
+        const result = sanitizeSnapshotHTMLSync(`<img src="${url}" alt="preview">`);
+
+        expect(result).not.toContain('src=');
       });
     });
 
@@ -282,6 +312,14 @@ describe('sanitize', () => {
 
       expect(result).not.toContain('onclick');
       expect(result).toContain('Content');
+    });
+
+    it('applies the raster data URL policy after DOMPurify', async () => {
+      const result = await sanitizeSnapshotHTML(
+        '<img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=" alt="preview">',
+      );
+
+      expect(result).not.toContain('src=');
     });
 
     it('removes script tags', async () => {

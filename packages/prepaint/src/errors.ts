@@ -110,10 +110,7 @@ export class HydrationError extends PrepaintError {
 }
 
 export type StorageErrorCode =
-  | 'QUOTA_EXCEEDED'
-  | 'PERMISSION_DENIED'
-  | 'CORRUPTED_DATA'
-  | 'UNKNOWN';
+  'QUOTA_EXCEEDED' | 'PERMISSION_DENIED' | 'CORRUPTED_DATA' | 'UNKNOWN';
 
 export class PrepaintStorageError extends PrepaintError {
   readonly code: PrepaintErrorCode;

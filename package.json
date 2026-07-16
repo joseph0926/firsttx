@@ -7,7 +7,7 @@
   "author": "joseph0926",
   "packageManager": "pnpm@11.11.0",
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   },
   "keywords": [
     "prepaint",
@@ -36,10 +36,10 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm run typecheck && pnpm run lint && pnpm run test:coverage",
-    "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "release:version": "changeset version && pnpm install --no-frozen-lockfile",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm --filter @firsttx/docs test:run",
+    "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "release:version": "changeset version && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile",
     "release:publish": "turbo run build --filter='./packages/*' && changeset publish",
     "prepare": "husky",
     "tree": "tree -I 'node_modules|.git|.turbo|dist|build'"
