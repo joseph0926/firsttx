@@ -78,7 +78,7 @@ export default defineConfig({
       <code>nonce: string</code> - nonce embedded in generated output; static Vite output cannot create a per-response nonce
     </li>
   </ul>
-  Use capture and restore route policies to restrict eligible routes.
+  <code>setupCapture</code> with its <code>routes</code> option can restrict new captures; restore-side route filtering is not available in this release.
 </Callout>
 
 For static hosting, prefer an external boot asset or a CSP hash. A nonce passed to the Vite plugin is generated at build time, not once per HTTP response.

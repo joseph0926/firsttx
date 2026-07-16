@@ -72,11 +72,11 @@ pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [firstTx({ overlay: true })],
+  plugins: [firstTx()],
 });
 ```
 
-> 현재 릴리스에서는 오버레이 모드를 권장합니다. 기존 직접 복원 경로는 캐시된 클라이언트 DOM의 hydration을 시도할 수 있으며, 지원되는 렌더링 계약이 아닙니다.
+> 스냅샷 복원은 항상 React root 밖의 비상호작용 오버레이를 사용합니다. 기존 `overlay`, `overlayRoutes` 옵션은 deprecated no-op입니다.
 
 ### 2. 진입점
 
@@ -119,9 +119,9 @@ function CartPage() {
 
 ## 문제 해결
 
-**새로고침 시 UI가 중복됨**: Vite 플러그인에서 `overlay: true`를 활성화하세요.
+**새로고침 시 UI가 중복됨**: `@firsttx/prepaint@0.11.0` 이상으로 업데이트하고 `createFirstTxRoot`를 통해 React를 마운트하세요. 별도 overlay 옵션은 필요하지 않습니다.
 
-**기존 직접 복원 방식의 불일치 경고**: `overlay: true`를 우선 사용하고, 자주 변경되는 요소에 `data-firsttx-volatile`을 추가하세요.
+**스냅샷에서 자주 변경되는 내용**: 캡처된 visual snapshot에서 비워야 하는 내용에 `data-firsttx-volatile`을 추가하세요.
 
 **TypeScript 오류**: `declare const __FIRSTTX_DEV__: boolean`을 추가하세요.
 

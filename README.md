@@ -72,11 +72,11 @@ pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [firstTx({ overlay: true })],
+  plugins: [firstTx()],
 });
 ```
 
-> Overlay mode is recommended in current releases. The legacy direct-restore path may attempt to hydrate cached client DOM and is not a supported rendering contract.
+> Snapshot restore always uses a non-interactive overlay outside the React root. The legacy `overlay` and `overlayRoutes` options are deprecated no-ops.
 
 ### 2. Entry Point
 
@@ -119,9 +119,9 @@ function CartPage() {
 
 ## Troubleshooting
 
-**UI duplicates on refresh**: Enable `overlay: true` in Vite plugin.
+**UI duplicates on refresh**: Upgrade to `@firsttx/prepaint@0.11.0` or later and mount React through `createFirstTxRoot`. No overlay option is required.
 
-**Legacy direct-restore mismatch warnings**: Prefer `overlay: true` and add `data-firsttx-volatile` to frequently changing elements.
+**Frequently changing snapshot content**: Add `data-firsttx-volatile` to content that should be cleared from the captured visual snapshot.
 
 **TypeScript errors**: Add `declare const __FIRSTTX_DEV__: boolean`.
 

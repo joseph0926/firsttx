@@ -6,7 +6,7 @@
 
 - cf16bb6: Replace legacy cached-DOM hydration with a visual-only overlay handoff. Snapshot restore now leaves the React container untouched, React always mounts with `createRoot()`, and the overlay is removed after the first React commit.
 
-  The `overlay`, `overlayRoutes`, and `onHydrationError` options remain accepted as deprecated no-ops for one release. Remove overlay flags from new integrations; use capture and restore route policies to limit eligible routes.
+  The `overlay`, `overlayRoutes`, and `onHydrationError` options remain accepted as deprecated no-ops for one release. Remove overlay flags from new integrations. `setupCapture({ routes })` can restrict new captures; restore-side route filtering is not available in this release.
 
 ## 0.10.0
 

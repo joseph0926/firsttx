@@ -12,8 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GOVERNANCE.md for project governance documentation
 - CHANGELOG.md for tracking version history
 - OpenSSF Scorecard workflow for security health metrics
-- Dependabot configuration for automated dependency updates
 - Test coverage reporting in CI
+
+### Removed
+
+- Dependabot configuration
 
 ## Packages
 

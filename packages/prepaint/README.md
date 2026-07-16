@@ -160,7 +160,7 @@ firstTx({
 
 For static Vite output, `nonce` is embedded at build time even when supplied as a function; it does not create a per-response nonce. Prefer an external boot asset or a CSP hash for static hosting.
 
-The previous `overlay` and `overlayRoutes` options remain accepted as deprecated no-ops for one release. Use capture and restore route policies instead of choosing a direct-restore path.
+The previous `overlay` and `overlayRoutes` options remain accepted as deprecated no-ops for one release. `setupCapture({ routes })` can restrict new captures; restore-side route filtering is not available in this release.
 
 ---
 

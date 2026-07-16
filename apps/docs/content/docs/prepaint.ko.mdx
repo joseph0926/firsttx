@@ -74,7 +74,7 @@ export default defineConfig({
 
 정적 호스팅에서는 external boot asset이나 CSP hash를 우선하세요. Vite 플러그인에 전달한 nonce는 HTTP 응답마다가 아니라 빌드 시점에 생성됩니다.
 
-기존 `overlay`, `overlayRoutes` 옵션은 한 릴리스 동안 deprecated no-op으로 허용됩니다. 복원 방식은 항상 오버레이이며, 라우트 범위는 캡처·복원 정책으로 제한해야 합니다.
+기존 `overlay`, `overlayRoutes` 옵션은 한 릴리스 동안 deprecated no-op으로 허용됩니다. 복원 방식은 항상 오버레이입니다. `setupCapture({ routes })`로 새 캡처를 제한할 수 있지만, restore-side route filtering은 이 릴리스에서 제공하지 않습니다.
 
 ---
 
