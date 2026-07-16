@@ -75,7 +75,10 @@ createFirstTxRoot(document.getElementById('root')!, <App />);`,
     codeSnippet: `import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [react(), firstTx()],
+  plugins: [
+    react(),
+    firstTx({ policy: { routes: ['/prepaint/route-switching'] } }),
+  ],
 });`,
     codeTitle: 'Vite Plugin Setup',
     docsLink: 'https://firsttx-docs.vercel.app/docs/prepaint',
