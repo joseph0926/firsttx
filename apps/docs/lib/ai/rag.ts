@@ -107,7 +107,7 @@ export function buildSystemPrompt(contextText: string, locale: Locale = "ko"): s
 
   const contextDescription = hasContext ? contextText : noContextMessage;
 
-  return SYSTEM_PROMPTS[locale](contextDescription);
+  return locale === "en" ? SYSTEM_PROMPTS.en(contextDescription) : SYSTEM_PROMPTS.ko(contextDescription);
 }
 
 export function formatCitations(results: SearchResult[], locale: Locale = "ko"): string {

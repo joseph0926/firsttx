@@ -1,10 +1,7 @@
 import { BaseFirstTxError } from '@firsttx/shared';
 
 export type TxErrorCode =
-  | 'COMPENSATION_FAILED'
-  | 'RETRY_EXHAUSTED'
-  | 'TRANSACTION_TIMEOUT'
-  | 'TRANSACTION_STATE';
+  'COMPENSATION_FAILED' | 'RETRY_EXHAUSTED' | 'TRANSACTION_TIMEOUT' | 'TRANSACTION_STATE';
 
 export abstract class TxError extends BaseFirstTxError {
   readonly domain = 'tx' as const;

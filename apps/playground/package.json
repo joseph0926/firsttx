@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Interactive playground demonstrating FirstTx through 9 real-world scenarios. Experience how FirstTx solves CSR challenges like blank screens, stale data, and rollback inconsistencies.",
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vite",

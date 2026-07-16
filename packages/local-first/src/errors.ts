@@ -2,10 +2,7 @@ import type { z } from 'zod';
 import { BaseFirstTxError } from '@firsttx/shared';
 
 export type LocalFirstErrorCode =
-  | 'STORAGE_QUOTA_EXCEEDED'
-  | 'STORAGE_PERMISSION_DENIED'
-  | 'STORAGE_UNKNOWN'
-  | 'VALIDATION_FAILED';
+  'STORAGE_QUOTA_EXCEEDED' | 'STORAGE_PERMISSION_DENIED' | 'STORAGE_UNKNOWN' | 'VALIDATION_FAILED';
 
 export abstract class FirstTxError extends BaseFirstTxError {
   readonly domain = 'local-first' as const;

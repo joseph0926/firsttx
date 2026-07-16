@@ -163,6 +163,36 @@ describe('browser utilities', () => {
       expect(result).not.toContain('javascript:');
     });
 
+    it('should remove vbscript and control-character URL variants', () => {
+      const html = '<a href="vB\tsCrIpT:msgbox(1)">Link</a>';
+      const result = sanitizeHTMLSync(html);
+
+      expect(result).not.toContain('href=');
+    });
+
+    it.each(['png', 'jpeg', 'gif', 'webp', 'avif'])(
+      'should preserve valid base64 image/%s data URLs',
+      (mime) => {
+        const html = `<img src="data:image/${mime};base64,QUJDRA==" alt="preview">`;
+        const result = sanitizeHTMLSync(html);
+
+        expect(result).toContain(`src="data:image/${mime};base64,QUJDRA=="`);
+      },
+    );
+
+    it.each([
+      'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+      'data:text/html;base64,PGgxPkJhZDwvaDE+',
+      'data:image/png,not-base64',
+      'data:image/png;base64,',
+      'data:image/png;base64,%%%%',
+      'data: image/png;base64,QUJDRA==',
+    ])('should remove disallowed or malformed data URL %s', (url) => {
+      const result = sanitizeHTMLSync(`<img src="${url}" alt="preview">`);
+
+      expect(result).not.toContain('src=');
+    });
+
     it('should preserve safe HTML', () => {
       const html = '<div class="container"><p>Hello <strong>World</strong></p></div>';
       const result = sanitizeHTMLSync(html);
@@ -203,6 +233,14 @@ describe('browser utilities', () => {
 
       expect(result).not.toContain('onclick');
       expect(result).toContain('Safe');
+    });
+
+    it('should apply the raster data URL policy after DOMPurify', async () => {
+      const result = await sanitizeHTML(
+        '<img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=" alt="preview">',
+      );
+
+      expect(result).not.toContain('src=');
     });
   });
 

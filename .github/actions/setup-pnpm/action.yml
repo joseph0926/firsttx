@@ -10,27 +10,37 @@ inputs:
     description: pnpm version to use
     required: false
     default: '11.11.0'
+  ignore-scripts:
+    description: Install dependencies without running lifecycle scripts
+    required: false
+    default: 'false'
 
 runs:
   using: composite
   steps:
     - name: Setup pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
       with:
         version: ${{ inputs.pnpm-version }}
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version: ${{ inputs.node-version }}
         cache: pnpm
 
     - name: Install dependencies
+      if: inputs.ignore-scripts != 'true'
       shell: bash
       run: pnpm install --frozen-lockfile
 
+    - name: Install dependencies without lifecycle scripts
+      if: inputs.ignore-scripts == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile --ignore-scripts
+
     - name: Setup Turbo cache
-      uses: actions/cache@v5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
       with:
         path: .turbo
         key: turbo-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ github.sha }}

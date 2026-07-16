@@ -2,9 +2,7 @@ import type { CacheStatus, ModelHistory } from './types';
 import { FirstTxError } from './errors';
 
 export type CacheState<T> =
-  | { status: 'loading' }
-  | { status: 'success'; data: T }
-  | { status: 'error'; error: FirstTxError };
+  { status: 'loading' } | { status: 'success'; data: T } | { status: 'error'; error: FirstTxError };
 
 export type CombinedSnapshot<T> = {
   data: T | null;

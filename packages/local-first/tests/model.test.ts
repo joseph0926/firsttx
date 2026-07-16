@@ -135,6 +135,23 @@ describe('Model', () => {
       const stored = await storage.get('cart');
       expect(stored).toBeNull();
     });
+
+    it('should delete a mismatched version without initial data', async () => {
+      const TestModel = defineModel('version-mismatch', {
+        version: 2,
+        schema: z.object({ value: z.string() }),
+        ttl: 5000,
+      });
+      const storage = Storage.getInstance();
+      await storage.set('version-mismatch', {
+        _v: 1,
+        updatedAt: Date.now(),
+        data: { value: 'stale' },
+      });
+
+      await expect(TestModel.getSnapshot()).resolves.toBeNull();
+      await expect(storage.get('version-mismatch')).resolves.toBeNull();
+    });
   });
 
   describe('patch', () => {

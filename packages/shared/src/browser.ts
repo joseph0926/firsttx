@@ -42,6 +42,38 @@ type DOMPurifyLike = {
 };
 
 let cachedDOMPurify: DOMPurifyLike | null | undefined = undefined;
+const URL_ATTRIBUTE_SET = new Set([
+  'action',
+  'background',
+  'cite',
+  'formaction',
+  'href',
+  'poster',
+  'src',
+  'xlink:href',
+]);
+const RASTER_DATA_URL_PATTERN =
+  /^data:image\/(?:png|jpeg|gif|webp|avif);base64,(?=[a-z0-9+/])((?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?)$/i;
+
+function isUnsafeAttributeUrl(rawValue: string): boolean {
+  const value = rawValue.trim();
+  const separatorIndex = value.indexOf(':');
+
+  if (separatorIndex < 0) {
+    return false;
+  }
+
+  const scheme = value
+    .slice(0, separatorIndex)
+    .replace(/[\u0000-\u0020\u007f]+/g, '')
+    .toLowerCase();
+
+  if (scheme === 'javascript' || scheme === 'vbscript') {
+    return true;
+  }
+
+  return scheme === 'data' && !RASTER_DATA_URL_PATTERN.test(value);
+}
 
 async function tryLoadDOMPurify(): Promise<DOMPurifyLike | null> {
   if (cachedDOMPurify !== undefined) {
@@ -81,22 +113,24 @@ function fallbackSanitize(html: string, options: Required<SanitizeOptions>): str
           el.removeAttribute(attr);
         }
       });
-
-      const attributes = Array.from(el.attributes);
-      attributes.forEach((attr) => {
-        if (attr.name.startsWith('on')) {
-          el.removeAttribute(attr.name);
-        }
-        const value = attr.value.toLowerCase().trim();
-        if (value.startsWith('javascript:') || value.startsWith('data:text/html')) {
-          el.removeAttribute(attr.name);
-        }
-      });
     });
   }
 
-  doc.querySelectorAll('a[href^="javascript:"]').forEach((el) => {
-    el.removeAttribute('href');
+  const allElements = doc.body.querySelectorAll('*');
+  allElements.forEach((el) => {
+    const attributes = Array.from(el.attributes);
+    attributes.forEach((attr) => {
+      const attrName = attr.name.toLowerCase();
+
+      if (options.removeEventHandlers && attrName.startsWith('on')) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+
+      if (URL_ATTRIBUTE_SET.has(attrName) && isUnsafeAttributeUrl(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    });
   });
 
   return doc.body.innerHTML;
@@ -108,7 +142,7 @@ export async function sanitizeHTML(html: string, options: SanitizeOptions = {}):
   const DOMPurify = await tryLoadDOMPurify();
 
   if (DOMPurify) {
-    return DOMPurify.sanitize(html, {
+    const sanitized = DOMPurify.sanitize(html, {
       FORBID_TAGS: mergedOptions.removeScripts
         ? DANGEROUS_HTML_TAGS.filter((tag) => !mergedOptions.allowedTags.includes(tag))
         : [],
@@ -118,6 +152,8 @@ export async function sanitizeHTML(html: string, options: SanitizeOptions = {}):
       ALLOW_DATA_ATTR: false,
       ALLOW_ARIA_ATTR: true,
     });
+
+    return fallbackSanitize(sanitized, mergedOptions);
   }
 
   return fallbackSanitize(html, mergedOptions);

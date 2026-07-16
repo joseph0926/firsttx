@@ -6,6 +6,13 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   e2e:
     name: e2e-${{ matrix.suite.name }}
@@ -18,21 +25,21 @@ jobs:
           - name: smoke
             testArgs: tests/home.smoke.spec.ts
           - name: metrics
-            testArgs: tests/prepaint-heavy.spec.ts tests/*.metrics.spec.ts
+            testArgs: tests/prepaint-heavy.spec.ts tests/instant-cart.metrics.spec.ts tests/tx-concurrent.metrics.spec.ts
     env:
       CI: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
         with:
           version: 11.11.0
           run_install: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           cache: pnpm
@@ -47,11 +54,11 @@ jobs:
         run: pnpm --filter playground exec playwright install chromium --with-deps
 
       - name: Run Playwright tests
-        run: pnpm --filter playground test:e2e -- ${{ matrix.suite.testArgs }}
+        run: pnpm --filter playground test:e2e ${{ matrix.suite.testArgs }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: playwright-report-${{ matrix.suite.name }}
           path: apps/playground/playwright-report
@@ -60,7 +67,7 @@ jobs:
 
       - name: Upload Playwright test results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: playwright-test-results-${{ matrix.suite.name }}
           path: apps/playground/test-results
