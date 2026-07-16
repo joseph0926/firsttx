@@ -8,7 +8,7 @@ Prepaint reduces the visible blank interval on revisit in CSR React applications
 
 ### Capture phase
 
-When the user leaves the page (on `visibilitychange`, `pagehide`, or `beforeunload` events), the following steps are executed:
+During idle time and once more on `visibilitychange` or `pagehide`, the following steps are executed:
 
 1. Clone the first child DOM node of the `#root` element.
 2. Clear the contents of elements with the `data-firsttx-volatile` attribute.
@@ -74,15 +74,25 @@ import react from '@vitejs/plugin-react';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [react(), firstTx()],
+  plugins: [
+    react(),
+    firstTx({
+      policy: { routes: ['/dashboard', '/cart'] },
+    }),
+  ],
 });
 ```
+
+The policy is an exact pathname allowlist shared by capture, restore, and pruning. Missing or empty routes disable Prepaint. Defaults are a 7-day TTL, 1 MiB UTF-8 payload limit, and CSS capture enabled. The boot script is an external `/firsttx-boot.js` asset by default; use `inline: true` only with an intentional CSP hash.
+
+Restored HTML is sanitized, but captured CSS is visual cache data and is not a general CSS sanitization boundary. Set `includeStyles: false` for routes with user-controlled or sensitive CSS.
 
 ### Plugin options
 
 | Option            | Type                                                   | Default              | Description                                                                                          |
 | ----------------- | ------------------------------------------------------ | -------------------- | ---------------------------------------------------------------------------------------------------- |
-| `inline`          | `boolean`                                              | `true`               | Inlines the boot script into HTML                                                                    |
+| `inline`          | `boolean`                                              | `false`              | Inlines the boot script into HTML; intended for CSP hash deployments                                 |
+| `policy`          | `PrepaintPolicy`                                       | disabled             | Exact routes plus optional TTL, byte limit, and CSS capture settings                                 |
 | `minify`          | `boolean`                                              | `true` in production | Whether to minify the boot script. In development, the default is `false`.                           |
 | `injectTo`        | `'head' \| 'head-prepend' \| 'body' \| 'body-prepend'` | `'head-prepend'`     | Where to inject the script                                                                           |
 | `nonce`           | `string \| (() => string)`                             | -                    | CSP nonce embedded when Vite generates the output; static output cannot create one per HTTP response |

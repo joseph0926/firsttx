@@ -61,7 +61,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
   ],
 });
 ```
@@ -71,6 +71,8 @@ export default defineConfig({
 1. 페이지 진입 시 IndexedDB에서 마지막 DOM 스냅샷을 읽어오고
 2. 유효한 스냅샷이 있다면 React보다 먼저 복원한 뒤
 3. 그 다음에 실제 React 앱이 마운트되도록 연결합니다.
+
+`policy.routes`에 정확한 pathname을 명시하기 전에는 Prepaint가 비활성화됩니다.
 
 <Callout type="info" title="Visual overlay가 기본입니다">
   스냅샷은 항상 React root 밖의 비상호작용 overlay에 표시됩니다. React는 빈 root에 마운트되고 첫 commit 뒤 overlay가 제거됩니다.

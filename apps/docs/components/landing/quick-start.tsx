@@ -72,7 +72,9 @@ import { defineConfig } from "vite";
 import { firstTx } from "@firsttx/prepaint/plugin/vite";
 
 export default defineConfig({
-  plugins: [firstTx()],
+  plugins: [
+    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
+  ],
 });
               `}
             />

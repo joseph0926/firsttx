@@ -51,9 +51,11 @@
 - snapshot DOM을 container에 직접 삽입하고 hydrate하는 기존 경로는 제거하거나 한 릴리스 동안 명시적인 deprecated experimental 옵션으로만 유지합니다.
 - root child 수를 1개로 강제하는 guard를 제거합니다. Fragment와 복수 최상위 노드를 정상적인 React 출력으로 취급합니다.
 
-### 1-B. 저장·복원 보안 정책
+### 1-B. 저장·복원 보안 정책 — 완료 (2026-07-16)
 
-현재 기본 동작은 모든 route의 DOM과 같은 출처 CSS를 최대 7일간 저장합니다. CRM·대시보드 같은 권장 surface에서 PII가 IndexedDB에 남을 수 있습니다.
+변경 전 기본 동작은 모든 route의 DOM과 같은 출처 CSS를 최대 7일간 저장했습니다. CRM·대시보드 같은 권장 surface에서 PII가 IndexedDB에 남을 수 있었습니다.
+
+구현 결과는 `firstTx({ policy: { routes, ttlMs, maxSnapshotBytes, includeStyles } })`를 단일 정책 권위로 사용합니다. 경로를 누락하거나 비우면 캡처·복원을 비활성화하고, schema v2 migration과 boot-time prune으로 legacy·비허용·만료·크기 초과 record를 제거합니다. 기본 부트 경로는 self-starting external asset이며, `inline: true`는 CSP hash를 명시적으로 관리하는 경로입니다.
 
 - capture와 boot restore가 하나의 route allowlist 정책을 공유하도록 합니다.
 - allowlist 미설정 시 기본적으로 캡처와 복원을 비활성화합니다.

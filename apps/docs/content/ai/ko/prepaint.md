@@ -8,7 +8,7 @@ Prepaint는 CSR React 앱 재방문의 빈 화면 시간을 줄입니다. DOM sn
 
 ### 캡처 단계
 
-사용자가 페이지를 떠날 때(visibilitychange, pagehide, beforeunload 이벤트) 다음 작업이 수행됩니다:
+유휴 시점과 `visibilitychange` 또는 `pagehide` 마지막 시점에 다음 작업이 수행됩니다:
 
 1. `#root` 요소의 첫 번째 자식 DOM을 복제합니다
 2. `data-firsttx-volatile` 속성이 있는 요소의 내용을 비웁니다
@@ -74,15 +74,25 @@ import react from '@vitejs/plugin-react';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [react(), firstTx()],
+  plugins: [
+    react(),
+    firstTx({
+      policy: { routes: ['/dashboard', '/cart'] },
+    }),
+  ],
 });
 ```
+
+정책은 캡처·복원·정리가 공유하는 정확한 pathname allowlist입니다. 누락하거나 비우면 Prepaint가 비활성화됩니다. 기본값은 TTL 7일, UTF-8 payload 최대 1 MiB, CSS 포함입니다. 부트 스크립트는 기본적으로 외부 `/firsttx-boot.js` 자산이며, `inline: true`는 CSP hash를 의도적으로 관리할 때 사용합니다.
+
+복원 HTML은 sanitize하지만 저장 CSS는 시각 캐시일 뿐 범용 CSS sanitization 경계가 아닙니다. 사용자 제어 또는 민감 CSS가 있는 route에서는 `includeStyles: false`를 사용하세요.
 
 ### 플러그인 옵션
 
 | 옵션              | 타입                                                   | 기본값              | 설명                                                                                                      |
 | ----------------- | ------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------- |
-| `inline`          | `boolean`                                              | `true`              | 부트 스크립트를 HTML에 인라인으로 삽입합니다                                                              |
+| `inline`          | `boolean`                                              | `false`             | CSP hash 배포를 위해 부트 스크립트를 HTML에 인라인으로 삽입합니다                                         |
+| `policy`          | `PrepaintPolicy`                                       | 비활성화            | 정확한 route와 선택 TTL, byte 제한, CSS 저장 설정입니다                                                   |
 | `minify`          | `boolean`                                              | 프로덕션에서 `true` | 부트 스크립트 minify 여부입니다. 개발 환경에서는 기본 `false`입니다                                       |
 | `injectTo`        | `'head' \| 'head-prepend' \| 'body' \| 'body-prepend'` | `'head-prepend'`    | 스크립트 삽입 위치입니다                                                                                  |
 | `nonce`           | `string \| (() => string)`                             | -                   | Vite가 결과물을 생성할 때 포함하는 CSP nonce입니다. 정적 출력은 HTTP 응답마다 새 nonce를 만들 수 없습니다 |

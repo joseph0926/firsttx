@@ -1,5 +1,14 @@
 # @firsttx/prepaint
 
+## Unreleased
+
+### Minor Changes
+
+- Add an explicit opt-in `policy` shared by capture, restore, and pruning. Missing or empty routes now disable Prepaint; defaults are a 7-day TTL, a 1 MiB UTF-8 payload limit, and CSS capture enabled.
+- Emit a self-starting `/firsttx-boot.js` asset by default. `inline: true` remains available for static deployments that manage a CSP hash.
+- Upgrade snapshot storage to schema v2, clearing legacy records once and pruning disallowed, expired, oversized, or style-ineligible records on boot.
+- Prepare snapshots during idle time and save on `visibilitychange`/`pagehide` without a `beforeunload` listener.
+
 ## 0.11.0
 
 ### Minor Changes

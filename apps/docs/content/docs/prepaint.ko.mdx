@@ -58,23 +58,27 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
   ],
 });
 ```
 
-- `firstTx()`는 HTML에 작은 IIFE 부트 스니펫(~1.7KB)을 인라인으로 주입하거나(기본값), 별도의 `/firsttx-boot.js`로 서빙할 수 있습니다.
+- `firstTx()`는 기본적으로 self-starting `/firsttx-boot.js` 외부 자산을 생성합니다.
 - 이 스니펫이 **React가 로드되기 전에** IndexedDB에서 스냅샷을 읽어와 DOM을 복원합니다.
 
 주요 플러그인 옵션(요약),
 
-- `inline` (`boolean`, 기본 `true`): 부트 스크립트를 HTML에 인라인 삽입할지 여부
+- `inline` (`boolean`, 기본 `false`): CSP hash를 직접 관리할 때 부트 스크립트를 HTML에 인라인 삽입할지 여부
 - `injectTo` (`"head" | "head-prepend" | "body" | "body-prepend"`, 기본 `"head"`): 스크립트 삽입 위치
 - `nonce` (`string`): 생성 결과물에 포함할 nonce. 정적 Vite 출력에서는 응답별 nonce를 만들 수 없음
 
-정적 호스팅에서는 external boot asset이나 CSP hash를 우선하세요. Vite 플러그인에 전달한 nonce는 HTTP 응답마다가 아니라 빌드 시점에 생성됩니다.
+`policy.routes`는 캡처·복원·record 정리가 공유하는 정확한 pathname allowlist입니다. 누락하거나 비우면 Prepaint가 비활성화됩니다. 기본 정책은 TTL 7일, UTF-8 payload 최대 1 MiB, CSS 포함입니다. DB schema v2 진입 시 기존 v1 record를 한 번 폐기합니다.
 
-기존 `overlay`, `overlayRoutes` 옵션은 한 릴리스 동안 deprecated no-op으로 허용됩니다. 복원 방식은 항상 오버레이입니다. `setupCapture({ routes })`로 새 캡처를 제한할 수 있지만, restore-side route filtering은 이 릴리스에서 제공하지 않습니다.
+정적 호스팅에서는 기본 external boot asset을 사용하거나 `inline: true`와 CSP hash를 함께 사용하세요. Vite 플러그인에 전달한 nonce는 HTTP 응답마다가 아니라 빌드 시점에 생성됩니다. 기존 `overlay`, `overlayRoutes` 옵션은 한 릴리스 동안 deprecated no-op입니다.
+
+<Callout type="warning" title="CSS threat boundary">
+  복원 HTML은 sanitize하지만 저장 CSS는 시각 캐시일 뿐 범용 CSS sanitization 경계가 아닙니다. 사용자 제어 또는 민감 CSS가 있는 route에서는 <code>includeStyles: false</code>를 사용하세요.
+</Callout>
 
 ---
 
@@ -193,7 +197,7 @@ Prepaint의 핵심은 **HTML에 주입된 부트 스크립트**입니다.
 
 ## 3. 캡처 파이프라인: 어떤 DOM이 저장되나요?
 
-사용자가 페이지를 떠나기 직전에 Prepaint는 **`#root`의 첫 번째 자식**을 직렬화해서 IndexedDB에 저장합니다.
+활성 페이지의 유휴 시점과 페이지가 숨겨지는 마지막 시점에 Prepaint는 **`#root`의 첫 번째 자식**을 직렬화해서 IndexedDB에 저장합니다.
 
 ### 3‑1. 캡처 트리거
 
@@ -201,9 +205,8 @@ Prepaint의 핵심은 **HTML에 주입된 부트 스크립트**입니다.
 
 - `visibilitychange` (숨김 상태로 전환될 때)
 - `pagehide`
-- `beforeunload`
 
-이 이벤트가 발생하면 `queueMicrotask`로 캡처 작업을 한 번만 예약하여, 연속 이벤트에도 중복 캡처를 막습니다.
+페이지가 활성 상태일 때 idle capture도 예약합니다. 진행 중인 write는 중복 실행하지 않으며 `beforeunload` listener는 등록하지 않습니다.
 
 ### 3‑2. 직렬화 & 민감 데이터 처리
 

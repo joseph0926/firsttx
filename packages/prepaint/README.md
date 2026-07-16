@@ -64,11 +64,11 @@ Prepaint currently provides a Vite plugin only.
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [firstTx()],
+  plugins: [firstTx({ policy: { routes: ['/dashboard', '/cart'] } })],
 });
 ```
 
-Snapshot restore always uses a non-interactive overlay outside the React root.
+Prepaint is disabled until `policy.routes` explicitly opts pathnames in. Matching is exact, and the same policy governs capture, restore, and stored-record pruning. Snapshot restore always uses a non-interactive overlay outside the React root.
 
 ### 2. React Entry
 
@@ -81,7 +81,7 @@ createFirstTxRoot(document.getElementById('root')!, <App />);
 
 **Done.** Prepaint now:
 
-- Captures snapshots on page lifecycle events
+- Prepares snapshots during idle time and saves a final state on hidden/pagehide
 - Replays a visual snapshot during boot on revisit
 - Hands control to the React app when the main bundle runs
 
@@ -93,16 +93,16 @@ createFirstTxRoot(document.getElementById('root')!, <App />);
 
 ```
 ┌─────────────────────────────────┐
-│ 1) Capture (on page leave)     │
-│  - beforeunload/pagehide/       │
-│    visibilitychange             │
+│ 1) Capture                     │
+│  - idle preparation             │
+│  - pagehide/visibilitychange    │
 │  - Saves DOM + styles to        │
 │    IndexedDB                    │
 └─────────────────────────────────┘
               ↓
 ┌─────────────────────────────────┐
 │ 2) Boot (measured on revisit)   │
-│  - Inline script runs           │
+│  - External script runs         │
 │  - Reads snapshot from IndexedDB│
 │  - Paints cached visual DOM     │
 └─────────────────────────────────┘
@@ -120,7 +120,9 @@ createFirstTxRoot(document.getElementById('root')!, <App />);
 - DB: `firsttx-prepaint`
 - Store: `snapshots`
 - Key: route pathname
-- TTL: 7 days
+- Default TTL: 7 days
+- Default maximum payload: 1 MiB
+- Schema v2 clears v1 records once, then every boot prunes records outside the current policy
 
 ---
 
@@ -151,16 +153,24 @@ createFirstTxRoot(
 
 ```typescript
 firstTx({
-  inline?: boolean,              // Inline boot script (default: true)
+  inline?: boolean,              // Inline boot script (default: false)
   minify?: boolean,              // Minify boot script (default: !isDev)
   injectTo?: 'head-prepend' | 'head' | 'body-prepend' | 'body',
   nonce?: string | (() => string),
+  policy: {
+    routes: string[],            // Exact pathnames; empty or omitted disables Prepaint
+    ttlMs?: number,              // Default: 7 days
+    maxSnapshotBytes?: number,   // Default: 1 MiB, UTF-8 JSON payload
+    includeStyles?: boolean,     // Default: true
+  },
 })
 ```
 
-For static Vite output, `nonce` is embedded at build time even when supplied as a function; it does not create a per-response nonce. Prefer an external boot asset or a CSP hash for static hosting.
+Static Vite output uses the self-starting `/firsttx-boot.js` asset by default. Set `inline: true` only when you intentionally manage a CSP hash for the generated inline script. A `nonce` is embedded at build time even when supplied as a function; static output cannot create a per-response nonce.
 
-The previous `overlay` and `overlayRoutes` options remain accepted as deprecated no-ops for one release. `setupCapture({ routes })` can restrict new captures; restore-side route filtering is not available in this release.
+The previous `overlay` and `overlayRoutes` options remain accepted as deprecated no-ops for one release. The Vite policy is serialized into the boot asset and reused by `setupCapture()`.
+
+Stored HTML is sanitized before overlay insertion. Passwords, marked sensitive fields, dangerous elements, event handlers, and executable URL schemes are removed. CSS is a visual cache, not sanitized application data: use `includeStyles: false` when routes can contain user-controlled or sensitive CSS, and only opt non-sensitive routes in.
 
 ---
 
@@ -399,7 +409,7 @@ A: Snapshot restore always uses an overlay outside the React root. No additional
 
 **Q: Can I restrict capture to certain routes?**
 
-A: Use `setupCapture()` manually or filter at app layer. Default captures all routes.
+A: Yes. Configure exact pathnames with `firstTx({ policy: { routes: [...] } })`. Missing or empty routes disable both capture and restore, and stale records are pruned.
 
 ---
 

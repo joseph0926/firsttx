@@ -72,11 +72,15 @@ pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 export default defineConfig({
-  plugins: [firstTx()],
+  plugins: [
+    firstTx({
+      policy: { routes: ['/dashboard', '/cart'] },
+    }),
+  ],
 });
 ```
 
-> 스냅샷 복원은 항상 React root 밖의 비상호작용 오버레이를 사용합니다. 기존 `overlay`, `overlayRoutes` 옵션은 deprecated no-op입니다.
+> `policy.routes`에 경로를 명시하기 전에는 Prepaint가 꺼져 있습니다. 스냅샷 복원은 항상 React root 밖의 비상호작용 오버레이를 사용합니다.
 
 ### 2. 진입점
 

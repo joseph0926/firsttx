@@ -62,7 +62,7 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
   ],
 });
 ```
@@ -72,6 +72,8 @@ At build time, this plugin injects a small boot script into your HTML. The scrip
 1. Reads the last DOM snapshot from IndexedDB on page load.
 2. If a valid snapshot is found, restores it before React.
 3. Then lets React mount the real app.
+
+Prepaint is disabled until `policy.routes` explicitly opts exact pathnames in.
 
 <Callout type="info" title="Visual overlay is the default">
   Snapshots always render in a non-interactive overlay outside the React root. React mounts into an empty root, and the overlay is removed after the first commit.

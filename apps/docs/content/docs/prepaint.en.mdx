@@ -56,17 +56,17 @@ import { firstTx } from "@firsttx/prepaint/plugin/vite";
 export default defineConfig({
   plugins: [
     react(),
-    firstTx(),
+    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
   ],
 });
 ```
 
-- `firstTx()` bundles the boot script (using esbuild internally) and injects it as an IIFE into your HTML.
+- `firstTx()` bundles a self-starting boot script and emits `/firsttx-boot.js` by default.
 - Default behavior,
-  - `inline: true` - bundle is inlined into the HTML (no extra network request)
+  - `inline: false` - external classic script for static CSP deployments
   - `minify` is enabled only in production
 
-- If you prefer a separate file, you can set `inline: false` and load it via `<script src="/firsttx-boot.js">`.
+- Set `inline: true` only when you intentionally manage a CSP hash for the generated inline script.
 
 <Callout type="info" title="Visual overlay">
   Snapshot restore always uses a non-interactive Shadow DOM overlay outside the React root.
@@ -78,10 +78,14 @@ export default defineConfig({
       <code>nonce: string</code> - nonce embedded in generated output; static Vite output cannot create a per-response nonce
     </li>
   </ul>
-  <code>setupCapture</code> with its <code>routes</code> option can restrict new captures; restore-side route filtering is not available in this release.
+  <code>policy.routes</code> is an exact pathname allowlist shared by capture, restore, and record pruning. Missing or empty routes disable Prepaint.
 </Callout>
 
-For static hosting, prefer an external boot asset or a CSP hash. A nonce passed to the Vite plugin is generated at build time, not once per HTTP response.
+Policy defaults are a 7-day TTL, 1 MiB UTF-8 payload limit, and CSS capture enabled. Schema v2 clears legacy v1 records once. For static hosting, use the default external asset or opt into an inline CSP hash. A nonce passed to the Vite plugin is generated at build time, not once per HTTP response.
+
+<Callout type="warning" title="CSS threat boundary">
+  Restored HTML is sanitized, but captured CSS is visual cache data and is not a general CSS sanitization boundary. Set <code>includeStyles: false</code> for routes with user-controlled or sensitive CSS.
+</Callout>
 
 ---
 
@@ -223,7 +227,7 @@ async function boot() {
 
 ## 3. Capture pipeline: what DOM is stored?
 
-Right before the user leaves the page, Prepaint stores a snapshot of the **first child of `#root`**.
+During idle time and once more when the page is hidden, Prepaint stores a snapshot of the **first child of `#root`**.
 
 ### 3-1. Capture triggers
 
@@ -231,10 +235,8 @@ Right before the user leaves the page, Prepaint stores a snapshot of the **first
 
 - `visibilitychange` (when `document.visibilityState === "hidden"`)
 - `pagehide`
-- `beforeunload`
 
-When these events occur, it queues the capture using `queueMicrotask`.
-To avoid capturing too frequently, it ignores redundant calls in a short time window in the same tab.
+It also schedules an idle capture while the page is active. Concurrent writes are deduplicated, and no `beforeunload` listener is registered.
 
 ### 3-2. DOM serialization & scrubbing
 
