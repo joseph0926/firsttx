@@ -1,5 +1,13 @@
 # @firsttx/prepaint
 
+## 0.12.1
+
+### Patch Changes
+
+- b56b857: Restrict sanitized data URLs to valid base64 PNG, JPEG, GIF, WebP, and AVIF images, and block obfuscated JavaScript and VBScript URL schemes.
+- Updated dependencies [b56b857]
+  - @firsttx/shared@0.3.2
+
 ## 0.12.0
 
 ### Minor Changes

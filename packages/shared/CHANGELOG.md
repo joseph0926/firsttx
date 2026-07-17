@@ -1,5 +1,11 @@
 # @firsttx/shared
 
+## 0.3.2
+
+### Patch Changes
+
+- b56b857: Restrict sanitized data URLs to valid base64 PNG, JPEG, GIF, WebP, and AVIF images, and block obfuscated JavaScript and VBScript URL schemes.
+
 ## 0.3.1
 
 ### Patch Changes
