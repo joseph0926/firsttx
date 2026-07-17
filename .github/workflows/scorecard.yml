@@ -31,18 +31,17 @@ jobs:
           publish_results: true
 
       - name: Upload Scorecard artifact
-        if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: scorecard-results
           path: results.sarif
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 5
 
   upload-sarif:
     name: Upload Scorecard SARIF
     needs: analysis
-    if: ${{ !cancelled() }}
+    if: ${{ needs.analysis.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
