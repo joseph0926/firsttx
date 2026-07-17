@@ -1,5 +1,12 @@
 # @firsttx/tx
 
+## 0.8.2
+
+### Patch Changes
+
+- Updated dependencies [b56b857]
+  - @firsttx/shared@0.3.2
+
 ## 0.8.1
 
 ### Patch Changes
