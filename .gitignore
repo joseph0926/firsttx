@@ -40,3 +40,5 @@ docs/temp.*
 .env*.local
 .claude/**/*.json
 artifacts/
+
+.docs/git-convention.md
