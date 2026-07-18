@@ -36,11 +36,12 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm --filter @firsttx/docs test:run",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm --filter @firsttx/docs test:run && pnpm run test:release",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "release:version": "changeset version && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile",
     "release:publish": "turbo run build --filter='./packages/*' && changeset publish",
+    "test:release": "node --test .github/scripts/*.test.js",
     "prepare": "husky",
     "tree": "tree -I 'node_modules|.git|.turbo|dist|build'"
   },
