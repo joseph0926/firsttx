@@ -23,6 +23,7 @@ jobs:
       pull-requests: read
     outputs:
       publish: ${{ steps.route.outputs.publish }}
+      package-manifests: ${{ steps.route.outputs.package-manifests }}
     steps:
       - name: Identify the merged pull request
         id: route
@@ -30,15 +31,29 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          head_ref="$(gh api \
+          pull_request="$(gh api \
             --header 'Accept: application/vnd.github+json' \
             "/repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls" \
-            --jq '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | reverse | .[0].head.ref // ""')"
+            --jq '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | reverse | .[0] // {}')"
+          head_ref="$(jq -r '.head.ref // ""' <<< "$pull_request")"
 
           if [[ "$head_ref" == "changeset-release/main" ]]; then
+            pull_request_number="$(jq -r '.number' <<< "$pull_request")"
+            package_manifests="$(gh api --paginate --slurp \
+              --header 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/pulls/${pull_request_number}/files?per_page=100" \
+              | jq -c '[.[][] | select(.status != "removed") | .filename | select(test("^packages/[a-z0-9-]+/package\\.json$"))]')"
+
+            if ! jq -e 'length > 0' <<< "$package_manifests" > /dev/null; then
+              echo 'No package manifests changed in the release pull request' >&2
+              exit 1
+            fi
+
             echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "package-manifests=$package_manifests" >> "$GITHUB_OUTPUT"
           else
             echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo 'package-manifests=[]' >> "$GITHUB_OUTPUT"
           fi
 
   version-pr:
@@ -106,3 +121,30 @@ jobs:
         run: pnpm run release:publish
         env:
           NPM_CONFIG_PROVENANCE: 'true'
+
+  github-release:
+    name: Create GitHub releases
+    needs: [route, publish]
+    if: needs.publish.result == 'success' && needs.route.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout verified revision
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Create package tags and releases
+        run: node .github/scripts/create-github-releases.js
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_MANIFESTS: ${{ needs.route.outputs.package-manifests }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
