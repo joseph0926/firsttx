@@ -138,8 +138,8 @@ export default function HeavyPage() {
           icon={<Clock className="h-5 w-5" />}
           label="Blank Screen Time"
           value={`${loadTime.toFixed(1)}ms`}
-          target="<20ms"
-          status={loadTime < 20 ? 'excellent' : loadTime < 50 ? 'good' : 'poor'}
+          target="Observed in this browser"
+          status="good"
         />
         <MetricCard
           icon={<TrendingUp className="h-5 w-5" />}
@@ -152,8 +152,8 @@ export default function HeavyPage() {
           icon={<Zap className="h-5 w-5" />}
           label="Average Load"
           value={`${avgLoadTime.toFixed(1)}ms`}
-          target="Improving"
-          status={avgLoadTime < 50 ? 'excellent' : 'good'}
+          target="Observed average"
+          status="good"
         />
       </MetricsGrid>
 
@@ -161,7 +161,7 @@ export default function HeavyPage() {
         title="Product Showcase"
         description={`${products.items.length} products loaded with complex styling. ${
           isPrepaintActive
-            ? 'Prepaint restored this instantly.'
+            ? 'A stored visual snapshot was shown before React committed.'
             : 'No prepaint snapshot available yet.'
         } ${isSyncing ? 'Syncing with server...' : ''}`}
       />
@@ -172,8 +172,8 @@ export default function HeavyPage() {
           <div className="text-sm">
             <div className="font-medium text-blue-400">Try This</div>
             <div className="text-muted-foreground">
-              Press F5 to refresh and compare loading times on revisit. When Prepaint is active, the
-              screen displays instantly.
+              Press F5 to refresh and compare the revisit path. When Prepaint is active, check
+              whether the stored snapshot appears before the current React screen.
             </div>
           </div>
         </div>

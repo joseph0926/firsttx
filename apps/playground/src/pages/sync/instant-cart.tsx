@@ -204,7 +204,7 @@ export default function InstantCart() {
 
       <SectionHeader
         title="Traditional CSR vs FirstTx"
-        description="Click +1 buttons to see the response time difference. FirstTx updates instantly using local cache."
+        description="Use both +1 buttons to compare a request-first update with an optimistic local update followed by server acknowledgement."
       />
 
       <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
@@ -213,8 +213,8 @@ export default function InstantCart() {
           <div className="text-sm">
             <div className="font-medium text-blue-400">Try This</div>
             <div className="text-muted-foreground">
-              Click the +1 button on both panels. Traditional waits for server response, while
-              FirstTx updates instantly. After refresh, FirstTx loads immediately from cache.
+              Use both +1 buttons and compare when the quantity changes and when the server
+              acknowledges it. Refresh to check whether the local copy is available first.
             </div>
           </div>
         </div>
@@ -235,12 +235,12 @@ export default function InstantCart() {
         before={{
           label: 'Traditional CSR',
           description:
-            'All actions must wait for server response. Initial load ~800ms, updates ~500ms.',
+            'The fixture waits for the server response before showing the loaded cart or update.',
           demo: (
             <div className="space-y-4" data-testid="traditional-panel">
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">
-                  800ms load
+                  800ms simulated delay
                 </span>
               </div>
 
@@ -284,19 +284,33 @@ export default function InstantCart() {
             </div>
           ),
           metrics: [
-            { label: 'Initial Load', value: '~800ms', status: 'bad' },
-            { label: 'Update', value: '~500ms', status: 'bad' },
+            {
+              label: 'Initial Load',
+              value:
+                traditionalInitialLoadMs !== null
+                  ? `${traditionalInitialLoadMs.toFixed(1)}ms`
+                  : 'Not measured',
+              status: 'bad',
+            },
+            {
+              label: 'Update',
+              value:
+                actionLatency.traditional > 0
+                  ? `${actionLatency.traditional.toFixed(1)}ms`
+                  : 'Not measured',
+              status: 'bad',
+            },
           ],
         }}
         after={{
           label: 'FirstTx (Local-First)',
           description:
-            'Loads instantly from local cache with 0ms optimistic updates. Server sync happens in background.',
+            'Reads the local copy first, applies the optimistic change, and tracks the server acknowledgement separately.',
           demo: (
             <div className="space-y-4" data-testid="firsttx-panel">
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-500">
-                  0ms response
+                  Optimistic paint first
                 </span>
               </div>
 
@@ -335,8 +349,22 @@ export default function InstantCart() {
             </div>
           ),
           metrics: [
-            { label: 'Initial Load', value: '~0ms', status: 'excellent' },
-            { label: 'Update', value: '~0ms', status: 'excellent' },
+            {
+              label: 'Initial Load',
+              value:
+                firstTxInitialLoadMs !== null
+                  ? `${firstTxInitialLoadMs.toFixed(1)}ms`
+                  : 'Not measured',
+              status: 'excellent',
+            },
+            {
+              label: 'Update',
+              value:
+                actionLatency.firstTx > 0
+                  ? `${actionLatency.firstTx.toFixed(1)}ms`
+                  : 'Not measured',
+              status: 'excellent',
+            },
           ],
         }}
       />

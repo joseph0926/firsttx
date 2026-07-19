@@ -6,7 +6,7 @@ test.describe('Tx Network Chaos', () => {
     await page.goto('/tx/network-chaos');
 
     // Wait for page to load
-    await expect(page.locator('h3:has-text("Chaos Configuration")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Failure Configuration")')).toBeVisible();
 
     // Select chaos type: 500 (recovers after 2nd attempt)
     await page.locator('select').selectOption('500');
@@ -16,10 +16,10 @@ test.describe('Tx Network Chaos', () => {
     await retrySlider.fill('2');
 
     // Run chaos test
-    await page.locator('button:has-text("Run Chaos Test")').click();
+    await page.locator('button:has-text("Run Retry Test")').click();
 
     // Wait for test to complete (button should be re-enabled)
-    await expect(page.locator('button:has-text("Run Chaos Test")')).toBeEnabled({
+    await expect(page.locator('button:has-text("Run Retry Test")')).toBeEnabled({
       timeout: 30_000,
     });
 
@@ -69,7 +69,7 @@ test.describe('Tx Network Chaos', () => {
   test('fails all requests with timeout chaos and no retries', async ({ page }) => {
     await page.goto('/tx/network-chaos');
 
-    await expect(page.locator('h3:has-text("Chaos Configuration")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Failure Configuration")')).toBeVisible();
 
     // Select timeout mode (always fails)
     await page.locator('select').selectOption('timeout');
@@ -79,10 +79,10 @@ test.describe('Tx Network Chaos', () => {
     await retrySlider.fill('0');
 
     // Run chaos test
-    await page.locator('button:has-text("Run Chaos Test")').click();
+    await page.locator('button:has-text("Run Retry Test")').click();
 
     // Wait for test to complete
-    await expect(page.locator('button:has-text("Run Chaos Test")')).toBeEnabled({
+    await expect(page.locator('button:has-text("Run Retry Test")')).toBeEnabled({
       timeout: 45_000,
     });
 
@@ -98,16 +98,16 @@ test.describe('Tx Network Chaos', () => {
   test('succeeds with stable network (chaos: none)', async ({ page }) => {
     await page.goto('/tx/network-chaos');
 
-    await expect(page.locator('h3:has-text("Chaos Configuration")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Failure Configuration")')).toBeVisible();
 
     // Select none (stable)
     await page.locator('select').selectOption('none');
 
     // Run chaos test
-    await page.locator('button:has-text("Run Chaos Test")').click();
+    await page.locator('button:has-text("Run Retry Test")').click();
 
     // Wait for test to complete
-    await expect(page.locator('button:has-text("Run Chaos Test")')).toBeEnabled({
+    await expect(page.locator('button:has-text("Run Retry Test")')).toBeEnabled({
       timeout: 15_000,
     });
 

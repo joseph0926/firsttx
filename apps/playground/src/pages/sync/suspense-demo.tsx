@@ -278,7 +278,7 @@ export default function SuspenseDemo() {
                     <span className="text-green-400">+</span> Cleaner component code
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-green-400">+</span> Automatic Suspense boundary
+                    <span className="text-green-400">+</span> Suspense boundary
                   </li>
                 </>
               ) : (

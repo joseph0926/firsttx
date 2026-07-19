@@ -25,22 +25,21 @@ export const prepaintDemos: DemoMeta[] = [
     title: 'Heavy Page',
     path: '/prepaint/heavy',
     package: 'prepaint',
-    description: 'Experience 0ms blank screen with 100+ product grids',
+    description: 'Compare a cold visit with a revisit that has a stored visual snapshot',
     problem:
-      'On revisit, CSR apps show a blank screen for 2-5 seconds while loading JS bundles, degrading user experience.',
+      'A CSR revisit can go blank while the bundle loads and React mounts. The duration depends on the app and network.',
     solution:
-      'Prepaint saves DOM snapshots to IndexedDB on visit and instantly restores them before JS loads on revisit, achieving ~0ms loading.',
+      'Prepaint can show the last captured visual snapshot as a non-interactive overlay until React commits.',
     problemDetails: [
-      'Waiting for JS bundle download (~500KB+)',
-      'Waiting for React hydration',
-      'Waiting for API data loading',
-      'User sees blank screen for 2-5 seconds',
+      'The app bundle and data still need to load',
+      'Without a snapshot, the root stays empty until React commits',
+      'A stored snapshot can be stale or unavailable',
     ],
     solutionDetails: [
-      'Boot script runs first (~1.7KB, ~15ms)',
-      'Instant snapshot restore from IndexedDB',
-      'React hydration in background',
-      'Smooth transition to new data',
+      'Capture only allowlisted routes',
+      'Restore into an overlay outside the React root',
+      'Keep the restored surface non-interactive',
+      'Remove the overlay after the first React commit',
     ],
     codeSnippet: `import { createFirstTxRoot } from '@firsttx/prepaint';
 
@@ -57,20 +56,20 @@ createFirstTxRoot(document.getElementById('root')!, <App />);`,
     title: 'Route Switching',
     path: '/prepaint/route-switching',
     package: 'prepaint',
-    description: 'See prepaint integration with React Router 7',
+    description: 'Inspect pathname-based snapshot capture and restore with React Router 7',
     problem:
-      'In SPAs, route transitions cause the previous page to disappear and a flash occurs until the new page renders.',
+      'Each pathname needs its own valid snapshot and allowlist policy. A snapshot for one route must not be restored on another.',
     solution:
-      'Prepaint saves snapshots per route and integrates with ViewTransition API for smooth transitions.',
+      'Prepaint keys schema v2 snapshots by exact pathname and restores only routes included in the configured policy.',
     problemDetails: [
-      'Component unmounts on route change',
-      'Waiting for new route data',
-      'Screen flickering occurs',
+      'Route keys can drift from the router configuration',
+      'Old snapshots need pruning when policy changes',
+      'ViewTransition may be unavailable in the browser',
     ],
     solutionDetails: [
-      'Auto-capture snapshots per route',
-      'Maintain previous snapshot during transition',
-      'Smooth animation with ViewTransition',
+      'Capture exact allowlisted pathnames',
+      'Keep route snapshots isolated',
+      'Fall back when ViewTransition is unavailable',
     ],
     codeSnippet: `import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
@@ -92,24 +91,24 @@ export default defineConfig({
 export const localFirstDemos: DemoMeta[] = [
   {
     id: 'instant-cart',
-    title: 'Instant Cart',
+    title: 'Optimistic Cart',
     path: '/sync/instant-cart',
     package: 'local-first',
-    description: 'Traditional CSR vs Local-First response time comparison',
+    description:
+      'Compare request-first updates with optimistic local paint and server acknowledgement',
     problem:
-      'Traditional CSR requires all user actions to wait for server responses, causing ~1,300ms delays.',
+      'When the UI waits for a request to finish, interaction latency includes the simulated server delay.',
     solution:
-      'Local-First maintains a local cache in IndexedDB, reflects UI instantly with optimistic updates, then syncs with server in background.',
+      'This demo paints a local optimistic update first, records server acknowledgement separately, and restores the supplied snapshot when the request fails.',
     problemDetails: [
       'Click button → Server request → Wait for response → Update UI',
-      'User waits as long as network latency',
-      'Completely non-functional when offline',
+      'The visible delay changes with the configured request fixture',
+      'Request completion and UI paint are different events',
     ],
     solutionDetails: [
-      'Click button → Instant UI update (0ms)',
-      'Server sync in background',
-      'Works offline with local data',
-      'Auto rollback on server failure',
+      'Record input-to-paint and server acknowledgement separately',
+      'Apply the optimistic callback before the request settles',
+      'Run the supplied rollback callback on request failure',
     ],
     codeSnippet: `const { data: cart, patch } = useSyncedModel(CartModel, fetchCart);
 
@@ -129,20 +128,19 @@ await patch((draft) => {
     title: 'Staleness Detection',
     path: '/sync/staleness',
     package: 'local-first',
-    description: 'TTL expiry and stale data handling',
-    problem: 'Stale cached data can show incorrect information to users.',
+    description: 'Compare TTL expiry with always, stale, and never mount-sync strategies',
+    problem: 'Cached data needs an explicit freshness policy; age alone does not refresh it.',
     solution:
-      'TTL (Time-To-Live) based freshness tracking with automatic server refresh on expiry.',
+      'Local-First exposes history.isStale and applies the selected syncOnMount strategy when the model mounts.',
     problemDetails: [
-      'Unclear cache data validity period',
-      'Wrong decisions based on outdated data',
-      'Manual refresh required',
+      'The model TTL and demo timer must agree',
+      'A stale record may remain visible while revalidation runs',
+      'The never strategy requires an explicit sync call',
     ],
     solutionDetails: [
-      'Auto expiry management with TTL settings',
-      'Automatic stale state detection',
-      'Background auto-refresh',
-      'Freshness state display in UI',
+      'Expose stale state through model history',
+      'Choose always, stale, or never for mount sync',
+      'Show the model TTL and last update time in the UI',
     ],
     codeSnippet: `const CartModel = defineModel('cart', {
   schema: CartSchema,
@@ -165,21 +163,20 @@ const { data, isStale, sync } = useSyncedModel(CartModel, fetcher, {
     title: 'Suspense Integration',
     path: '/sync/suspense',
     package: 'local-first',
-    description: 'Suspense with useSuspenseSyncedModel',
+    description: 'Inspect first-visit, fresh-cache, and stale-cache Suspense behavior',
     problem:
-      'Handling loading states requires repeating if (!data) return <Loading /> pattern everywhere.',
+      'Cache state changes whether a Suspense boundary shows fallback content or committed data.',
     solution:
-      'useSuspenseSyncedModel integrates with React Suspense for declarative loading state handling.',
+      'useSuspenseSyncedModel returns fresh cached data immediately and revalidates stale cached data in the background.',
     problemDetails: [
-      'Loading checks repeated in every component',
-      'Null check logic scattered',
-      'Difficult to maintain loading UI consistency',
+      'An empty cache suspends until data resolves',
+      'Fresh and stale cache paths have different network behavior',
+      'Failures need an Error Boundary and recovery path',
     ],
     solutionDetails: [
-      'Delegate loading handling to Suspense boundary',
-      'Component assumes data is always present',
-      'Type safety (data is never null)',
-      'Declarative and clean code',
+      'Use a Suspense boundary for the empty-cache path',
+      'Return fresh cached data without a fallback',
+      'Return stale cached data while revalidation runs',
     ],
     codeSnippet: `<Suspense fallback={<Loading />}>
   <CartComponent />
@@ -198,31 +195,30 @@ function CartComponent() {
   },
   {
     id: 'timing',
-    title: 'Timing Attack',
+    title: 'Replace / Rollback Ordering',
     path: '/sync/timing',
     package: 'local-first',
-    description: 'Server sync during transaction execution',
+    description: 'Observe server replacement before, during, and after transaction rollback',
     problem:
-      'Race conditions can cause data inconsistency when server sync occurs during transaction execution.',
+      'Local-First replace and Tx rollback do not share a coordinator, so their final ordering is application-owned.',
     solution:
-      'Local-First guarantees ordering between transactions and sync, maintaining 100% data consistency.',
+      'This demo reproduces the current limitation instead of claiming cross-package ordering protection.',
     problemDetails: [
-      'Server sync arrives during optimistic update',
-      'Unclear which data is latest',
-      'Partial updates can corrupt data',
+      'Server replacement can arrive before, during, or after rollback',
+      'The packages do not select a shared winner',
+      'The application must define conflict handling when it needs one',
     ],
     solutionDetails: [
-      'Sync waits during transaction progress',
-      'Sequential sync processing after completion',
-      'Merge strategy on conflict',
-      '100% data consistency guarantee',
+      'Run fixed interleaving fixtures',
+      'Record the final model snapshot for each order',
+      'Treat the unsupported ordering as an expected limitation',
     ],
     codeSnippet: `const { data, patch } = useSyncedModel(CartModel, fetcher);
 
 await patch((draft) => {
   draft.items.push(newItem);
 });`,
-    codeTitle: 'Race Condition Prevention',
+    codeTitle: 'Replace / Rollback Fixture',
     docsLink: 'https://firsttx-docs.vercel.app/docs/local-first',
     level: 2,
     difficulty: 3,
@@ -234,24 +230,23 @@ await patch((draft) => {
 export const txDemos: DemoMeta[] = [
   {
     id: 'concurrent',
-    title: 'Concurrent Updates',
+    title: 'Overlapping Hook Calls',
     path: '/tx/concurrent',
     package: 'tx',
-    description: 'Multiple transactions execute simultaneously',
+    description: 'Inspect overlapping mutate calls from the same useTx hook',
     problem:
-      'When multiple users modify the same resource simultaneously, conflicts occur and partial success leads to data inconsistency.',
+      'Each mutate call creates a transaction, but hook-level pending, error, success, and cancel state are shared.',
     solution:
-      'Tx processes each transaction atomically and auto-rollbacks on failure to ensure data consistency.',
+      'The demo shows per-transaction compensation alongside the current shared hook-state limitation.',
     problemDetails: [
-      'Concurrent updates cause overwrites',
-      'Partial failures lead to inconsistent state',
-      'Manual rollback logic required',
+      'Pending and error state are not isolated per invocation',
+      'Cancel control is shared by the hook instance',
+      'Batch completion rate is an observed workload metric',
     ],
     solutionDetails: [
-      'Each transaction processed independently',
-      'Auto rollback on failure (all-or-nothing)',
-      'Only successful transactions applied',
-      '100% data consistency guarantee',
+      'Create a Transaction for each mutate call',
+      'Run each registered compensation on that transaction failure',
+      'Do not present hook status as invocation-isolated',
     ],
     codeSnippet: `const results = await Promise.allSettled(
   items.map((item) => reserveItemTx({ itemId: item.id }))
@@ -270,11 +265,11 @@ const successCount = results.filter(r => r.status === 'fulfilled').length;`,
     title: 'Rollback Chain',
     path: '/tx/rollback-chain',
     package: 'tx',
-    description: 'Multi-step transaction rollback in reverse',
+    description: 'Inspect reverse-order compensation after a later step fails',
     problem:
       'When one step fails in a multi-step operation, completed steps must be manually reverted.',
     solution:
-      'Tx registers compensation functions for each step and auto-rollbacks in reverse order on failure.',
+      'Tx records a compensation for each completed step and runs those compensations in reverse order after failure.',
     problemDetails: [
       'Failure at step 4 of 5-step operation',
       'Manual rollback of steps 1-3 required',
@@ -282,9 +277,9 @@ const successCount = results.filter(r => r.status === 'fulfilled').length;`,
     ],
     solutionDetails: [
       'Register rollback function per step',
-      'Auto execute in reverse on failure (3→2→1)',
-      'Safe handling of rollback errors',
-      'Complete rollback in <100ms',
+      'Execute completed compensations in reverse order (3→2→1)',
+      'Report compensation failures instead of hiding them',
+      'Measure rollback duration as a benchmark, not a guarantee',
     ],
     codeSnippet: `const tx = startTransaction();
 
@@ -308,23 +303,24 @@ await tx.commit();`,
   },
   {
     id: 'network-chaos',
-    title: 'Network Chaos',
+    title: 'Retry and Backoff',
     path: '/tx/network-chaos',
     package: 'tx',
-    description: 'Test retry logic under unstable conditions',
-    problem: 'When requests fail in unstable network conditions, users must manually retry.',
+    description: 'Run seeded request failures with configurable attempts and delay',
+    problem:
+      'Transient and terminal request failures need a bounded retry policy and a defined rollback path.',
     solution:
-      'Tx has built-in exponential backoff retry logic to automatically recover from transient failures.',
+      'Tx applies the configured retry schedule and runs compensation when attempts are exhausted.',
     problemDetails: [
       'Temporary network instability',
       'Manual user retry required',
       'Infinite retries risk server overload',
     ],
     solutionDetails: [
-      'Auto retry up to configured attempts',
-      'Exponential backoff prevents server overload',
+      'Retry only up to the configured attempt count',
+      'Apply the configured delay and backoff policy',
       'Rollback on final failure',
-      '>90% success rate achieved',
+      'Report the observed attempt sequence and terminal state',
     ],
     codeSnippet: `const { mutateAsync } = useTx({
   optimistic: () => {},

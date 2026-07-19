@@ -255,22 +255,14 @@ export default function RollbackChain() {
           icon={<Clock className="h-5 w-5" />}
           label="Rollback Time"
           value={rollbackTime > 0 ? `${rollbackTime.toFixed(0)}ms` : '--'}
-          target="<100ms"
-          status={
-            rollbackTime === 0
-              ? 'good'
-              : rollbackTime < 100
-                ? 'excellent'
-                : rollbackTime < 200
-                  ? 'good'
-                  : 'poor'
-          }
+          target="Benchmark only"
+          status="good"
         />
         <MetricCard
           icon={<CheckCircle2 className="h-5 w-5" />}
           label="Final State"
           value={result === 'failed' ? 'Restored' : result === 'success' ? 'Committed' : 'Pending'}
-          target="Atomic"
+          target="Fixture state"
           status={
             result === 'failed' && compensatedSteps === completedSteps
               ? 'excellent'

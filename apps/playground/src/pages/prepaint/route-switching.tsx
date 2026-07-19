@@ -80,8 +80,8 @@ export default function RouteSwitching() {
           icon={<Clock className="h-5 w-5" />}
           label="Current Load Time"
           value={`${currentLoadTime.toFixed(1)}ms`}
-          target="<20ms"
-          status={currentLoadTime < 20 ? 'excellent' : currentLoadTime < 50 ? 'good' : 'poor'}
+          target="Observed value"
+          status="good"
         />
         <MetricCard
           icon={<BarChart3 className="h-5 w-5" />}
@@ -110,8 +110,8 @@ export default function RouteSwitching() {
           <div className="text-sm">
             <div className="font-medium text-blue-400">Try This</div>
             <div className="text-muted-foreground">
-              After visiting each route, refresh the browser or navigate away and return. Visited
-              routes are instantly restored.
+              Visit each route, then refresh the browser or navigate away and return. A visited
+              pathname becomes eligible for its own stored snapshot.
             </div>
           </div>
         </div>

@@ -2,6 +2,12 @@ import { test, expect } from '@playwright/test';
 import { createMetricRecord, writeMetrics } from './utils/metrics';
 
 test.describe('Sync Staleness Detection', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0.5;
+    });
+  });
+
   test('detects stale data and allows manual refresh', async ({ page }, testInfo) => {
     await page.goto('/sync/staleness');
 

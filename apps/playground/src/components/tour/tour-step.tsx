@@ -45,14 +45,14 @@ export function TourCard({
 }: TourCardProps) {
   const variantStyles = {
     default: 'border-border bg-card',
-    problem: 'border-red-500/30 bg-red-500/5',
-    solution: 'border-green-500/30 bg-green-500/5',
+    problem: 'border-status-danger/30 bg-status-danger/5',
+    solution: 'border-status-success/30 bg-status-success/5',
   };
 
   const iconStyles = {
     default: 'text-muted-foreground',
-    problem: 'text-red-400',
-    solution: 'text-green-400',
+    problem: 'text-status-danger',
+    solution: 'text-status-success',
   };
 
   return (

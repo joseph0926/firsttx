@@ -15,8 +15,7 @@ const steps: Step[] = [
   {
     id: 1,
     title: 'Define a Model',
-    description:
-      'Create a type-safe model with Zod schema. Models persist data in IndexedDB with automatic TTL management.',
+    description: 'Create a model with a Zod schema, IndexedDB persistence, and an explicit TTL.',
     icon: <Database className="h-5 w-5" />,
     code: `import { defineModel } from '@firsttx/local-first';
 import { z } from 'zod';
@@ -36,13 +35,13 @@ export const CartModel = defineModel('cart', {
   ttl: 5 * 60 * 1000,
   initialData: { items: [], total: 0 }
 });`,
-    highlight: 'defineModel with Zod validation ensures data integrity',
+    highlight: 'defineModel validates stored values against the supplied Zod schema',
   },
   {
     id: 2,
     title: 'Use with React Hooks',
     description:
-      'useSyncedModel provides reactive data with automatic server synchronization. Set syncOnMount to control when data refreshes.',
+      'useSyncedModel exposes reactive data and a configured server sync function. syncOnMount controls when that function runs.',
     icon: <RefreshCw className="h-5 w-5" />,
     code: `import { useSyncedModel } from '@firsttx/local-first';
 import { CartModel } from './models/cart';
@@ -78,7 +77,7 @@ function CartPage() {
     id: 3,
     title: 'Optimistic Updates with Transactions',
     description:
-      'useTx provides optimistic updates with automatic rollback on failure. UI responds instantly while server sync happens in background.',
+      'useTx runs the optimistic callback first and invokes the registered rollback when the request fails.',
     icon: <Shield className="h-5 w-5" />,
     code: `import { useTx } from '@firsttx/tx';
 import { CartModel } from './models/cart';
@@ -113,13 +112,13 @@ function AddToCartButton({ item }) {
     </button>
   );
 }`,
-    highlight: 'Automatic rollback ensures data consistency on failure',
+    highlight: 'The rollback callback defines how this mutation is compensated',
   },
   {
     id: 4,
-    title: 'Enable Instant Page Restoration',
+    title: 'Enable Revisit Snapshot Replay',
     description:
-      'Prepaint captures DOM snapshots on page leave and restores them instantly on revisit. Zero configuration needed.',
+      'Prepaint captures eligible visual snapshots and can replay them on a matching revisit path.',
     icon: <Zap className="h-5 w-5" />,
     code: `import { createFirstTxRoot } from '@firsttx/prepaint';
 import { StrictMode } from 'react';
@@ -158,7 +157,7 @@ export default function GettingStarted() {
     >
       <SectionHeader
         title="Quick Start Guide"
-        description="Learn the fundamentals of FirstTx in 4 simple steps. Each step builds on the previous one to create a complete local-first experience."
+        description="Review model definition, synchronization, optimistic rollback, and revisit snapshot setup in four steps."
       />
       <div className="mb-8 flex gap-2">
         {steps.map((step, index) => (

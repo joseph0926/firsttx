@@ -45,7 +45,7 @@ function TraditionalDemo() {
   return (
     <div className="space-y-4">
       {!hasLoaded ? (
-        <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-border bg-zinc-900/50">
+        <div className="flex h-40 flex-col items-center justify-center rounded-lg border border-border bg-tour-surface">
           {isLoading ? (
             <div className="flex flex-col items-center gap-2">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -65,7 +65,7 @@ function TraditionalDemo() {
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-lg border border-border bg-zinc-900/50 p-3"
+              className="flex items-center justify-between rounded-lg border border-border bg-tour-surface p-3"
             >
               <span className="text-sm">{item.name}</span>
               <div className="flex items-center gap-2">
@@ -85,14 +85,14 @@ function TraditionalDemo() {
       {hasLoaded && (
         <button
           onClick={simulateClose}
-          className="w-full rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-700"
+          className="w-full rounded-lg bg-tour-surface-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
         >
           {t('common.closeTabSimulate')}
         </button>
       )}
 
       {!hasLoaded && items.length === 0 && (
-        <div className="text-center text-xs text-red-400">{t('common.cartDataWasLost')}</div>
+        <div className="text-center text-xs text-status-danger">{t('common.cartDataWasLost')}</div>
       )}
     </div>
   );
@@ -125,7 +125,9 @@ function LocalFirstDemo() {
             key={item.id}
             className={cn(
               'flex items-center justify-between rounded-lg border p-3 transition-colors',
-              wasRestored ? 'border-green-500/50 bg-green-500/5' : 'border-border bg-zinc-900/50',
+              wasRestored
+                ? 'border-status-success/50 bg-status-success/5'
+                : 'border-border bg-tour-surface',
             )}
           >
             <span className="text-sm">{item.name}</span>
@@ -133,7 +135,7 @@ function LocalFirstDemo() {
               <span className="font-mono text-sm">x{item.quantity}</span>
               <button
                 onClick={() => incrementItem(item.id)}
-                className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700"
+                className="rounded bg-status-success px-2 py-1 text-xs font-medium text-white hover:opacity-90 dark:text-slate-950"
               >
                 +1
               </button>
@@ -150,14 +152,14 @@ function LocalFirstDemo() {
       )}
 
       {wasRestored && (
-        <div className="text-center text-xs text-green-400">
+        <div className="text-center text-xs text-status-success">
           {t('common.dataRestoredFromIndexedDB')}
         </div>
       )}
 
       <button
         onClick={simulateClose}
-        className="w-full rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-700"
+        className="w-full rounded-lg bg-tour-surface-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
       >
         {t('common.closeTabSimulate')}
       </button>
@@ -180,11 +182,11 @@ export default function StepLocalFirst() {
       icon={<Database className="h-8 w-8" />}
     >
       <div className={cn('transition-opacity duration-500', mounted ? 'opacity-100' : 'opacity-0')}>
-        <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="mb-6 rounded-lg border border-status-info/30 bg-status-info/5 p-4">
           <div className="flex gap-3">
-            <Database className="h-5 w-5 shrink-0 text-blue-400" />
+            <Database className="h-5 w-5 shrink-0 text-status-info" />
             <div className="text-sm">
-              <div className="font-medium text-blue-400">{t('tour.localFirst.tryThis')}</div>
+              <div className="font-medium text-status-info">{t('tour.localFirst.tryThis')}</div>
               <div className="text-muted-foreground">{t('tour.localFirst.tryThisDescription')}</div>
             </div>
           </div>

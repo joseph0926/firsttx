@@ -50,7 +50,7 @@ test.describe('Prepaint visual handoff', () => {
       notifyMainRequested = resolve;
     });
 
-    await page.route('**/src/main.tsx', async (route) => {
+    await page.route(/\/src\/main\.tsx(?:\?.*)?$/, async (route) => {
       notifyMainRequested();
       await mainGate;
       await route.continue();

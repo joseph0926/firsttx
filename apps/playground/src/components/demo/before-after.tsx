@@ -11,10 +11,10 @@ interface MetricBadgeProps {
 
 function MetricBadge({ label, value, status }: MetricBadgeProps) {
   const statusStyles: Record<MetricStatus, string> = {
-    bad: 'bg-red-500/10 text-red-400 border-red-500/30',
-    neutral: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30',
-    good: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-    excellent: 'bg-green-500/10 text-green-400 border-green-500/30',
+    bad: 'border-status-danger/30 bg-status-danger/10 text-status-danger',
+    neutral: 'border-border bg-muted text-muted-foreground',
+    good: 'border-status-warning/30 bg-status-warning/10 text-status-warning',
+    excellent: 'border-status-success/30 bg-status-success/10 text-status-success',
   };
 
   return (
@@ -48,13 +48,13 @@ export function BeforeAfter({ before, after, layout = 'horizontal' }: BeforeAfte
 
   return (
     <div className={cn('grid gap-6', isHorizontal ? 'lg:grid-cols-2' : 'grid-cols-1')}>
-      <div className="overflow-hidden rounded-xl border border-red-500/30">
-        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2.5">
-          <span className="font-medium text-red-400">{before.label}</span>
+      <div className="overflow-hidden rounded-xl border border-status-danger/30">
+        <div className="border-b border-status-danger/30 bg-status-danger/10 px-4 py-2.5">
+          <span className="font-medium text-status-danger">{before.label}</span>
         </div>
         <div className="p-4">
-          <p className="mb-4 text-sm text-zinc-400">{before.description}</p>
-          <div className="rounded-lg bg-zinc-900/50 p-4">{before.demo}</div>
+          <p className="mb-4 text-sm text-muted-foreground">{before.description}</p>
+          <div className="rounded-lg bg-tour-surface p-4">{before.demo}</div>
           {before.metrics && before.metrics.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {before.metrics.map((m) => (
@@ -64,13 +64,13 @@ export function BeforeAfter({ before, after, layout = 'horizontal' }: BeforeAfte
           )}
         </div>
       </div>
-      <div className="overflow-hidden rounded-xl border border-green-500/30">
-        <div className="border-b border-green-500/30 bg-green-500/10 px-4 py-2.5">
-          <span className="font-medium text-green-400">{after.label}</span>
+      <div className="overflow-hidden rounded-xl border border-status-success/30">
+        <div className="border-b border-status-success/30 bg-status-success/10 px-4 py-2.5">
+          <span className="font-medium text-status-success">{after.label}</span>
         </div>
         <div className="p-4">
-          <p className="mb-4 text-sm text-zinc-400">{after.description}</p>
-          <div className="rounded-lg bg-zinc-900/50 p-4">{after.demo}</div>
+          <p className="mb-4 text-sm text-muted-foreground">{after.description}</p>
+          <div className="rounded-lg bg-tour-surface p-4">{after.demo}</div>
           {after.metrics && after.metrics.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {after.metrics.map((m) => (
@@ -98,20 +98,22 @@ export function ComparisonTable({ rows }: ComparisonTableProps) {
     <div className="overflow-hidden rounded-lg border border-border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border bg-zinc-900/50">
-            <th className="px-4 py-3 text-left font-medium text-zinc-400">Aspect</th>
-            <th className="px-4 py-3 text-left font-medium text-red-400">Before</th>
-            <th className="px-4 py-3 text-left font-medium text-green-400">After</th>
-            <th className="px-4 py-3 text-left font-medium text-zinc-400">Improvement</th>
+          <tr className="border-b border-border bg-tour-surface">
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Aspect</th>
+            <th className="px-4 py-3 text-left font-medium text-status-danger">Before</th>
+            <th className="px-4 py-3 text-left font-medium text-status-success">After</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Improvement</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i} className="border-b border-border last:border-0">
-              <td className="px-4 py-3 font-medium text-zinc-300">{row.aspect}</td>
-              <td className="px-4 py-3 text-zinc-400">{row.before}</td>
-              <td className="px-4 py-3 text-zinc-300">{row.after}</td>
-              <td className="px-4 py-3 font-medium text-green-400">{row.improvement || '-'}</td>
+              <td className="px-4 py-3 font-medium text-foreground">{row.aspect}</td>
+              <td className="px-4 py-3 text-muted-foreground">{row.before}</td>
+              <td className="px-4 py-3 text-foreground">{row.after}</td>
+              <td className="px-4 py-3 font-medium text-status-success">
+                {row.improvement || '-'}
+              </td>
             </tr>
           ))}
         </tbody>

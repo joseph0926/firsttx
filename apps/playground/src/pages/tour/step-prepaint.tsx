@@ -29,7 +29,9 @@ function TraditionalDemo() {
     <div className="space-y-4">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{t('common.loadTime')}:</span>
-        <span className={cn('font-mono', loadTime ? 'text-red-400' : 'text-muted-foreground')}>
+        <span
+          className={cn('font-mono', loadTime ? 'text-status-danger' : 'text-muted-foreground')}
+        >
           {loadTime ? `${loadTime.toFixed(0)}ms` : '--'}
         </span>
       </div>
@@ -37,18 +39,20 @@ function TraditionalDemo() {
       <div
         className={cn(
           'flex h-48 items-center justify-center rounded-lg border transition-all',
-          isLoading ? 'border-red-500/30 bg-zinc-950' : 'border-border bg-zinc-900/50',
+          isLoading
+            ? 'border-status-danger/30 bg-tour-surface-strong'
+            : 'border-border bg-tour-surface',
         )}
       >
         {isLoading ? (
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-status-danger border-t-transparent" />
             <span className="text-sm text-muted-foreground">{t('common.blankScreen')}</span>
           </div>
         ) : showContent ? (
           <div className="grid w-full grid-cols-3 gap-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-12 rounded bg-zinc-800" />
+              <div key={i} className="h-12 rounded bg-tour-surface-strong" />
             ))}
           </div>
         ) : (
@@ -61,7 +65,7 @@ function TraditionalDemo() {
       <button
         onClick={simulateLoad}
         disabled={isLoading}
-        className="w-full rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        className="w-full rounded-lg bg-tour-surface-strong px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
       >
         {t('common.refreshPage')}
       </button>
@@ -90,7 +94,9 @@ function PrepaintDemo() {
     <div className="space-y-4">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{t('common.loadTime')}:</span>
-        <span className={cn('font-mono', loadTime ? 'text-green-400' : 'text-muted-foreground')}>
+        <span
+          className={cn('font-mono', loadTime ? 'text-status-success' : 'text-muted-foreground')}
+        >
           {loadTime ? `${loadTime.toFixed(0)}ms` : '--'}
         </span>
       </div>
@@ -98,12 +104,14 @@ function PrepaintDemo() {
       <div
         className={cn(
           'relative flex h-48 items-center justify-center rounded-lg border transition-all',
-          isRestoring ? 'border-green-500/50 bg-zinc-900/50' : 'border-green-500/20 bg-zinc-900/50',
+          isRestoring
+            ? 'border-status-success/50 bg-tour-surface'
+            : 'border-status-success/20 bg-tour-surface',
         )}
       >
         {isRestoring && (
-          <div className="absolute inset-0 flex items-center justify-center bg-green-500/5">
-            <div className="flex items-center gap-2 text-green-400">
+          <div className="absolute inset-0 flex items-center justify-center bg-status-success/5">
+            <div className="flex items-center gap-2 text-status-success">
               <Zap className="h-4 w-4" />
               <span className="text-sm">{t('common.restoringSnapshot')}</span>
             </div>
@@ -111,7 +119,7 @@ function PrepaintDemo() {
         )}
         <div className="grid w-full grid-cols-3 gap-2 p-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-12 rounded bg-zinc-800" />
+            <div key={i} className="h-12 rounded bg-tour-surface-strong" />
           ))}
         </div>
       </div>
@@ -123,7 +131,7 @@ function PrepaintDemo() {
         <button
           onClick={simulateLoad}
           disabled={isRestoring}
-          className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+          className="rounded-lg bg-status-success px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50 dark:text-slate-950"
         >
           {t('common.refreshPage')}
         </button>
@@ -147,11 +155,11 @@ export default function StepPrepaint() {
       icon={<Zap className="h-8 w-8" />}
     >
       <div className={cn('transition-opacity duration-500', mounted ? 'opacity-100' : 'opacity-0')}>
-        <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="mb-6 rounded-lg border border-status-info/30 bg-status-info/5 p-4">
           <div className="flex gap-3">
-            <Clock className="h-5 w-5 shrink-0 text-blue-400" />
+            <Clock className="h-5 w-5 shrink-0 text-status-info" />
             <div className="text-sm">
-              <div className="font-medium text-blue-400">{t('tour.prepaint.tryThis')}</div>
+              <div className="font-medium text-status-info">{t('tour.prepaint.tryThis')}</div>
               <div className="text-muted-foreground">{t('tour.prepaint.tryThisDescription')}</div>
             </div>
           </div>
@@ -168,7 +176,9 @@ export default function StepPrepaint() {
             label: t('tour.prepaint.withPrepaint'),
             description: t('tour.prepaint.withPrepaintDescription'),
             demo: <PrepaintDemo />,
-            metrics: [{ label: t('common.loadTime'), value: '<20ms', status: 'excellent' }],
+            metrics: [
+              { label: t('common.loadTime'), value: 'Snapshot replay', status: 'excellent' },
+            ],
           }}
         />
       </div>

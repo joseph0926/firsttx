@@ -21,14 +21,6 @@ test.describe('Instant Cart metrics', () => {
     });
     await page.goto('/sync/instant-cart');
 
-    const loadCartButton = page
-      .locator('[data-testid="traditional-panel"]')
-      .getByRole('button', { name: /Load Cart/i });
-    if (await loadCartButton.isVisible()) {
-      await loadCartButton.click();
-      await expect(loadCartButton).toBeHidden({ timeout: 20_000 });
-    }
-
     const traditionalPlus = page.locator('[data-testid^="traditional-increment-"]').first();
     await traditionalPlus.waitFor({ state: 'visible', timeout: 20_000 });
     await traditionalPlus.click();

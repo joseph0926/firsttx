@@ -17,17 +17,17 @@ function InstallCommand() {
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-zinc-900">
-      <div className="flex items-center justify-between border-b border-border bg-zinc-800/50 px-4 py-2">
+    <div className="overflow-hidden rounded-lg border border-border bg-tour-surface-strong">
+      <div className="flex items-center justify-between border-b border-border bg-tour-surface px-4 py-2">
         <span className="text-xs text-muted-foreground">{t('common.terminal')}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-zinc-700 hover:text-foreground"
+          className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3 text-green-400" />
-              <span className="text-green-400">{t('common.copied')}</span>
+              <Check className="h-3 w-3 text-status-success" />
+              <span className="text-status-success">{t('common.copied')}</span>
             </>
           ) : (
             <>
@@ -38,7 +38,7 @@ function InstallCommand() {
         </button>
       </div>
       <div className="p-4">
-        <code className="font-mono text-sm text-green-400">$ {command}</code>
+        <code className="font-mono text-sm text-status-success">$ {command}</code>
       </div>
     </div>
   );
@@ -58,24 +58,24 @@ export default function StepNext() {
       title: t('tour.next.prepaintDemos'),
       description: t('tour.next.prepaintDemosDescription'),
       path: '/prepaint/heavy',
-      color: 'text-yellow-400',
-      borderColor: 'border-yellow-500/30 hover:border-yellow-500/50',
+      color: 'text-status-warning',
+      borderColor: 'border-status-warning/30 hover:border-status-warning/50',
     },
     {
       icon: <Database className="h-5 w-5" />,
       title: t('tour.next.localFirstDemos'),
       description: t('tour.next.localFirstDemosDescription'),
       path: '/sync/instant-cart',
-      color: 'text-blue-400',
-      borderColor: 'border-blue-500/30 hover:border-blue-500/50',
+      color: 'text-status-info',
+      borderColor: 'border-status-info/30 hover:border-status-info/50',
     },
     {
       icon: <Shield className="h-5 w-5" />,
       title: t('tour.next.txDemos'),
       description: t('tour.next.txDemosDescription'),
       path: '/tx/concurrent',
-      color: 'text-green-400',
-      borderColor: 'border-green-500/30 hover:border-green-500/50',
+      color: 'text-status-success',
+      borderColor: 'border-status-success/30 hover:border-status-success/50',
     },
   ];
 

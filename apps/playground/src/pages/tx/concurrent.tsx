@@ -252,7 +252,7 @@ export default function ConcurrentUpdates() {
 
       <SectionHeader
         title="Concurrent Transaction Execution"
-        description="Launch multiple transactions simultaneously. FirstTx ensures each rollback is atomic - failed transactions never leave partial state."
+        description="Launch overlapping hook calls and inspect the shared pending, result, and error state for this fixture."
       />
 
       <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
@@ -261,8 +261,8 @@ export default function ConcurrentUpdates() {
           <div className="text-sm">
             <div className="font-medium text-blue-400">Try This</div>
             <div className="text-muted-foreground">
-              Adjust the number of concurrent transactions and failure rate, then run the test.
-              Failed transactions are automatically rolled back to maintain data consistency.
+              Adjust the call count and seeded failure rate, then run the fixture. Compare the
+              per-request log with the hook-level state; overlapping calls currently share it.
             </div>
           </div>
         </div>

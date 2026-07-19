@@ -44,8 +44,6 @@ export default function TimingAttack() {
     setCartItems(countItems(cart));
   }, [cart]);
 
-  const consistencyRate = stats.total === 0 ? 100 : Math.round((stats.passes / stats.total) * 100);
-
   const runTimingTest = async () => {
     if (!cart) {
       await sync();
@@ -201,25 +199,29 @@ export default function TimingAttack() {
         />
         <MetricCard
           icon={<CheckCircle2 className="h-5 w-5" />}
-          label="Data Consistency"
-          value={`${consistencyRate}%`}
-          target="100%"
-          status={consistencyRate === 100 ? 'excellent' : consistencyRate > 80 ? 'good' : 'poor'}
+          label="Observed Runs"
+          value={stats.total === 0 ? 'Not tested' : `${stats.passes}/${stats.total} matched`}
+          target="This fixture only"
+          status={stats.total === 0 ? 'good' : stats.passes === stats.total ? 'excellent' : 'poor'}
         />
         <MetricCard
           icon={<AlertTriangle className="h-5 w-5" />}
-          label="Race Conditions"
+          label="Final Snapshot"
           value={
-            testResult === 'fail' ? 'Detected' : testResult === 'pass' ? 'Protected' : 'Not tested'
+            testResult === 'fail'
+              ? 'Overwritten'
+              : testResult === 'pass'
+                ? 'Preserved'
+                : 'Not tested'
           }
-          target="Protected"
+          target="Expected limitation"
           status={testResult === 'pass' ? 'excellent' : testResult === 'fail' ? 'poor' : 'good'}
         />
       </MetricsGrid>
 
       <SectionHeader
-        title="Race Condition Simulator"
-        description="Test what happens when server sync arrives during transaction execution. Will the rollback preserve server data?"
+        title="Replace / Rollback Ordering Fixture"
+        description="Run a server replace while a transaction is failing and inspect which snapshot remains after rollback."
       />
 
       <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
@@ -228,8 +230,8 @@ export default function TimingAttack() {
           <div className="text-sm">
             <div className="font-medium text-blue-400">Try This</div>
             <div className="text-muted-foreground">
-              Adjust the server sync timing with the slider and run the test. Server data should be
-              preserved regardless of timing.
+              Adjust the server timing and run the fixture. This scenario records whether the later
+              server snapshot survives; it does not claim cross-store coordination.
             </div>
           </div>
         </div>
@@ -400,25 +402,25 @@ export default function TimingAttack() {
               <div className="flex gap-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
-                  <div className="font-medium">Protected Against Race</div>
+                  <div className="font-medium">Server Snapshot Check</div>
                   <div className="text-muted-foreground">
-                    Tx rollback should NOT overwrite server data
+                    The timeline records whether rollback overwrote the later server snapshot
                   </div>
                 </div>
               </div>
               <div className="flex gap-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
-                  <div className="font-medium">Memory Cache Integrity</div>
-                  <div className="text-muted-foreground">Cache must reflect final server state</div>
+                  <div className="font-medium">Memory Cache Result</div>
+                  <div className="text-muted-foreground">The final cache value is shown above</div>
                 </div>
               </div>
               <div className="flex gap-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
-                  <div className="font-medium">notifySubscribers Order</div>
+                  <div className="font-medium">Subscriber Update Order</div>
                   <div className="text-muted-foreground">
-                    React components update with correct data
+                    Timeline entries show when the React view received each change
                   </div>
                 </div>
               </div>
