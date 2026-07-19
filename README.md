@@ -25,20 +25,18 @@ FirstTx combines three client-side layers for CSR revisits:
 
 <table>
 <tr>
-<td align="center">Before</td>
-<td align="center">After</td>
+<td align="center">Scenario overview</td>
+<td align="center">Verification criteria</td>
 </tr>
 <tr>
-<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-01_vi2svy.gif" /></td>
-<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-02_tfmsy7.gif" /></td>
-</tr>
-<tr>
-<td align="center"><sub>Slow 4G: Blank screen</sub></td>
-<td align="center"><sub>Slow 4G: Snapshot replay</sub></td>
+<td><img src="./docs/assets/playground/home-ko-light.jpg" alt="FirstTx Playground scenario overview" /></td>
+<td><img src="./docs/assets/playground/lab-ko-light.jpg" alt="FirstTx Playground verification criteria" /></td>
 </tr>
 </table>
 
-> See all demos in [Playground](https://firsttx-playground.vercel.app)
+The Playground contains nine scenarios across Prepaint, Local-First, and Tx. Each scenario identifies one of three states: behavior that matches the current contract, a known limitation, or a demo that still needs revision. Runtime metrics are shown only when a measurement artifact is connected.
+
+> Run the scenarios in [Playground](https://firsttx-playground.vercel.app) or review the [Playground guide](./apps/playground/README.md).
 
 ## Why FirstTx?
 
