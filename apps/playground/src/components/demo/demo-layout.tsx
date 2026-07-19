@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
 import { ArrowLeft, Clock, Gauge } from 'lucide-react';
+import { Link, useLocation } from 'react-router';
 import { type PackageType, PackageBadgeGroup } from './package-badge';
 import { ProblemSolution } from './problem-solution';
 import { CodePreview } from './code-preview';
 import { NextSteps } from './next-steps';
 import { cn } from '@/lib/utils';
+import { ContractReceipt, PlaygroundHeader } from '@/components/playground/playground-shell';
+import { playgroundScenarioContracts } from '@/data/playground-contract';
+import { useI18n } from '@/hooks/use-i18n';
 
 interface DemoLayoutProps {
   level: 1 | 2 | 3;
@@ -31,9 +34,9 @@ interface DemoLayoutProps {
 }
 
 const difficultyConfig = {
-  1: { label: 'Beginner', color: 'text-green-400' },
-  2: { label: 'Intermediate', color: 'text-yellow-400' },
-  3: { label: 'Advanced', color: 'text-red-400' },
+  1: { label: 'Beginner', className: 'is-beginner' },
+  2: { label: 'Intermediate', className: 'is-intermediate' },
+  3: { label: 'Advanced', className: 'is-advanced' },
 };
 
 export function DemoLayout({
@@ -53,55 +56,66 @@ export function DemoLayout({
   docsLink,
   children,
 }: DemoLayoutProps) {
+  const location = useLocation();
+  const { locale } = useI18n();
   const diffConfig = difficultyConfig[difficulty];
+  const scenario = playgroundScenarioContracts.find(
+    (candidate) => candidate.route === location.pathname,
+  );
+  const copy =
+    locale === 'ko'
+      ? {
+          back: '전체 시나리오',
+          level: '장',
+          behind: '데모 코드',
+          workspace: '실행 영역',
+          contract: '시나리오 계약',
+        }
+      : {
+          back: 'All scenarios',
+          level: 'Chapter',
+          behind: 'Demo code',
+          workspace: 'Run the scenario',
+          contract: 'Scenario contract',
+        };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="mx-auto max-w-7xl px-6 py-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <Link
-                to="/"
-                className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Arena
-              </Link>
-              <div className="h-4 w-px bg-border" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground terminal-text">LEVEL {level}</span>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className={cn('text-xs font-medium', diffConfig.color)}>
-                    {diffConfig.label}
-                  </span>
-                </div>
-                <h1 className="text-lg font-semibold">{title}</h1>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <PackageBadgeGroup packages={packages} />
-              <div className="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{duration}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Gauge className="h-3 w-3" />
-                  <span>Level {difficulty}</span>
-                </div>
-              </div>
-            </div>
+    <div className="atlas-site-shell atlas-demo-page">
+      <PlaygroundHeader />
+      <main className="atlas-demo-main">
+        <Link to="/" className="atlas-back-link">
+          <ArrowLeft aria-hidden="true" />
+          {copy.back}
+        </Link>
+        <section className="atlas-demo-title">
+          <div>
+            <span>
+              {copy.level} {level} / {packages.join(' + ')}
+            </span>
+            <h1>{title}</h1>
           </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {description && <p className="mb-6 text-lg text-muted-foreground">{description}</p>}
-
-        <section className="mb-8">
+          <div className="atlas-demo-meta">
+            <PackageBadgeGroup packages={packages} />
+            <dl>
+              <div>
+                <Clock aria-hidden="true" />
+                <dt>{duration}</dt>
+              </div>
+              <div className={cn('atlas-difficulty', diffConfig.className)}>
+                <Gauge aria-hidden="true" />
+                <dt>{diffConfig.label}</dt>
+              </div>
+            </dl>
+          </div>
+          {description && <p>{description}</p>}
+        </section>
+        {scenario && (
+          <section className="atlas-contract-section">
+            <div className="atlas-section-label">{copy.contract}</div>
+            <ContractReceipt scenario={scenario} />
+          </section>
+        )}
+        <section className="atlas-problem-section">
           <ProblemSolution
             problem={problem}
             solution={solution}
@@ -109,12 +123,9 @@ export function DemoLayout({
             solutionDetails={solutionDetails}
           />
         </section>
-
         {codeSnippet && (
-          <section className="mb-8">
-            <h2 className="mb-4 text-sm font-medium text-muted-foreground">
-              Code Behind This Demo
-            </h2>
+          <section className="atlas-code-section">
+            <h2>{copy.behind}</h2>
             <CodePreview
               code={codeSnippet}
               title={codeTitle}
@@ -123,11 +134,12 @@ export function DemoLayout({
             />
           </section>
         )}
-
-        <section className="mb-12">{children}</section>
-
+        <section className="atlas-demo-workspace">
+          <div className="atlas-section-label">{copy.workspace}</div>
+          {children}
+        </section>
         {(relatedDemos || docsLink) && (
-          <section className="border-t border-border pt-8">
+          <section className="atlas-next-section">
             <NextSteps
               relatedDemos={relatedDemos}
               docsLink={docsLink}
@@ -135,7 +147,7 @@ export function DemoLayout({
             />
           </section>
         )}
-      </div>
+      </main>
     </div>
   );
 }

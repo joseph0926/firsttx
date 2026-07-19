@@ -24,21 +24,21 @@ function BlankScreenDemo() {
         className={cn(
           'flex h-32 items-center justify-center rounded-lg border transition-all',
           isLoading
-            ? 'border-red-500/50 bg-zinc-900'
+            ? 'border-status-danger/50 bg-tour-surface-strong'
             : showContent
-              ? 'border-green-500/30 bg-zinc-900/50'
-              : 'border-border bg-zinc-900/50',
+              ? 'border-status-success/30 bg-tour-surface'
+              : 'border-border bg-tour-surface',
         )}
       >
         {isLoading ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-red-400 border-t-transparent" />
-            <span className="text-sm text-red-400">{t('common.loading')}</span>
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-status-danger border-t-transparent" />
+            <span className="text-sm text-status-danger">{t('common.loading')}</span>
           </div>
         ) : showContent ? (
           <div className="text-center">
             <div className="mb-1 text-2xl">🎉</div>
-            <span className="text-sm text-green-400">{t('common.contentLoaded')}</span>
+            <span className="text-sm text-status-success">{t('common.contentLoaded')}</span>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">
@@ -48,7 +48,7 @@ function BlankScreenDemo() {
       </div>
       <button
         onClick={simulateRefresh}
-        className="w-full rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-700"
+        className="w-full rounded-lg bg-tour-surface-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
       >
         {t('common.refresh')}
       </button>
@@ -73,13 +73,13 @@ function DataLossDemo() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between rounded-lg border border-border bg-zinc-900/50 p-4">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-tour-surface p-4">
         <span className="text-sm">{t('common.cartItems')}:</span>
         <div className="flex items-center gap-3">
           <span
             className={cn(
               'text-2xl font-bold transition-colors',
-              isLost ? 'text-red-400' : 'text-foreground',
+              isLost ? 'text-status-danger' : 'text-foreground',
             )}
           >
             {isLost ? '0' : count}
@@ -94,11 +94,13 @@ function DataLossDemo() {
         </div>
       </div>
       {isLost && (
-        <div className="text-center text-sm text-red-400">{t('common.dataLostOnNavigation')}</div>
+        <div className="text-center text-sm text-status-danger">
+          {t('common.dataLostOnNavigation')}
+        </div>
       )}
       <button
         onClick={simulateNavigation}
-        className="w-full rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-700"
+        className="w-full rounded-lg bg-tour-surface-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
       >
         {t('common.navigateAway')}
       </button>
@@ -126,7 +128,9 @@ function NetworkErrorDemo() {
       <div
         className={cn(
           'flex h-24 items-center justify-center rounded-lg border transition-all',
-          status === 'error' ? 'border-red-500/50 bg-red-500/10' : 'border-border bg-zinc-900/50',
+          status === 'error'
+            ? 'border-status-danger/50 bg-status-danger/10'
+            : 'border-border bg-tour-surface',
         )}
       >
         {status === 'idle' && (
@@ -140,7 +144,7 @@ function NetworkErrorDemo() {
         )}
         {status === 'error' && (
           <div className="text-center">
-            <div className="mb-1 text-red-400">{t('common.networkError')}</div>
+            <div className="mb-1 text-status-danger">{t('common.networkError')}</div>
             <button onClick={retry} className="text-xs text-muted-foreground hover:text-foreground">
               {t('common.manualRetryRequired')}
             </button>
@@ -150,7 +154,7 @@ function NetworkErrorDemo() {
       <button
         onClick={simulateRequest}
         disabled={status === 'loading'}
-        className="w-full rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        className="w-full rounded-lg bg-tour-surface-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
       >
         {t('common.submitForm')}
       </button>

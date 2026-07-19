@@ -23,29 +23,24 @@ export function StepNavigation({
   isFirstStep = false,
 }: StepNavigationProps) {
   return (
-    <div className="border-t border-border bg-card/50 px-6 py-4">
-      <div className="mx-auto flex max-w-3xl items-center justify-between">
+    <div className="atlas-tour-navigation">
+      <div>
         <div>
           {onPrev && (
-            <button
-              onClick={onPrev}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
+            <button onClick={onPrev} className="atlas-button atlas-button-tertiary">
               <ArrowLeft className="h-4 w-4" />
               {prevLabel}
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="atlas-tour-actions">
           {onSkip && !isLastStep && (
             <button
               onClick={onSkip}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors',
-                isFirstStep
-                  ? 'border border-border text-foreground hover:bg-muted'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                'atlas-button',
+                isFirstStep ? 'atlas-button-secondary' : 'atlas-button-tertiary',
               )}
             >
               {skipLabel}
@@ -56,10 +51,8 @@ export function StepNavigation({
             <button
               onClick={onNext}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-medium transition-colors',
-                isLastStep
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                'atlas-button atlas-button-primary',
+                isLastStep ? 'is-complete' : undefined,
               )}
             >
               {nextLabel}

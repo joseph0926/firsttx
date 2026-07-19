@@ -1,4 +1,5 @@
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useI18n } from '@/hooks/use-i18n';
 
 interface ProblemSolutionProps {
   problem: string;
@@ -13,46 +14,50 @@ export function ProblemSolution({
   problemDetails,
   solutionDetails,
 }: ProblemSolutionProps) {
+  const { locale } = useI18n();
+  const problemLabel = locale === 'ko' ? '확인할 점' : 'What to observe';
+  const solutionLabel = locale === 'ko' ? '이 데모에서 보여 주는 동작' : 'What this demo shows';
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20">
-            <AlertCircle className="h-4 w-4 text-red-400" />
-          </div>
-          <h3 className="font-semibold text-red-400">The Problem</h3>
+    <div className="atlas-problem-solution">
+      <article data-kind="problem">
+        <div>
+          <span>
+            <AlertCircle aria-hidden="true" />
+          </span>
+          <h3>{problemLabel}</h3>
         </div>
-        <p className="text-sm leading-relaxed text-zinc-300">{problem}</p>
+        <p>{problem}</p>
         {problemDetails && problemDetails.length > 0 && (
-          <ul className="mt-3 space-y-1.5">
+          <ul>
             {problemDetails.map((detail, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-zinc-400">
-                <span className="mt-0.5 text-red-400">-</span>
+              <li key={i}>
+                <span aria-hidden="true">—</span>
                 {detail}
               </li>
             ))}
           </ul>
         )}
-      </div>
-      <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20">
-            <CheckCircle2 className="h-4 w-4 text-green-400" />
-          </div>
-          <h3 className="font-semibold text-green-400">The Solution</h3>
+      </article>
+      <article data-kind="solution">
+        <div>
+          <span>
+            <CheckCircle2 aria-hidden="true" />
+          </span>
+          <h3>{solutionLabel}</h3>
         </div>
-        <p className="text-sm leading-relaxed text-zinc-300">{solution}</p>
+        <p>{solution}</p>
         {solutionDetails && solutionDetails.length > 0 && (
-          <ul className="mt-3 space-y-1.5">
+          <ul>
             {solutionDetails.map((detail, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-zinc-400">
-                <span className="mt-0.5 text-green-400">+</span>
+              <li key={i}>
+                <span aria-hidden="true">+</span>
                 {detail}
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </article>
     </div>
   );
 }

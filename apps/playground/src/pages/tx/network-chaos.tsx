@@ -231,8 +231,8 @@ export default function NetworkChaos() {
       </MetricsGrid>
 
       <SectionHeader
-        title="Network Instability Simulator"
-        description="Each request runs inside useTx with configurable retry + backoff. Toggle chaos types to see how transactions respond."
+        title="Retry and Backoff Simulator"
+        description="Each request runs inside useTx with a selected failure fixture, retry limit, and linear delay."
       />
 
       <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
@@ -241,8 +241,8 @@ export default function NetworkChaos() {
           <div className="text-sm">
             <div className="font-medium text-blue-400">Try This</div>
             <div className="text-muted-foreground">
-              Adjust the chaos type and retry settings, then run the test. See how auto-retry and
-              rollback work under network error conditions.
+              Choose a failure fixture and retry settings, then inspect each attempt and the final
+              rollback entry when the retry limit is exhausted.
             </div>
           </div>
         </div>
@@ -251,11 +251,11 @@ export default function NetworkChaos() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Chaos Configuration</h3>
+            <h3 className="mb-4 text-lg font-semibold">Failure Configuration</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium">Chaos Type</label>
+                <label className="mb-2 block text-sm font-medium">Failure Fixture</label>
                 <select
                   value={chaosMode}
                   onChange={(e) => setChaosMode(e.target.value as ChaosType)}
@@ -317,7 +317,7 @@ export default function NetworkChaos() {
                   className="flex-1 flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Wifi className={`h-4 w-4 ${isRunning ? 'animate-pulse' : ''}`} />
-                  {isRunning ? 'Running Test...' : 'Run Chaos Test'}
+                  {isRunning ? 'Running Test...' : 'Run Retry Test'}
                 </button>
                 <button
                   onClick={resetTest}
@@ -339,7 +339,7 @@ export default function NetworkChaos() {
                   <div className="font-medium">Timeout</div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Always fails – verify rollback/consistency even after retries.
+                  Every attempt fails so the final rollback entry can be inspected.
                 </div>
               </div>
               <div className="rounded bg-muted/50 p-3">
@@ -404,14 +404,14 @@ export default function NetworkChaos() {
           </div>
 
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Expected Behavior</h3>
+            <h3 className="mb-4 text-lg font-semibold">What This Fixture Records</h3>
             <div className="space-y-3 text-sm">
               <div className="flex gap-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
-                  <div className="font-medium">Automatic Retry</div>
+                  <div className="font-medium">Configured Retry</div>
                   <div className="text-muted-foreground">
-                    Tx retries server steps while keeping optimistic UI consistent.
+                    Tx reruns the request callback up to the configured attempt limit.
                   </div>
                 </div>
               </div>
@@ -420,25 +420,25 @@ export default function NetworkChaos() {
                 <div>
                   <div className="font-medium">Backoff Control</div>
                   <div className="text-muted-foreground">
-                    Adjust delay to mimic exponential or aggressive retries.
+                    This demo uses the selected delay with the linear backoff option.
                   </div>
                 </div>
               </div>
               <div className="flex gap-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
-                  <div className="font-medium">Rollback Safety</div>
+                  <div className="font-medium">Rollback Callback</div>
                   <div className="text-muted-foreground">
-                    When retries exhaust, rollback restores the previous model snapshot.
+                    When retries are exhausted, the registered rollback callback adds a log entry.
                   </div>
                 </div>
               </div>
               <div className="flex gap-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
                 <div>
-                  <div className="font-medium">Final Consistency</div>
+                  <div className="font-medium">Final Result</div>
                   <div className="text-muted-foreground">
-                    Only successful transactions mutate state or logs.
+                    The summary counts successful, retried, and failed requests for this run.
                   </div>
                 </div>
               </div>

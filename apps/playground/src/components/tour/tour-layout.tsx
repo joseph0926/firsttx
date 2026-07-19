@@ -60,27 +60,29 @@ export function TourLayout({ children }: TourLayoutProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border px-6 py-3">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-lg font-semibold">
-            FirstTx
+    <div className="atlas-tour-shell">
+      <header className="atlas-tour-header">
+        <div>
+          <Link to="/" className="atlas-brand">
+            <span className="atlas-brand-mark">FT</span>
+            <span>
+              <strong>FirstTx</strong>
+              <small>Playground</small>
+            </span>
           </Link>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-            {t('common.tour')}
-          </span>
+          <span className="atlas-tour-label">{t('common.tour')}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <LanguageSwitcher />
+        <div>
+          <LanguageSwitcher className="atlas-language-switch" />
           <Link
             to="/"
             onClick={(e) => {
               e.preventDefault();
               goToEnd();
             }}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="atlas-tour-exit"
           >
-            <X className="h-4 w-4" />
+            <X aria-hidden="true" />
             {t('common.exit')}
           </Link>
         </div>
@@ -92,7 +94,7 @@ export function TourLayout({ children }: TourLayoutProps) {
         labels={TOUR_STEPS.map((s) => s.label)}
       />
 
-      <main className="flex flex-1 items-center justify-center px-6 py-8">{children}</main>
+      <main className="atlas-tour-main">{children}</main>
 
       <StepNavigation
         onPrev={currentStep > 1 ? goToPrev : undefined}

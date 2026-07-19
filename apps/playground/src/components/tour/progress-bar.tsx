@@ -8,38 +8,46 @@ interface ProgressBarProps {
 
 export function ProgressBar({ current, total, labels }: ProgressBarProps) {
   const progress = ((current - 1) / (total - 1)) * 100;
+  const currentLabel = labels?.[current - 1];
 
   return (
-    <div className="w-full px-6 py-4">
-      <div className="mx-auto max-w-3xl">
-        <div className="relative h-2 rounded-full bg-muted">
+    <div
+      className="atlas-tour-progress"
+      role="progressbar"
+      aria-valuemin={1}
+      aria-valuemax={total}
+      aria-valuenow={current}
+      aria-valuetext={
+        currentLabel ? `${currentLabel} (${current}/${total})` : `${current}/${total}`
+      }
+    >
+      <div>
+        <p className="atlas-tour-progress-summary" aria-hidden="true">
+          {currentLabel} · {current}/{total}
+        </p>
+        <div className="atlas-tour-track">
           <div
-            className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-300"
+            className="atlas-tour-track-value"
             style={{ width: `${progress}%` }}
+            aria-hidden="true"
           />
-          <div className="absolute -top-1 left-0 flex w-full justify-between">
+          <div className="atlas-tour-stops">
             {Array.from({ length: total }).map((_, i) => (
               <div
                 key={i}
-                className={cn(
-                  'h-4 w-4 rounded-full border-2 transition-colors',
-                  i + 1 <= current
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground/30 bg-background',
-                )}
+                className={cn('atlas-tour-stop', i + 1 <= current ? 'is-complete' : undefined)}
+                aria-hidden="true"
               />
             ))}
           </div>
         </div>
         {labels && (
-          <div className="mt-4 flex justify-between">
+          <div className="atlas-tour-step-labels">
             {labels.map((label, i) => (
               <span
                 key={i}
-                className={cn(
-                  'text-xs transition-colors',
-                  i + 1 === current ? 'font-medium text-foreground' : 'text-muted-foreground',
-                )}
+                className={cn(i + 1 === current ? 'is-current' : undefined)}
+                aria-current={i + 1 === current ? 'step' : undefined}
               >
                 {label}
               </span>

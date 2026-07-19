@@ -28,7 +28,7 @@ function TraditionalDemo() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-zinc-900/50 p-4">
+      <div className="rounded-lg border border-border bg-tour-surface p-4">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{t('common.inventoryCount')}</span>
           <div className="flex items-center gap-3">
@@ -45,15 +45,15 @@ function TraditionalDemo() {
       </div>
 
       {status === 'error' && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+        <div className="rounded-lg border border-status-danger/30 bg-status-danger/10 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-red-400">
+            <div className="flex items-center gap-2 text-status-danger">
               <AlertCircle className="h-4 w-4" />
               <span className="text-sm">{t('common.networkErrorUpdateFailed')}</span>
             </div>
             <button
               onClick={retry}
-              className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+              className="rounded bg-status-danger px-3 py-1 text-xs font-medium text-white hover:opacity-90 dark:text-slate-950"
             >
               {t('common.retry')}
             </button>
@@ -94,10 +94,10 @@ function TxDemo() {
         className={cn(
           'rounded-lg border p-4 transition-all',
           status === 'optimistic'
-            ? 'border-yellow-500/30 bg-yellow-500/5'
+            ? 'border-status-warning/30 bg-status-warning/5'
             : status === 'rollback'
-              ? 'border-orange-500/30 bg-orange-500/5'
-              : 'border-border bg-zinc-900/50',
+              ? 'border-status-warning/30 bg-status-warning/5'
+              : 'border-border bg-tour-surface',
         )}
       >
         <div className="flex items-center justify-between">
@@ -107,9 +107,9 @@ function TxDemo() {
               className={cn(
                 'text-3xl font-bold transition-colors',
                 status === 'optimistic'
-                  ? 'text-yellow-400'
+                  ? 'text-status-warning'
                   : status === 'rollback'
-                    ? 'text-orange-400'
+                    ? 'text-status-warning'
                     : '',
               )}
             >
@@ -118,7 +118,7 @@ function TxDemo() {
             <button
               onClick={handleIncrement}
               disabled={status !== 'idle'}
-              className="rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              className="rounded bg-status-success px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:text-slate-950"
             >
               +1
             </button>
@@ -127,15 +127,15 @@ function TxDemo() {
       </div>
 
       {status === 'optimistic' && (
-        <div className="flex items-center justify-center gap-2 text-sm text-yellow-400">
-          <div className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent" />
+        <div className="flex items-center justify-center gap-2 text-sm text-status-warning">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-status-warning border-t-transparent" />
           <span>{t('common.optimisticUpdateApplied')}</span>
         </div>
       )}
 
       {status === 'rollback' && (
-        <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
-          <div className="flex items-center justify-center gap-2 text-orange-400">
+        <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 p-4">
+          <div className="flex items-center justify-center gap-2 text-status-warning">
             <RotateCcw className="h-4 w-4 animate-spin" />
             <span className="text-sm">{t('common.networkFailedRollingBack')}</span>
           </div>
@@ -164,11 +164,11 @@ export default function StepTx() {
       icon={<Shield className="h-8 w-8" />}
     >
       <div className={cn('transition-opacity duration-500', mounted ? 'opacity-100' : 'opacity-0')}>
-        <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="mb-6 rounded-lg border border-status-info/30 bg-status-info/5 p-4">
           <div className="flex gap-3">
-            <Shield className="h-5 w-5 shrink-0 text-blue-400" />
+            <Shield className="h-5 w-5 shrink-0 text-status-info" />
             <div className="text-sm">
-              <div className="font-medium text-blue-400">{t('tour.tx.tryThis')}</div>
+              <div className="font-medium text-status-info">{t('tour.tx.tryThis')}</div>
               <div className="text-muted-foreground">{t('tour.tx.tryThisDescription')}</div>
             </div>
           </div>

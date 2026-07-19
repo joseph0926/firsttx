@@ -21,6 +21,13 @@ const routerObjects: RouteObject[] = [
         },
       },
       {
+        path: 'lab',
+        lazy: async () => {
+          const { default: Component } = await import('./pages/verification-lab.page');
+          return { Component };
+        },
+      },
+      {
         path: 'tour',
         lazy: async () => {
           const { default: Component } = await import('./pages/tour');
@@ -184,7 +191,7 @@ const router = createBrowserRouter(routerObjects);
 
 export default function Router() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <RouterProvider router={router} />
       <Analytics />
     </ThemeProvider>

@@ -1,5 +1,7 @@
-import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router';
+import { PlaygroundHeader } from '@/components/playground/playground-shell';
+import { useI18n } from '@/hooks/use-i18n';
 
 interface ScenarioLayoutProps {
   level: number;
@@ -12,37 +14,32 @@ interface ScenarioLayoutProps {
 }
 
 export function ScenarioLayout({ level, title, badge, children }: ScenarioLayoutProps) {
+  const { locale } = useI18n();
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="mx-auto max-w-7xl px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link
-                to="/"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Arena
-              </Link>
-              <div className="h-4 w-px bg-border" />
-              <div>
-                <div className="text-xs text-muted-foreground terminal-text">LEVEL {level}</div>
-                <div className="text-sm font-semibold">{title}</div>
-              </div>
-            </div>
-
-            {badge && (
-              <div className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                {badge.icon}
-                {badge.label}
-              </div>
-            )}
+    <div className="atlas-site-shell atlas-guide-page">
+      <PlaygroundHeader />
+      <main className="atlas-guide-main">
+        <Link to="/" className="atlas-back-link">
+          <ArrowLeft aria-hidden="true" />
+          {locale === 'ko' ? 'Playground로 돌아가기' : 'Back to Playground'}
+        </Link>
+        <header className="atlas-guide-title">
+          <div>
+            <span>
+              {locale === 'ko' ? '장' : 'Chapter'} {level}
+            </span>
+            <h1>{title}</h1>
           </div>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 py-8">{children}</div>
+          {badge && (
+            <div className="atlas-guide-badge">
+              {badge.icon}
+              {badge.label}
+            </div>
+          )}
+        </header>
+        <div className="atlas-guide-content">{children}</div>
+      </main>
     </div>
   );
 }
@@ -56,30 +53,20 @@ interface MetricCardProps {
 }
 
 export function MetricCard({ icon, label, value, target, status = 'good' }: MetricCardProps) {
-  const statusColors = {
-    excellent: 'text-green-500 dark:text-green-400',
-    good: 'text-yellow-500 dark:text-yellow-400',
-    poor: 'text-red-500 dark:text-red-400',
-  };
-
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-2 flex items-center gap-2 text-muted-foreground">
+    <div className="atlas-metric-card" data-status={status}>
+      <div>
         {icon}
-        <span className="text-sm">{label}</span>
+        <span>{label}</span>
       </div>
-      <div className={`mb-1 text-3xl font-bold ${statusColors[status]}`}>{value}</div>
-      <div className="text-xs text-muted-foreground terminal-text">{target}</div>
+      <strong>{value}</strong>
+      <small>{target}</small>
     </div>
   );
 }
 
-interface MetricsGridProps {
-  children: React.ReactNode;
-}
-
-export function MetricsGrid({ children }: MetricsGridProps) {
-  return <div className="mb-8 grid gap-4 md:grid-cols-3">{children}</div>;
+export function MetricsGrid({ children }: { children: React.ReactNode }) {
+  return <div className="atlas-metrics-grid">{children}</div>;
 }
 
 interface SectionHeaderProps {
@@ -89,9 +76,9 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, description }: SectionHeaderProps) {
   return (
-    <div className="mb-6">
-      <h1 className="mb-2 text-3xl font-bold">{title}</h1>
-      {description && <p className="text-muted-foreground">{description}</p>}
+    <div className="atlas-content-heading">
+      <h1>{title}</h1>
+      {description && <p>{description}</p>}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import './index.css';
+import './playground.css';
 import { createFirstTxRoot } from '@firsttx/prepaint';
 import Router from './router.tsx';
 import { loadMetricsFromPublic } from './lib/metrics-loader';
