@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   root: 'src/panel',
   base: './',
+  resolve: {
+    extensions: ['.ts', '.tsx', '.mjs', '.js', '.mts', '.jsx', '.json'],
+  },
   build: {
     outDir: '../../dist/panel',
     emptyOutDir: true,
