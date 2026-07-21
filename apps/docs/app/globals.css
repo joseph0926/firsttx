@@ -576,6 +576,12 @@ body {
   padding: 0;
 }
 
+.docs-anchor {
+  display: block;
+  height: 0;
+  scroll-margin-top: 6rem;
+}
+
 .docs-reading > main > :first-child {
   margin-top: 0;
 }

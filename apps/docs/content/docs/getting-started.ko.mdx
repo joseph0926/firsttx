@@ -26,6 +26,8 @@ export const metadata = {
 
 ---
 
+<DocsAnchor id="prerequisites" />
+
 ## 0. 사전 준비
 
 - React 18.2+
@@ -33,6 +35,8 @@ export const metadata = {
 - 타입스크립트 사용 가정
 
 ---
+
+<DocsAnchor id="install-packages" />
 
 ## 1. 패키지 설치
 
@@ -46,6 +50,8 @@ export const metadata = {
 </Callout>
 
 ---
+
+<DocsAnchor id="vite-plugin-prepaint-boot-script" />
 
 ## 2. Vite 플러그인 설정 (Prepaint 부트 스크립트)
 
@@ -79,6 +85,8 @@ export default defineConfig({
 </Callout>
 
 ---
+
+<DocsAnchor id="replace-the-entry-point-createfirsttxroot" />
 
 ## 3. 엔트리 포인트 교체 (`createFirstTxRoot`) – ⭐ 필수
 
@@ -115,6 +123,8 @@ createFirstTxRoot(
 </Callout>
 
 ---
+
+<DocsAnchor id="define-a-local-first-model-definemodel" />
 
 ## 4. Local-First 모델 정의 (`defineModel`)
 
@@ -153,6 +163,8 @@ export const CartModel = defineModel("cart", {
 - `initialData`: 디스크에 아무 값도 없을 때 사용할 초기 값입니다.
 
 ---
+
+<DocsAnchor id="use-the-sync-hook-in-a-component-usesyncedmodel" />
 
 ## 5. 컴포넌트에서 동기화 훅 사용 (`useSyncedModel`)
 
@@ -230,6 +242,8 @@ export function CartPage() {
 
 ---
 
+<DocsAnchor id="wrap-optimistic-updates-in-tx-optional" />
+
 ## 6. Tx로 낙관적 업데이트를 트랜잭션으로 감싸기 (선택)
 
 이제 장바구니에 아이템을 추가하는 예시로 Tx를 사용해 봅니다.
@@ -285,6 +299,8 @@ export async function addToCart(item: CartItem) {
 
 ---
 
+<DocsAnchor id="devtools-and-where-to-go-next" />
+
 ## 7. DevTools와 다음 단계
 
 FirstTx는 **Prepaint / Local-First / Tx의 모든 중요한 이벤트를 DevTools로 전송**합니다.
@@ -302,6 +318,8 @@ FirstTx는 **Prepaint / Local-First / Tx의 모든 중요한 이벤트를 DevToo
 를 **타임라인으로 한눈에 확인**할 수 있습니다.
 
 ---
+
+<DocsAnchor id="recap-what-you-have-now" />
 
 ## 정리: 지금까지 구현한 것
 

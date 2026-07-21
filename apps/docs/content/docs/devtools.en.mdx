@@ -29,6 +29,8 @@ All in a single **timeline + event list** UI, with category/priority/text filter
 
 ---
 
+<DocsAnchor id="installation-requirements" />
+
 ## 1. Installation & requirements
 
 From the README DevTools section,
@@ -56,6 +58,8 @@ In a typical web app you don’t need to change your code,
 
 ---
 
+<DocsAnchor id="panel-layout" />
+
 ## 2. Panel layout
 
 Based on the README and the devtools implementation,
@@ -63,6 +67,8 @@ Based on the README and the devtools implementation,
 1. Top bar
 2. Timeline view
 3. Event list view
+
+<DocsAnchor id="top-bar" />
 
 ### 2-1. Top bar
 
@@ -78,6 +84,8 @@ Based on the README and the devtools implementation,
   - Number of events collected in the current session
 
 ---
+
+<DocsAnchor id="timeline-view" />
 
 ### 2-2. Timeline view
 
@@ -97,6 +105,8 @@ This view is best for understanding **end-to-end flows**,
 
 ---
 
+<DocsAnchor id="event-list-view" />
+
 ### 2-3. Event list view
 
 - One **row per event** with,
@@ -115,9 +125,13 @@ This view is best for understanding **end-to-end flows**,
 
 ---
 
+<DocsAnchor id="event-categories" />
+
 ## 3. Event categories
 
 The devtools bridge defines four main categories: `prepaint`, `model`, `tx`, and `system`.
+
+<DocsAnchor id="prepaint" />
 
 ### 3-1. Prepaint
 
@@ -137,6 +151,8 @@ From the README,
 // → Look for 'hydration.error' events
 ```
 
+<DocsAnchor id="model-local-first" />
+
 ### 3-2. Model (Local-First)
 
 Events such as,
@@ -150,6 +166,8 @@ Events such as,
 // → Filter by Model category
 // → Check 'sync.start' event trigger field
 ```
+
+<DocsAnchor id="tx" />
 
 ### 3-3. Tx
 
@@ -167,12 +185,16 @@ Tx events represent transaction lifecycle,
 // → Check if 'rollback.fail' event exists
 ```
 
+<DocsAnchor id="system" />
+
 ### 3-4. System
 
 - Bridge initialization, buffered event replay, version info, etc.
 - Mostly useful to verify that DevTools is attached correctly.
 
 ---
+
+<DocsAnchor id="under-the-hood-bridge-buffering" />
 
 ## 4. Under the hood (bridge & buffering)
 
@@ -201,6 +223,8 @@ From the devtools package and your earlier notes: ([GitHub][1])
 
 ---
 
+<DocsAnchor id="performance-ux-considerations" />
+
 ## 5. Performance & UX considerations
 
 From observed behavior and the implementation: ([GitHub][1])
@@ -223,6 +247,8 @@ Practical tips,
 
 ---
 
+<DocsAnchor id="programmatic-usage" />
+
 ## 6. Programmatic usage
 
 If you need to consume FirstTx events programmatically (e.g. in Electron or a custom admin console),
@@ -238,6 +264,8 @@ Recommendation,
   - Expect breaking changes across versions and pin versions accordingly.
 
 ---
+
+<DocsAnchor id="tl-dr" />
 
 ## 7. TL;DR
 

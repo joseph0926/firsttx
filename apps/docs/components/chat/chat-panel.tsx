@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ArrowUp, CornerDownRight, LoaderCircle } from "lucide-react";
+import { createChatFetch, projectChatError } from "@/lib/ai/chat-error";
 import { ChatMessage } from "./chat-message";
 
 type Locale = "ko" | "en";
@@ -19,6 +20,7 @@ const copy = {
     unknown: "현재 문서만으로는 확인할 수 없습니다. 관련 제한 사항을 확인하세요.",
     error: "답변을 불러오지 못했습니다. 문서는 계속 읽을 수 있습니다.",
     rateLimit: "요청 한도에 도달했습니다. 잠시 뒤 다시 시도하거나 문서에서 직접 찾으세요.",
+    retryAfter: (seconds: number) => `${seconds}초 후 다시 시도할 수 있습니다.`,
     retry: "다시 시도",
     browse: "관련 문서 보기",
     send: "질문 보내기",
@@ -31,6 +33,7 @@ const copy = {
     unknown: "The current docs cannot establish this. Continue to the related limitations.",
     error: "The answer could not be loaded. You can keep reading the docs.",
     rateLimit: "The request limit was reached. Try later or browse the docs directly.",
+    retryAfter: (seconds: number) => `You can retry in ${seconds} seconds.`,
     retry: "Retry",
     browse: "Browse related docs",
     send: "Send question",
@@ -41,10 +44,11 @@ export function ChatPanel({ locale, fixtureState }: { locale: Locale; fixtureSta
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const text = copy[locale];
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat", body: { locale } }), [locale]);
+  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat", body: { locale }, fetch: createChatFetch() }), [locale]);
   const { messages, sendMessage, status, error, regenerate } = useChat({ transport });
   const isLoading = status === "streaming" || status === "submitted";
-  const state = fixtureState ?? (error ? (error.message.includes("429") ? "rate-limit" : "error") : isLoading && messages.length === 0 ? "streaming" : undefined);
+  const projectedError = error ? projectChatError(error) : undefined;
+  const state = fixtureState ?? projectedError?.state ?? (isLoading && messages.length === 0 ? "streaming" : undefined);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -61,7 +65,7 @@ export function ChatPanel({ locale, fixtureState }: { locale: Locale; fixtureSta
     <div className="docs-chat-body">
       <div className="docs-chat-scroll" aria-live="polite" aria-busy={state === "streaming" || isLoading}>
         {state && state !== "empty" ? (
-          <ChatState locale={locale} state={state} onRetry={() => void regenerate()} />
+          <ChatState locale={locale} state={state} retryAfterSeconds={projectedError?.retryAfterSeconds} onRetry={fixtureState ? undefined : () => void regenerate()} />
         ) : messages.length === 0 ? (
           <div className="docs-chat-empty">
             <p>{text.empty}</p>
@@ -95,15 +99,18 @@ export function ChatPanel({ locale, fixtureState }: { locale: Locale; fixtureSta
   );
 }
 
-function ChatState({ locale, state, onRetry }: { locale: Locale; state: Exclude<ChatFixtureState, "empty">; onRetry: () => void }) {
+function ChatState({ locale, state, retryAfterSeconds, onRetry }: { locale: Locale; state: Exclude<ChatFixtureState, "empty">; retryAfterSeconds?: number; onRetry?: () => void }) {
   const text = copy[locale];
   const message = text[state === "rate-limit" ? "rateLimit" : state];
 
   return (
     <div className={`docs-chat-state is-${state}`} role={state === "error" || state === "rate-limit" ? "alert" : "status"}>
       <span aria-hidden="true">{state === "streaming" ? "···" : "↳"}</span>
-      <p>{message}</p>
-      {state === "error" ? (
+      <p>
+        {message}
+        {state === "rate-limit" && retryAfterSeconds !== undefined ? ` ${text.retryAfter(retryAfterSeconds)}` : ""}
+      </p>
+      {(state === "error" || state === "rate-limit") && onRetry ? (
         <button type="button" onClick={onRetry}>
           {text.retry}
         </button>

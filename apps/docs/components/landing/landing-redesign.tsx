@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { SetupSelector } from "@/components/setup-selector";
+import { DocsAnchor } from "@/components/mdx/docs-anchor";
+import { LANDING_SETUP_ANCHOR } from "@/lib/docs/anchor-contract";
 
 type Locale = "ko" | "en";
 
@@ -60,7 +62,8 @@ export function LandingRedesign({ locale }: { locale: Locale }) {
             </Link>
           </div>
         </header>
-        <section id="choose-setup" className="production-setup" aria-labelledby="choose-setup-title">
+        <DocsAnchor id={LANDING_SETUP_ANCHOR.id} aliases={LANDING_SETUP_ANCHOR.aliases} />
+        <section className="production-setup" aria-labelledby="choose-setup-title">
           <div className="production-setup-intro">
             <h2 id="choose-setup-title">{text.chooseTitle}</h2>
             <p>{text.chooseBody}</p>

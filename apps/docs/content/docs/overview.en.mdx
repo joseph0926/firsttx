@@ -28,6 +28,8 @@ in React-based CSR apps.
 
 ---
 
+<DocsAnchor id="why-does-firsttx-exist" />
+
 ## 1. Why does FirstTx exist?
 
 Here are some very common issues in CSR apps,
@@ -47,6 +49,8 @@ FirstTx splits these pain points into three layers,
 2. Use **Local-First** to persist client model snapshots.
 3. Use **Tx** to wrap UI changes in transactions.
 
+<DocsAnchor id="key-differentiators" />
+
 ### Key Differentiators
 
 1. **Prepaint**: Replays a visual snapshot before the main app bundle starts, without adding an SSR runtime
@@ -56,7 +60,11 @@ FirstTx splits these pain points into three layers,
 
 ---
 
+<DocsAnchor id="the-three-layers-at-a-glance" />
+
 ## 2. The three layers at a glance
+
+<DocsAnchor id="prepaint-boot-time-visual-snapshot-replay" />
 
 ### Prepaint - “boot-time visual snapshot replay”
 
@@ -72,6 +80,8 @@ FirstTx splits these pain points into three layers,
 - You’re tired of “always seeing a blank screen” after refresh/back and want to improve that UX.
 
 ---
+
+<DocsAnchor id="local-first-indexeddb-backed-synchronous-store" />
 
 ### Local-First - “IndexedDB-backed synchronous store”
 
@@ -89,6 +99,8 @@ FirstTx splits these pain points into three layers,
 - You need a **durable client-side data layer** but don’t want to manage IndexedDB by hand.
 
 ---
+
+<DocsAnchor id="tx-optimistic-saga-executor" />
 
 ### Tx - “optimistic saga executor”
 
@@ -124,6 +136,8 @@ FirstTx splits these pain points into three layers,
 
 ---
 
+<DocsAnchor id="what-kinds-of-apps-is-this-for" />
+
 ## 3. What kinds of apps is this for?
 
 **Especially good fit for**
@@ -140,6 +154,8 @@ FirstTx splits these pain points into three layers,
 - Highly sensitive environments where nothing should persist in browser storage
 
 ---
+
+<DocsAnchor id="how-should-i-adopt-it" />
 
 ## 4. How should I adopt it?
 
@@ -160,6 +176,8 @@ A common path looks like this,
    - Handle rollback/retry/timeout in a single place.
 
 ---
+
+<DocsAnchor id="what-to-read-next" />
 
 ## 5. What to read next
 

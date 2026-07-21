@@ -11,13 +11,9 @@ type TocItem = {
   depth: 2 | 3;
 };
 
-function slugify(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/["'`]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
+function getHeadingAnchorId(heading: HTMLElement) {
+  const anchor = heading.previousElementSibling;
+  return anchor instanceof HTMLElement ? anchor.dataset.docAnchor : undefined;
 }
 
 export function DocsTableOfContents({ onNavigate }: { onNavigate?: () => void }) {
@@ -27,32 +23,36 @@ export function DocsTableOfContents({ onNavigate }: { onNavigate?: () => void })
   const [activeId, setActiveId] = useState("");
 
   useEffect(() => {
-    const headings = Array.from(document.querySelectorAll<HTMLElement>("#docs-reading h2, #docs-reading h3"));
-    const counts = new Map<string, number>();
-    const nextItems = headings.map((heading) => {
+    const headings = Array.from(document.querySelectorAll<HTMLElement>("#docs-reading [data-doc-heading]"));
+    const targets = headings.flatMap((heading) => {
+      const id = getHeadingAnchorId(heading);
+      return id ? [{ heading, id }] : [];
+    });
+    const ids = new Map(targets.map(({ heading, id }) => [heading, id]));
+    const nextItems = targets.map(({ heading, id }) => {
       const label = heading.textContent?.trim() ?? "";
-      const baseId = heading.id || slugify(label) || "section";
-      const count = counts.get(baseId) ?? 0;
-      counts.set(baseId, count + 1);
-      const id = heading.id || (count === 0 ? baseId : `${baseId}-${count + 1}`);
-      heading.id = id;
       return { id, label, depth: heading.tagName === "H2" ? 2 : 3 } as TocItem;
     });
 
     const timer = window.setTimeout(() => {
+      const hashId = window.location.hash.slice(1);
+      const aliasTarget = hashId ? document.getElementById(hashId)?.dataset.docAnchorAlias : undefined;
       setItems(nextItems);
-      setActiveId(window.location.hash.slice(1) || nextItems[0]?.id || "");
+      setActiveId(aliasTarget || hashId || nextItems[0]?.id || "");
     }, 0);
 
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.find((entry) => entry.isIntersecting);
-        if (visible?.target.id) setActiveId(visible.target.id);
+        if (visible?.target instanceof HTMLElement) {
+          const id = ids.get(visible.target);
+          if (id) setActiveId(id);
+        }
       },
       { rootMargin: "-18% 0px -70% 0px" },
     );
 
-    headings.forEach((heading) => observer.observe(heading));
+    targets.forEach(({ heading }) => observer.observe(heading));
     return () => {
       window.clearTimeout(timer);
       observer.disconnect();

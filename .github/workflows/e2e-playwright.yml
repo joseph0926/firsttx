@@ -56,6 +56,10 @@ jobs:
       - name: Run Playwright tests
         run: pnpm --filter playground test:e2e ${{ matrix.suite.testArgs }}
 
+      - name: Run Docs Playwright smoke
+        if: matrix.suite.name == 'smoke'
+        run: pnpm --filter @firsttx/docs test:e2e
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
@@ -72,3 +76,21 @@ jobs:
           name: playwright-test-results-${{ matrix.suite.name }}
           path: apps/playground/test-results
           if-no-files-found: ignore
+
+      - name: Upload Docs Playwright report
+        if: ${{ !cancelled() && matrix.suite.name == 'smoke' }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: docs-playwright-report
+          path: apps/docs/playwright-report
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload Docs Playwright test results
+        if: ${{ !cancelled() && matrix.suite.name == 'smoke' }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: docs-playwright-test-results
+          path: apps/docs/test-results
+          if-no-files-found: ignore
+          retention-days: 30

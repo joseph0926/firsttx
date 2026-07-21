@@ -26,6 +26,8 @@ Tx does not provide an atomic commit across remote APIs, IndexedDB, and React st
 
 ---
 
+<DocsAnchor id="installation-the-simplest-usage-starttransaction" />
+
 ## 1. Installation & the simplest usage: `startTransaction`
 
 First, install Tx. The examples in this document use the Local-First model, so we show them installed together.
@@ -120,6 +122,8 @@ Key points here,
 
 ---
 
+<DocsAnchor id="transaction-lifecycle-states" />
+
 ## 2. Transaction lifecycle & states
 
 Internally, the transaction engine roughly has the following states,
@@ -170,6 +174,8 @@ Internally, the transaction engine roughly has the following states,
 </Callout>
 
 ---
+
+<DocsAnchor id="tx-run-and-retry" />
 
 ## 3. `tx.run` and retry
 
@@ -251,6 +257,8 @@ tx.run(doSomething, {
 ```
 
 ---
+
+<DocsAnchor id="react-hook-usetx" />
 
 ## 4. React hook: `useTx`
 
@@ -455,9 +463,13 @@ export function AddToCartButton({
 
 ---
 
+<DocsAnchor id="error-model-devtools" />
+
 ## 5. Error model & DevTools
 
 Tx uses a shared error hierarchy `TxError` and several concrete subclasses.
+
+<DocsAnchor id="1-error-hierarchy" />
 
 ### 5.1 Error hierarchy
 
@@ -508,6 +520,8 @@ try {
 }
 ```
 
+<DocsAnchor id="2-devtools-events" />
+
 ### 5.2 DevTools events
 
 If `window.__FIRSTTX_DEVTOOLS__` exists, Tx emits events describing transaction activity,
@@ -542,6 +556,8 @@ The `priority` field controls importance in DevTools,
 </Callout>
 
 ---
+
+<DocsAnchor id="using-tx-with-local-first-prepaint" />
 
 ## 6. Using Tx with Local-First / Prepaint
 
