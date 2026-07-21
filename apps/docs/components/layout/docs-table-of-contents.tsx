@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type TocItem = {
@@ -21,6 +22,7 @@ function slugify(value: string) {
 
 export function DocsTableOfContents({ onNavigate }: { onNavigate?: () => void }) {
   const locale = useLocale();
+  const pathname = usePathname();
   const [items, setItems] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState("");
 
@@ -55,7 +57,7 @@ export function DocsTableOfContents({ onNavigate }: { onNavigate?: () => void })
       window.clearTimeout(timer);
       observer.disconnect();
     };
-  }, []);
+  }, [pathname]);
 
   if (items.length === 0) return null;
 

@@ -96,7 +96,7 @@ apps/playground/
 - [Playground 계약과 측정값 분류](../../docs/playground-contract.md)
 - [Playground UI/UX 결정 기록](../../docs/uiux/playground-redesign.md)
 - [전체 업데이트 계획](../../docs/update-plan.md)
-- [FirstTx API](../../docs/API.md)
+- [FirstTx API](https://firsttx.store/ko/docs/reference)
 
 ## 라이선스
 

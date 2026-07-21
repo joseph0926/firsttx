@@ -7,7 +7,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/joseph0926/firsttx/badge)](https://scorecard.dev/viewer/?uri=github.com/joseph0926/firsttx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Docs](https://www.firsttx.store) | [Playground](https://firsttx-playground.vercel.app) | [DevTools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)
+[Docs](https://firsttx.store/en) | [Playground](https://firsttx-playground.vercel.app) | [DevTools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)
 
 > 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.
 
@@ -29,14 +29,31 @@ FirstTx combines three client-side layers for CSR revisits:
 <td align="center">Verification criteria</td>
 </tr>
 <tr>
-<td><img src="./docs/assets/playground/home-ko-light.jpg" alt="FirstTx Playground scenario overview" /></td>
-<td><img src="./docs/assets/playground/lab-ko-light.jpg" alt="FirstTx Playground verification criteria" /></td>
+<td><img src="./docs/assets/playground/home-en-light.jpg" alt="FirstTx Playground scenario overview" /></td>
+<td><img src="./docs/assets/playground/lab-en-light.jpg" alt="FirstTx Playground verification criteria" /></td>
 </tr>
 </table>
 
 The Playground contains nine scenarios across Prepaint, Local-First, and Tx. Each scenario identifies one of three states: behavior that matches the current contract, a known limitation, or a demo that still needs revision. Runtime metrics are shown only when a measurement artifact is connected.
 
 > Run the scenarios in [Playground](https://firsttx-playground.vercel.app) or review the [Playground guide](./apps/playground/README.md).
+
+## Documentation
+
+<table>
+<tr>
+<td align="center">Choose a setup</td>
+<td align="center">Navigate by task</td>
+</tr>
+<tr>
+<td><img src="./docs/assets/docs/landing-desktop-en-light.png" alt="FirstTx Docs setup selection" /></td>
+<td><img src="./docs/assets/docs/navigation-mobile-en-dark.png" alt="FirstTx Docs mobile task navigation" /></td>
+</tr>
+</table>
+
+The documentation is organized around adoption tasks: start with product fit, choose a setup, build each layer, verify behavior, troubleshoot failures, and look up exact public contracts.
+
+[Overview](https://firsttx.store/en/docs/overview) · [Getting Started](https://firsttx.store/en/docs/getting-started) · [Patterns](https://firsttx.store/en/docs/patterns) · [Troubleshooting](https://firsttx.store/en/docs/troubleshooting) · [Reference](https://firsttx.store/en/docs/reference)
 
 ## Why FirstTx?
 
@@ -101,7 +118,7 @@ function CartPage() {
 }
 ```
 
-> For optimistic updates with Tx, see [API Reference](./docs/API.md#tx).
+> For optimistic updates with Tx, see the [Tx API reference](https://firsttx.store/en/docs/reference#tx).
 
 ## When to Use
 
@@ -131,7 +148,7 @@ More at [GitHub Issues](https://github.com/joseph0926/firsttx/issues).
 
 ## Links
 
-- [API Reference](./docs/API.md)
+- [API Reference](https://firsttx.store/en/docs/reference)
 - [Playground](https://firsttx-playground.vercel.app)
 - [DevTools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)
 - [GitHub](https://github.com/joseph0926/firsttx)
