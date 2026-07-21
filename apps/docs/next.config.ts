@@ -5,7 +5,7 @@ import createMDX from "@next/mdx";
 const withMDX = createMDX({
   extension: /\.mdx?$/,
   options: {
-    remarkPlugins: [],
+    remarkPlugins: ["remark-gfm"],
     rehypePlugins: [],
   },
 });
