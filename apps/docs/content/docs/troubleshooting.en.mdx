@@ -8,6 +8,8 @@ Start by identifying the failing layer and the last successful step. When DevToo
 
 <span id="prepaint"></span>
 
+<DocsAnchor id="prepaint-does-not-replay" />
+
 ## Prepaint does not replay
 
 | Symptom                            | Likely cause                                           | Next action                                                                  |
@@ -21,6 +23,8 @@ The Prepaint overlay is non-interactive. Clicks being unavailable during replay 
 
 <span id="local-first"></span>
 
+<DocsAnchor id="local-first-data-is-not-ready" />
+
 ## Local-First data is not ready
 
 - `useModel` synchronously returns the in-memory external-store snapshot, while IndexedDB loading is asynchronous. Handle the initial `loading` state.
@@ -31,6 +35,8 @@ The Prepaint overlay is non-interactive. Clicks being unavailable during replay 
 `StorageError.code` uses the `STORAGE_*` namespace. Read the raw classification from `storageCode`, operation details from `storageContext`, and recovery status from `isRecoverable()`.
 
 <span id="tx"></span>
+
+<DocsAnchor id="tx-ends-in-rollback-or-timeout" />
 
 ## Tx ends in rollback or timeout
 
@@ -45,6 +51,8 @@ The Prepaint overlay is non-interactive. Clicks being unavailable during replay 
 
 <span id="devtools-limits"></span>
 
+<DocsAnchor id="devtools-fields-are-missing-or-different" />
+
 ## DevTools fields are missing or different
 
 Some runtime payload fields differ from the bridge types. For example, a Tx start event may use `timeout` while the bridge type uses `timeoutMs`, or `hasCompensate` while the type uses `hasCompensation`.
@@ -54,6 +62,8 @@ Some runtime payload fields differ from the bridge types. For example, a Tx star
 - Interpret `step.success.attempt` with the transaction timeline because it can reflect configuration rather than the actual attempt count.
 
 <span id="errors"></span>
+
+<DocsAnchor id="recovery-by-error-type" />
 
 ## Recovery by error type
 

@@ -3,6 +3,7 @@ import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "@/lib/utils";
 import { CodeBlock, Callout, InstallTabs, ApiTable } from "./components/mdx";
 import { DocsLink } from "./components/mdx/docs-link";
+import { DocsAnchor } from "./components/mdx/docs-anchor";
 
 const baseHeading = "scroll-m-24 font-semibold tracking-tight text-foreground";
 const baseText = "text-[0.94rem] leading-7 text-muted-foreground";
@@ -10,9 +11,9 @@ const baseText = "text-[0.94rem] leading-7 text-muted-foreground";
 const components: MDXComponents = {
   h1: ({ className, ...props }: ComponentPropsWithoutRef<"h1">) => <h1 className={cn(baseHeading, "mb-5 text-[2.75rem] leading-[1.02] tracking-[-0.045em] md:text-[3.5rem] lg:text-[4rem]", className)} {...props} />,
 
-  h2: ({ className, ...props }: ComponentPropsWithoutRef<"h2">) => <h2 className={cn(baseHeading, "mt-16 mb-4 border-t border-border pt-12 text-[1.75rem] leading-tight tracking-[-0.035em] md:text-[2rem]", className)} {...props} />,
+  h2: ({ className, ...props }: ComponentPropsWithoutRef<"h2">) => <h2 className={cn(baseHeading, "mt-16 mb-4 border-t border-border pt-12 text-[1.75rem] leading-tight tracking-[-0.035em] md:text-[2rem]", className)} data-doc-heading="true" {...props} />,
 
-  h3: ({ className, ...props }: ComponentPropsWithoutRef<"h3">) => <h3 className={cn(baseHeading, "mt-10 mb-3 text-lg tracking-[-0.02em] md:text-xl", className)} {...props} />,
+  h3: ({ className, ...props }: ComponentPropsWithoutRef<"h3">) => <h3 className={cn(baseHeading, "mt-10 mb-3 text-lg tracking-[-0.02em] md:text-xl", className)} data-doc-heading="true" {...props} />,
 
   h4: ({ className, ...props }: ComponentPropsWithoutRef<"h4">) => <h4 className={cn(baseHeading, "mt-7 mb-2 text-base text-muted-foreground", className)} {...props} />,
 
@@ -60,6 +61,7 @@ const components: MDXComponents = {
   InstallTabs,
   Callout,
   ApiTable,
+  DocsAnchor,
 };
 
 export function useMDXComponents(): MDXComponents {

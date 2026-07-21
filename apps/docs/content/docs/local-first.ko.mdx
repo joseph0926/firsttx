@@ -25,7 +25,11 @@ Local-First는 **IndexedDB + React 동기 스토어 + Zod 스키마**로
 
 ---
 
+<DocsAnchor id="core-concepts" />
+
 ## 1. 핵심 개념
+
+<DocsAnchor id="model" />
 
 ### 모델 (Model)
 
@@ -150,6 +154,8 @@ export const CartModel = defineModel("cart", {
 
 ---
 
+<DocsAnchor id="react-hooks-usemodel-vs-usesyncedmodel" />
+
 ## 2. React 훅: `useModel` vs `useSyncedModel`
 
 Local-First는 크게 두 가지 훅을 제공합니다.
@@ -158,6 +164,8 @@ Local-First는 크게 두 가지 훅을 제공합니다.
 - `useSyncedModel(model, fetcher, options?)` - 로컬 모델 + 서버 동기화
 
 두 훅 모두 내부적으로 `useSyncExternalStore`를 사용하므로, React 18/19 환경에서 안정적으로 작동합니다.
+
+<DocsAnchor id="usemodel-when-you-only-need-local-data" />
 
 ### 2-1. `useModel`: 로컬 데이터만 사용할 때
 
@@ -238,6 +246,8 @@ export function CartSidebar() {
     },
   ]}
 />
+
+<DocsAnchor id="usesyncedmodel-when-you-want-server-sync-as-well" />
 
 ### 2-2. `useSyncedModel`: 서버 동기화 포함
 
@@ -418,6 +428,8 @@ export function CartPage() {
 
 ---
 
+<DocsAnchor id="multi-tab-sync-broadcastchannel" />
+
 ## 3. 멀티 탭 동기화 & BroadcastChannel
 
 여러 탭에서 같은 앱을 열고 데이터를 수정하면, Local-First는
@@ -443,6 +455,8 @@ export function CartPage() {
 </Callout>
 
 ---
+
+<DocsAnchor id="suspense-integration" />
 
 ## 4. Suspense 통합
 
@@ -489,6 +503,8 @@ export function SuspenseCart() {
 
 ---
 
+<DocsAnchor id="devtools-integration" />
+
 ## 5. DevTools 연동
 
 Local-First는 DevTools와의 연동을 통해 다음 정보를 전파합니다.
@@ -515,6 +531,8 @@ Local-First는 DevTools와의 연동을 통해 다음 정보를 전파합니다.
 를 한눈에 추적할 수 있습니다.
 
 ---
+
+<DocsAnchor id="recommended-patterns" />
 
 ## 6. 권장 패턴 요약
 

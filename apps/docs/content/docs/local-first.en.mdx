@@ -25,7 +25,11 @@ on top of **IndexedDB + a synchronous React store + Zod schemas**.
 
 ---
 
+<DocsAnchor id="core-concepts" />
+
 ## 1. Core concepts
+
+<DocsAnchor id="model" />
 
 ### Model
 
@@ -149,6 +153,8 @@ export const CartModel = defineModel("cart", {
 
 ---
 
+<DocsAnchor id="react-hooks-usemodel-vs-usesyncedmodel" />
+
 ## 2. React hooks: `useModel` vs `useSyncedModel`
 
 Local-First exposes two main hooks:
@@ -157,6 +163,8 @@ Local-First exposes two main hooks:
 - `useSyncedModel(model, fetcher, options?)` - local model + server sync
 
 Both hooks internally use `useSyncExternalStore`, so they behave reliably in React 18/19.
+
+<DocsAnchor id="usemodel-when-you-only-need-local-data" />
 
 ### 2-1. `useModel`: when you only need local data
 
@@ -237,6 +245,8 @@ export function CartSidebar() {
     },
   ]}
 />
+
+<DocsAnchor id="usesyncedmodel-when-you-want-server-sync-as-well" />
 
 ### 2-2. `useSyncedModel`: when you want server sync as well
 
@@ -418,6 +428,8 @@ export function CartPage() {
 
 ---
 
+<DocsAnchor id="multi-tab-sync-broadcastchannel" />
+
 ## 3. Multi-tab sync & BroadcastChannel
 
 When the same app is open in multiple tabs and data is modified, Local-First propagates changes through a `ModelBroadcaster`.
@@ -442,6 +454,8 @@ When the same app is open in multiple tabs and data is modified, Local-First pro
 </Callout>
 
 ---
+
+<DocsAnchor id="suspense-integration" />
 
 ## 4. Suspense integration
 
@@ -488,6 +502,8 @@ export function SuspenseCart() {
 
 ---
 
+<DocsAnchor id="devtools-integration" />
+
 ## 5. DevTools integration
 
 Local-First sends rich events to DevTools so you can understand what’s happening:
@@ -512,6 +528,8 @@ In the DevTools panel, if you filter by the “model” category, you can quickl
 - Whether broadcasts are working (or falling back) as expected
 
 ---
+
+<DocsAnchor id="recommended-patterns" />
 
 ## 6. Recommended patterns
 

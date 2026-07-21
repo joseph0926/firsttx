@@ -63,12 +63,14 @@
 - 세 package root와 Prepaint Vite subpath의 public contract 48개가 KO/EN Reference에 모두 존재하며 production `content/ai` 참조는 0개입니다.
 - 외부 vector reset/upsert는 실행하지 않았습니다. 사용자 승인 후 legacy AI source 10개를 삭제했으며 production 잔여 참조는 0개입니다.
 
-## Anchor inventory
+## Anchor inventory와 closure
 
-- 현재 `apps/docs/next.config.ts`의 remark/rehype plugin은 비어 있어 MDX H1/H2/H3에 자동 id가 생성되지 않습니다.
-- 따라서 기존 MDX heading의 안정적인 deep-link anchor 계약은 감지되지 않았습니다.
-- landing의 명시 anchor `#layers`, `#quickstart`는 기존 공개 anchor로 보존하거나 compatibility id를 둡니다.
-- 재구성 문서의 새 heading id는 locale과 제목 변경에 흔들리지 않는 명시적 stable id로 정의하고 route/anchor 검증에 포함합니다.
+- 초기 audit에서는 MDX H1/H2/H3에 server-rendered id가 없었고 hydration 뒤 locale heading text를 slugify해 쓰는 TOC만 존재했습니다.
+- 2차 검토 후 18개 canonical MDX의 H2/H3 159개에 명시적 `DocsAnchor`를 추가하고, TOC가 `data-doc-heading` marker가 있는 content heading만 읽도록 교정했습니다.
+- KO/EN 문서는 같은 의미의 heading에 같은 ID를 사용합니다. 구조가 다른 Prepaint만 EN-only `snapshot-storage-spec`, `boot-flow`, `style-collection`, `synergy-with-local-first-tx`와 KO-only `overlay-rendering`을 allowlist로 고정합니다.
+- landing의 기존 `#layers`, `#quickstart`는 두 역할을 결합한 현재 `#choose-setup` section의 compatibility alias로 유지합니다.
+- source validator는 heading별 anchor 존재, ID 형식·route uniqueness, locale parity·allowlist와 orphan을 검사하고 canonical normalizer가 anchor JSX를 RAG content에서 제거하는지 확인합니다.
+- Playwright는 raw SSR HTML, hydration 전후 direct hash, KO/EN 동일 fragment, interactive heading 제외, route 전환 뒤 TOC reset과 landing alias를 검증합니다.
 
 ## Destination rules
 
@@ -343,6 +345,7 @@
 - [x] canonical MDX와 legacy AI source의 RAG 처리를 분리
 - [x] package public API, error와 event source를 직접 대조
 - [x] 기존 heading anchor 생성 부재와 landing compatibility anchor를 기록
+- [x] 159개 stable anchor, KO/EN parity·Prepaint allowlist와 landing compatibility alias 검증
 - [x] F1-F10 실제 콘텐츠 수정과 stale legacy 판정
 - [x] canonical MDX normalization과 chunk test
 - [x] public contract 48/48 KO/EN parity와 production legacy 참조 0개 확인

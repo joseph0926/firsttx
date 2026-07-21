@@ -18,6 +18,8 @@ Each FirstTx layer can be adopted independently. When you combine them, keep the
 
 <span id="prepaint-composition"></span>
 
+<DocsAnchor id="connect-prepaint-to-current-app-state" />
+
 ## Connect Prepaint to current app state
 
 Prepaint replays the previous visit's screen. It does not prove that the data is current, so the mounted React app still needs to read client state and run any required revalidation.
@@ -33,6 +35,8 @@ See [Prepaint](./prepaint) for lifecycle details and limits.
 
 <span id="local-first"></span>
 
+<DocsAnchor id="design-local-first-models" />
+
 ## Design Local-First models
 
 - Separate server-backed data state from view state such as modal and hover state.
@@ -44,6 +48,8 @@ See [Prepaint](./prepaint) for lifecycle details and limits.
 See [Local-First](./local-first) for hook return values and persistence behavior.
 
 <span id="tx-composition"></span>
+
+<DocsAnchor id="combine-local-first-with-tx" />
 
 ## Combine Local-First with Tx
 
@@ -60,6 +66,8 @@ See [Tx](./tx) for retry, timeout, and compensation contracts.
 
 <span id="three-layer-flow"></span>
 
+<DocsAnchor id="use-all-three-layers-in-order" />
+
 ## Use all three layers in order
 
 For a revisited dashboard, a safe sequence is:
@@ -71,6 +79,8 @@ For a revisited dashboard, a safe sequence is:
 5. DevTools shows `prepaint`, `model`, and `tx` categories on one timeline.
 
 <span id="verification"></span>
+
+<DocsAnchor id="verification-checklist" />
 
 ## Verification checklist
 

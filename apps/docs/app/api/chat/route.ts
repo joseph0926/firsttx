@@ -2,6 +2,7 @@ import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { chatModel } from "@/lib/ai/openai";
 import { retrieveContext, buildSystemPrompt, type Locale } from "@/lib/ai/rag";
 import { checkRateLimit, getClientIP, type RateLimitType } from "@/lib/ratelimit";
+import type { ChatErrorCause, ChatErrorPayload } from "@/lib/ai/chat-error";
 
 export const maxDuration = 60;
 
@@ -24,6 +25,12 @@ function isValidLocale(locale: unknown): locale is Locale {
   return locale === "ko" || locale === "en";
 }
 
+function errorResponse(status: number, cause: Exclude<ChatErrorCause, "network_error">, error: string, retryAfterSeconds?: number) {
+  const payload: ChatErrorPayload = { error, cause, retryAfterSeconds };
+  const headers = retryAfterSeconds === undefined ? undefined : { "Retry-After": retryAfterSeconds.toString() };
+  return Response.json(payload, { status, headers });
+}
+
 export async function POST(req: Request) {
   const ip = getClientIP(req);
   const { success, remaining, reset, limitType } = await checkRateLimit(ip);
@@ -34,29 +41,36 @@ export async function POST(req: Request) {
       .json()
       .catch(() => ({}));
     const locale: Locale = isValidLocale(body.locale) ? body.locale : "ko";
+    const retryAfterSeconds = Math.max(1, Math.ceil((reset - Date.now()) / 1000));
 
-    return new Response(JSON.stringify({ error: RATE_LIMIT_MESSAGES[limitType][locale] }), {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json",
-        "X-RateLimit-Remaining": remaining.toString(),
-        "X-RateLimit-Reset": reset.toString(),
-        "Retry-After": Math.ceil((reset - Date.now()) / 1000).toString(),
+    return Response.json(
+      {
+        error: RATE_LIMIT_MESSAGES[limitType][locale],
+        cause: "rate_limit",
+        retryAfterSeconds,
+      } satisfies ChatErrorPayload,
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Remaining": remaining.toString(),
+          "X-RateLimit-Reset": reset.toString(),
+          "Retry-After": retryAfterSeconds.toString(),
+        },
       },
-    });
+    );
   }
 
   const { messages, locale: rawLocale }: { messages: UIMessage[]; locale?: string } = await req.json();
 
   if (!messages || messages.length === 0) {
-    return new Response("No messages provided", { status: 400 });
+    return errorResponse(400, "invalid_request", "No messages provided");
   }
 
   const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "ko";
 
   const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMessage) {
-    return new Response("No user message found", { status: 400 });
+    return errorResponse(400, "invalid_request", "No user message found");
   }
 
   const userQuery =
@@ -65,7 +79,7 @@ export async function POST(req: Request) {
       .map((part) => part.text)
       .join(" ") || "";
   if (!userQuery) {
-    return new Response("No query provided", { status: 400 });
+    return errorResponse(400, "invalid_request", "No query provided");
   }
 
   try {
@@ -83,6 +97,6 @@ export async function POST(req: Request) {
     return result.toUIMessageStreamResponse();
   } catch (err) {
     console.error("RAG error:", err);
-    return new Response("Internal RAG error", { status: 500 });
+    return errorResponse(500, "server_error", "Internal RAG error");
   }
 }
