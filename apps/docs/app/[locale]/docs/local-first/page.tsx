@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { routing } from "@/i18n/routing";
 import LocalFirstEn from "@/content/docs/local-first.en.mdx";
 import LocalFirstKo from "@/content/docs/local-first.ko.mdx";
+import { createDocsMetadata } from "@/lib/docs/metadata";
 
 type LocalFirstPageProps = {
   params: Promise<{
@@ -19,37 +19,13 @@ export async function generateMetadata({ params }: LocalFirstPageProps): Promise
 
   const description = isKo ? "Local-First로 Zod 스키마 기반 모델을 정의하고 IndexedDB snapshot, TTL, 버전, 탭 간 invalidation, 서버 재검증, Suspense를 사용하는 방법을 다룹니다." : "Learn how Local-First provides Zod-based models with IndexedDB snapshots, TTL, versioning, cross-tab invalidation, server revalidation, and Suspense integration.";
 
-  const canonical = `/${locale}${DOCS_PATH}`;
-  const languages: Record<string, string> = Object.fromEntries(routing.locales.map((loc) => [loc, `/${loc}${DOCS_PATH}`]));
-
-  return {
+  return createDocsMetadata({
+    locale,
+    path: DOCS_PATH,
     title,
     description,
-    alternates: {
-      canonical,
-      languages,
-    },
-    openGraph: {
-      title,
-      description,
-      url: canonical,
-      type: "article",
-      images: [
-        {
-          url: "/opengraph-image.png",
-          width: 1200,
-          height: 630,
-          alt: "FirstTx Docs - Local-First",
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: ["/opengraph-image.png"],
-    },
-  };
+    imageAlt: "FirstTx Docs - Local-First",
+  });
 }
 
 export default async function LocalFirstPage({ params }: LocalFirstPageProps) {

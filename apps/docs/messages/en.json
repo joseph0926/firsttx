@@ -157,12 +157,17 @@
     "sectionLayers": "Layers",
     "sectionDevtools": "DevTools",
     "sectionGuides": "Patterns & guides",
+    "sectionBuild": "Build",
+    "sectionVerify": "Verify & troubleshoot",
+    "sectionReference": "Reference",
     "overview": "Overview",
     "gettingStarted": "Getting started",
     "prepaint": "Prepaint",
     "localFirst": "Local-First",
     "tx": "Tx",
     "devtools": "DevTools",
-    "patterns": "Patterns"
+    "patterns": "Patterns",
+    "troubleshooting": "Troubleshooting",
+    "reference": "Reference"
   }
 }

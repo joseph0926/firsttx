@@ -22,24 +22,45 @@ export function ApiTable({ title, kind = "props", items, className }: ApiTablePr
   return (
     <section className={cn("my-8", className)}>
       {title && <h3 className="mb-3 text-sm font-semibold tracking-tight text-foreground">{title}</h3>}
-      <div className={cn("overflow-hidden rounded-2xl border border-border/70", "bg-card/80 backdrop-blur-xl", "shadow-xl")}>
+      <div className="overflow-hidden rounded-xl border border-border bg-background">
         <div className="flex items-center justify-between border-b border-border/70 px-4 py-2">
-          <div className="text-[11px] tracking-[0.14em] text-muted-foreground/90 uppercase">{labelForKind(kind)}</div>
+          <div className="text-[11px] tracking-[0.14em] text-muted-foreground/90 uppercase">
+            <span className="locale-en">{labelForKind(kind, "en")}</span>
+            <span className="locale-ko">{labelForKind(kind, "ko")}</span>
+          </div>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground/80">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400/80" />
-            <span>required</span>
+            <span>
+              <span className="locale-en">required</span>
+              <span className="locale-ko">필수</span>
+            </span>
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-            <span>optional</span>
+            <span>
+              <span className="locale-en">optional</span>
+              <span className="locale-ko">선택</span>
+            </span>
           </div>
         </div>
         <div className="max-h-[520px] overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs md:text-sm">
             <thead className="bg-muted/60 text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
               <tr>
-                <th className="min-w-[120px] border-b border-border/70 px-4 py-2">Name</th>
-                <th className="min-w-40 border-b border-border/70 px-4 py-2">Type</th>
-                <th className="min-w-[100px] border-b border-border/70 px-4 py-2">Default</th>
-                <th className="border-b border-border/70 px-4 py-2">Description</th>
+                <th className="min-w-[120px] border-b border-border/70 px-4 py-2">
+                  <span className="locale-en">Name</span>
+                  <span className="locale-ko">이름</span>
+                </th>
+                <th className="min-w-40 border-b border-border/70 px-4 py-2">
+                  <span className="locale-en">Type</span>
+                  <span className="locale-ko">타입</span>
+                </th>
+                <th className="min-w-[100px] border-b border-border/70 px-4 py-2">
+                  <span className="locale-en">Default</span>
+                  <span className="locale-ko">기본값</span>
+                </th>
+                <th className="border-b border-border/70 px-4 py-2">
+                  <span className="locale-en">Description</span>
+                  <span className="locale-ko">설명</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -66,16 +87,16 @@ export function ApiTable({ title, kind = "props", items, className }: ApiTablePr
   );
 }
 
-function labelForKind(kind: ApiKind): string {
+function labelForKind(kind: ApiKind, locale: "ko" | "en"): string {
   switch (kind) {
     case "props":
-      return "Component props";
+      return locale === "ko" ? "컴포넌트 속성" : "Component props";
     case "options":
-      return "Options";
+      return locale === "ko" ? "옵션" : "Options";
     case "params":
-      return "Parameters";
+      return locale === "ko" ? "매개변수" : "Parameters";
     case "returns":
-      return "Return value";
+      return locale === "ko" ? "반환값" : "Return value";
     default:
       return "API";
   }

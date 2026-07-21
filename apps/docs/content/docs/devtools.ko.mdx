@@ -202,6 +202,7 @@ README의 예시: ([GitHub][1])
 - **한계**
   - 현재 Tx 모듈 쪽에서 보내는 payload 키와 DevTools 브리지 타입 정의가 100% 정합하지 않아서,
     패널에서 일부 필드(예: timeout vs timeoutMs, hasCompensate vs hasCompensation)가 누락/정렬이 어긋날 수 있습니다.
+  - 실제 관찰 가능한 이벤트 계약은 각 runtime package의 emitter가 소유합니다. 브리지 타입은 이를 소비하는 내부 schema이므로 구현보다 뒤처질 수 있습니다.
 
 <Callout type="info" title="프로덕션에서 써도 되나요?">
   - 브리지 자체는 프로덕션에서도 동작하지만, DevTools 확장은 보통 개발 환경에서만 켜 두는 것이 일반적입니다. - 이벤트 버퍼는 메모리 + IndexedDB를 함께 사용하므로, 장시간 세션에서 필요 없는 이벤트를 자주 발생시키지 않는 것이 좋습니다.
@@ -243,7 +244,7 @@ README의 예시: ([GitHub][1])
 
 - DevTools 패널을 그대로 쓸 수 있는 환경이라면 → **크롬 확장 사용 권장**
 - 자체 뷰어나 로깅 시스템을 만들고 싶다면 →
-  - `@firsttx/devtools` 패키지의 타입 정의를 참고해서 내부 이벤트 스키마를 직접 확인한 뒤,
+  - runtime package emitter를 먼저 확인하고 `@firsttx/devtools`의 타입 정의는 계약이 아닌 통합 참고 자료로 사용하며,
   - 버전 업 시 schema 변경 가능성에 대비하는 것을 권장합니다.
 
 ---

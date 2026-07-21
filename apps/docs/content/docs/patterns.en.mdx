@@ -1,0 +1,84 @@
+export const metadata = {
+  title: "Patterns",
+};
+
+# Composition patterns
+
+Each FirstTx layer can be adopted independently. When you combine them, keep their responsibilities separate.
+
+| Problem                                    | Layer       | Responsibility                                                 |
+| ------------------------------------------ | ----------- | -------------------------------------------------------------- |
+| Blank UI during revisit boot               | Prepaint    | Replay the last DOM snapshot as a non-interactive visual cache |
+| Client data that survives reloads          | Local-First | IndexedDB persistence and server revalidation                  |
+| Multi-step optimistic changes and recovery | Tx          | Compensate completed steps in reverse order                    |
+
+<Callout type="info" title="Choose only the layers you need">
+  Prepaint is not a data store, Local-First is not a transaction engine, and Tx does not create screen snapshots. Start with the responsibility your problem needs, then compose layers.
+</Callout>
+
+<span id="prepaint-composition"></span>
+
+## Connect Prepaint to current app state
+
+Prepaint replays the previous visit's screen. It does not prove that the data is current, so the mounted React app still needs to read client state and run any required revalidation.
+
+1. Prepaint replays the visual cache during boot.
+2. React mounts into the existing root.
+3. The app reads current client data and starts required server revalidation.
+4. After handoff, the overlay is removed and the current UI takes control.
+
+Scrub sensitive values with `data-firsttx-sensitive` or `window.__FIRSTTX_SENSITIVE_SELECTORS__`. Mark clocks, counters, and other unsafe stale text with `data-firsttx-volatile`.
+
+See [Prepaint](./prepaint) for lifecycle details and limits.
+
+<span id="local-first"></span>
+
+## Design Local-First models
+
+- Separate server-backed data state from view state such as modal and hover state.
+- Choose TTL per model from freshness requirements and request cost instead of using one value everywhere.
+- `merge` applies to `replace`. Express partial changes explicitly in `patch`.
+- When BroadcastChannel is unavailable, provide refresh or manual sync instead of assuming live cross-tab updates.
+- Split models with different update cycles and consumers to control serialization and comparison cost.
+
+See [Local-First](./local-first) for hook return values and persistence behavior.
+
+<span id="tx-composition"></span>
+
+## Combine Local-First with Tx
+
+Capture the state required for recovery before applying an optimistic change.
+
+1. In `optimistic`, keep the previous value and `patch` the Local-First model.
+2. Run the server operation in `request`.
+3. If the request fails, restore client state from the snapshot in `rollback`.
+4. On success, commit the transaction and update any follow-up UI.
+
+Tx compensation is not equivalent to an atomic database transaction. Compensation can also fail; a `CompensationFailedError` requires manual inspection.
+
+See [Tx](./tx) for retry, timeout, and compensation contracts.
+
+<span id="three-layer-flow"></span>
+
+## Use all three layers in order
+
+For a revisited dashboard, a safe sequence is:
+
+1. Prepaint replays the last screen.
+2. Local-First asynchronously loads model snapshots from IndexedDB.
+3. Models revalidate according to their `syncOnMount` and TTL policy.
+4. User changes run through Tx and compensate only completed steps on failure.
+5. DevTools shows `prepaint`, `model`, and `tx` categories on one timeline.
+
+<span id="verification"></span>
+
+## Verification checklist
+
+- Test cold start and revisit separately.
+- Test with empty and populated IndexedDB state.
+- Test BroadcastChannel fallback or unsupported environments.
+- Test request failure, timeout, and compensation failure independently.
+- Verify recovery does not depend on animation when reduced motion is enabled.
+- Treat runtime emitters, not bridge types, as the source for payload details.
+
+Continue with [DevTools](./devtools) for observation and [Troubleshooting](./troubleshooting) for symptom-based recovery.

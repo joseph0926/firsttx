@@ -1,59 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import { MessageCircle, X, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { ChatPanel } from "./chat-panel";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { MessageCircleQuestion, X } from "lucide-react";
+import { ChatPanel, type ChatFixtureState } from "./chat-panel";
 
 type Locale = "ko" | "en";
 
 const ENABLE_CHAT = process.env.NEXT_PUBLIC_ENABLE_CHAT === "true";
+const fixtureStates: ChatFixtureState[] = ["empty", "streaming", "unknown", "error", "rate-limit"];
 
-interface ChatWidgetProps {
-  locale: Locale;
-}
+const copy = {
+  ko: {
+    assistant: "문서 도우미",
+    hint: "현재 문서에서 근거를 찾아 안내합니다.",
+    open: "문서 도우미 열기",
+    close: "문서 도우미 닫기",
+  },
+  en: {
+    assistant: "Docs assistant",
+    hint: "Finds grounded answers in the current docs.",
+    open: "Open docs assistant",
+    close: "Close docs assistant",
+  },
+} as const;
 
-export function ChatWidget({ locale }: ChatWidgetProps) {
+export function ChatWidget({ locale }: { locale: Locale }) {
+  const [fixtureState, setFixtureState] = useState<ChatFixtureState>();
   const [isOpen, setIsOpen] = useState(false);
+  const text = copy[locale];
 
-  if (!ENABLE_CHAT) return null;
+  useEffect(() => {
+    if (!ENABLE_CHAT || !["localhost", "127.0.0.1"].includes(window.location.hostname)) return;
+    const value = new URLSearchParams(window.location.search).get("chat-fixture") as ChatFixtureState | null;
+    if (value && fixtureStates.includes(value)) {
+      const timer = window.setTimeout(() => {
+        setFixtureState(value);
+        setIsOpen(true);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
+
+  if (!ENABLE_CHAT && !fixtureState) return null;
 
   return (
     <>
-      <AnimatePresence>{isOpen ? <div className="fixed top-0 left-0 z-10 h-screen w-screen bg-black/70" /> : null}</AnimatePresence>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="fixed right-0 bottom-20 z-50 flex h-[600px] max-h-[80vh] w-full flex-col overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-2xl backdrop-blur-xl sm:right-4 sm:w-[400px]">
-            <div className="flex items-center justify-between border-b border-border/50 bg-linear-to-r from-primary/5 via-transparent to-chart-2/5 px-4 py-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-7 items-center justify-center rounded-full bg-linear-to-br from-primary to-chart-2 shadow-lg shadow-primary/25">
-                  <Sparkles className="size-3.5 text-white" />
-                </div>
-                <span className="font-semibold tracking-tight">FirstTx Assistant</span>
-                <Badge variant="secondary" className="bg-amber-500/15 text-[10px] text-amber-600 dark:text-amber-400">
-                  Beta
-                </Badge>
-              </div>
-              <Button variant="ghost" size="icon-sm" onClick={() => setIsOpen(false)} aria-label="Close chat" className="size-7 rounded-full">
-                <X className="size-4" />
-              </Button>
+      {isOpen ? (
+        <aside className="docs-chat" aria-label={text.assistant}>
+          <header>
+            <div>
+              <strong>{text.assistant}</strong>
+              <span>{text.hint}</span>
             </div>
-            <ChatPanel locale={locale} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <motion.div initial={false} animate={{ scale: isOpen ? 0.9 : 1 }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="fixed right-6 bottom-6 z-50">
-        <Button onClick={() => setIsOpen(!isOpen)} size="icon-lg" className={cn("size-12 rounded-full shadow-lg transition-all", isOpen ? "bg-muted text-muted-foreground shadow-md" : "bg-linear-to-br from-primary to-chart-2 text-white shadow-xl shadow-primary/30 hover:shadow-2xl hover:shadow-primary/40")} aria-label={isOpen ? "Close chat" : "Open chat"}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={isOpen ? "close" : "open"} initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
-              {isOpen ? <X className="size-6" /> : <MessageCircle className="size-6" />}
-            </motion.div>
-          </AnimatePresence>
-        </Button>
-      </motion.div>
+            <button type="button" onClick={() => setIsOpen(false)} aria-label={text.close}>
+              <X aria-hidden="true" />
+            </button>
+          </header>
+          <ChatPanel locale={locale} fixtureState={fixtureState} />
+        </aside>
+      ) : null}
+      {!isOpen ? (
+        <button type="button" className="docs-chat-trigger" onClick={() => setIsOpen(true)} aria-label={text.open}>
+          <MessageCircleQuestion aria-hidden="true" />
+          <span>{text.assistant}</span>
+        </button>
+      ) : null}
     </>
   );
 }

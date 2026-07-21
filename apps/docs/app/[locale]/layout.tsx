@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://firsttx.store";
+const OG_IMAGE = `${SITE_URL}/opengraph-image.png`;
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -34,12 +37,12 @@ export const metadata: Metadata = {
   openGraph: {
     title: "FirstTx Docs",
     description: "Documentation for FirstTx, a three-layer toolkit for React: Prepaint, Local-First and Tx.",
-    url: "/",
+    url: SITE_URL,
     siteName: "FirstTx Docs",
     type: "website",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: OG_IMAGE,
         width: 1200,
         height: 630,
         alt: "FirstTx Docs - Prepaint, Local-First & Tx",
@@ -50,7 +53,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "FirstTx Docs",
     description: "Documentation for FirstTx, a three-layer toolkit for React: Prepaint, Local-First and Tx.",
-    images: ["/opengraph-image.png"],
+    images: [OG_IMAGE],
   },
   robots: {
     index: true,

@@ -157,12 +157,17 @@
     "sectionLayers": "레이어",
     "sectionDevtools": "DevTools",
     "sectionGuides": "패턴 & 가이드",
+    "sectionBuild": "구현",
+    "sectionVerify": "검증 & 문제 해결",
+    "sectionReference": "레퍼런스",
     "overview": "개요",
     "gettingStarted": "빠른 시작",
     "prepaint": "Prepaint",
     "localFirst": "Local-First",
     "tx": "Tx",
     "devtools": "DevTools",
-    "patterns": "패턴"
+    "patterns": "패턴",
+    "troubleshooting": "문제 해결",
+    "reference": "레퍼런스"
   }
 }

@@ -161,8 +161,7 @@ Internally, the transaction engine roughly has the following states,
       When an error occurs in <code>run</code>, Tx runs the <code>compensate</code> functions of the successful steps in reverse order.
     </li>
     <li>
-      If any of these compensations fail, a <code>CompensationFailedError</code> is thrown, and
-      <strong>the original error plus all compensation errors</strong> are collected into a single error object.
+      If any of these compensations fail, a <code>CompensationFailedError</code> is thrown, and the compensation errors are exposed in <code>failures</code> together with <code>completedSteps</code>. The original step error that triggered rollback is not stored on this error.
     </li>
     <li>
       Because of this, <code>compensate</code> functions should be designed as <strong>idempotent operations with very low failure probability</strong>.
@@ -477,7 +476,7 @@ Tx uses a shared error hierarchy `TxError` and several concrete subclasses.
 
 - `CompensationFailedError`
   - Thrown when one or more `compensate` calls fail during rollback.
-  - Contains the original error plus all compensation errors in an internal array.
+  - Exposes the compensation errors in `failures` and the number of completed steps in `completedSteps`; it does not retain the original step error that triggered rollback.
   - Indicates data inconsistency or a case needing manual intervention, and is treated as **non-recoverable (false)**.
 
 - `TransactionStateError`

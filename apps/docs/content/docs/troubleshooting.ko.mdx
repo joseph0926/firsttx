@@ -1,0 +1,69 @@
+export const metadata = {
+  title: "문제 해결",
+};
+
+# 문제 해결
+
+먼저 문제가 발생한 레이어와 마지막으로 성공한 단계를 구분하세요. DevTools를 사용할 수 있다면 `prepaint`, `model`, `tx` category와 transaction 또는 model 식별자를 함께 확인합니다.
+
+<span id="prepaint"></span>
+
+## Prepaint가 replay되지 않음
+
+| 확인할 증상                             | 가능한 원인                               | 다음 행동                                                             |
+| --------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| 항상 cold start                         | 저장된 snapshot이 없거나 route key가 다름 | 같은 route를 다시 방문하고 `restore` event의 strategy를 확인          |
+| snapshot이 즉시 폐기됨                  | 필수 필드 누락, 손상 또는 정책 불일치     | `storage.error`와 cold-start restore를 확인한 뒤 snapshot을 다시 생성 |
+| 화면은 보이지만 오래된 민감 값이 노출됨 | sensitive 또는 volatile marker 누락       | 해당 element를 scrub/volatile 대상으로 지정하고 기존 snapshot을 갱신  |
+| handoff 뒤 화면이 튐                    | 현재 React UI와 snapshot 차이가 큼        | replay와 handoff timing을 측정하고 volatile 영역을 줄임               |
+
+Prepaint overlay는 상호작용을 받지 않습니다. replay 중 클릭이 되지 않는 것은 오류가 아닙니다.
+
+<span id="local-first"></span>
+
+## Local-First data가 준비되지 않음
+
+- `useModel`은 메모리의 external-store snapshot을 동기 반환하지만 IndexedDB load는 비동기입니다. 초기 `loading` 상태를 처리하세요.
+- 저장 data가 Zod schema와 맞지 않으면 `validation.error`가 기록되고 해당 저장 값이 삭제될 수 있습니다.
+- `useSuspenseSyncedModel`은 data와 error가 없을 때 `getSyncPromise()`이 반환한 Promise를 throw합니다. ErrorBoundary와 Suspense fallback을 함께 두세요.
+- `broadcast.fallback` 또는 `broadcast.skipped`가 보이면 실시간 탭 동기화를 가정하지 말고 새로고침이나 수동 sync를 제공하세요.
+
+`StorageError`의 `code`는 `STORAGE_*` namespace를 사용합니다. 원본 분류는 `storageCode`, 작업 정보는 `storageContext`, 복구 가능 여부는 `isRecoverable()`로 확인합니다.
+
+<span id="tx"></span>
+
+## Tx가 rollback 또는 timeout으로 끝남
+
+- 실패한 step의 `compensate`는 호출되지 않습니다. 이미 성공한 step만 역순으로 보상됩니다.
+- step이 `AbortSignal`을 사용하지 않으면 timeout 뒤에도 실제 작업이 계속될 수 있습니다. 취소 가능한 API에 signal을 전달하세요.
+- `RetryExhaustedError`는 설정한 시도를 모두 사용한 상태입니다. 동일 요청을 무조건 반복하기 전에 서버 상태와 idempotency를 확인하세요.
+- `CompensationFailedError.failures`에는 보상 오류만 들어 있습니다. `completedSteps`와 DevTools timeline을 함께 사용해 수동 복구 범위를 정하세요.
+
+<Callout type="warning" title="원자성 경계">
+  Tx는 완료한 client 작업을 역순으로 보상하지만 외부 시스템 전체의 원자성을 보장하지 않습니다. 결제나 재고처럼 되돌리기 어려운 작업은 서버의 transaction 또는 idempotency 계약과 함께 설계하세요.
+</Callout>
+
+<span id="devtools-limits"></span>
+
+## DevTools에서 field가 비거나 다르게 보임
+
+일부 runtime payload와 bridge type 사이에는 field 이름 차이가 있습니다. 예를 들어 Tx start event의 `timeout`과 bridge의 `timeoutMs`, `hasCompensate`와 `hasCompensation`이 다를 수 있습니다.
+
+- 실제 관찰 계약은 runtime package emitter를 기준으로 판정합니다.
+- 긴 session과 큰 payload 검색은 memory와 직렬화 비용을 늘릴 수 있으므로 짧은 진단 session을 사용합니다.
+- `step.success.attempt`는 실제 시도 횟수가 아니라 설정값에 가까울 수 있으므로 transaction timeline과 함께 해석합니다.
+
+<span id="errors"></span>
+
+## 오류별 복구 기준
+
+| 오류                      | 기본 판정                     | 대응                                                     |
+| ------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `StorageError`            | `isRecoverable()` 결과에 따름 | 사용자 메시지를 표시하고 retry 또는 새로고침 경로 제공   |
+| `ValidationError`         | 복구 가능                     | 저장 schema와 version을 확인하고 올바른 data로 다시 sync |
+| `TransactionTimeoutError` | 복구 가능                     | signal 전달과 timeout budget 확인                        |
+| `RetryExhaustedError`     | 복구 가능                     | 서버 상태와 retry policy 확인 후 명시적으로 재시도       |
+| `CompensationFailedError` | 복구 불가능                   | `failures`, `completedSteps`, timeline으로 수동 복구     |
+| `TransactionStateError`   | 복구 불가능                   | 이미 종료된 transaction에 대한 중복 호출 제거            |
+
+정확한 property와 export는 [Reference](./reference), 관찰 방법은 [DevTools](./devtools)에서 확인하세요.

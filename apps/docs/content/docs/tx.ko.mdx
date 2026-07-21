@@ -163,8 +163,7 @@ async function addToCart(item: { id: string; name: string; qty: number }) {
       <code>run</code> 중 에러가 발생하면, 이미 성공한 단계들의 <code>compensate</code>를 역순으로 실행합니다.
     </li>
     <li>
-      이 보상 중 하나라도 실패하면 <code>CompensationFailedError</code>가 던져지며,
-      <strong>원래 오류 + 각 보상 단계의 오류들</strong>이 모두 하나의 에러 안에 배열 형태로 묶입니다.
+      이 보상 중 하나라도 실패하면 <code>CompensationFailedError</code>가 던져지며, 보상 오류는 <code>failures</code>에, 완료한 단계 수는 <code>completedSteps</code>에 담깁니다. 롤백을 시작하게 한 원래 단계 오류는 이 에러에 저장되지 않습니다.
     </li>
     <li>
       따라서 <code>compensate</code>는 <strong>실패 확률이 낮은, idempotent한 연산</strong>으로 설계하는 것이 중요합니다.
@@ -479,7 +478,7 @@ Tx는 공통 오류 계층 `TxError`를 기반으로 여러 에러 타입을 제
 
 - `CompensationFailedError`
   - 롤백 과정에서 하나 이상의 `compensate`가 실패했을 때 발생합니다.
-  - 내부에 원래 에러 + 각 보상 단계의 에러들이 배열로 담겨 있습니다.
+  - 보상 오류는 `failures`에, 완료한 단계 수는 `completedSteps`에 담기며 롤백을 시작하게 한 원래 단계 오류는 보존하지 않습니다.
   - 데이터 불일치/수동 개입이 필요한 케이스로 간주하여 **복구 불가능(false)** 으로 취급됩니다.
 
 - `TransactionStateError`

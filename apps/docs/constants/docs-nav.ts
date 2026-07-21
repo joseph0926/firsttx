@@ -19,7 +19,7 @@ export const docsNav: DocsNavItem[] = [
     ],
   },
   {
-    id: "sectionLayers",
+    id: "sectionBuild",
     children: [
       {
         id: "prepaint",
@@ -33,24 +33,32 @@ export const docsNav: DocsNavItem[] = [
         id: "tx",
         href: "/docs/tx",
       },
+      {
+        id: "patterns",
+        href: "/docs/patterns",
+      },
     ],
   },
   {
-    id: "sectionDevtools",
+    id: "sectionVerify",
     children: [
       {
         id: "devtools",
         href: "/docs/devtools",
       },
+      {
+        id: "troubleshooting",
+        href: "/docs/troubleshooting",
+      },
     ],
   },
-  // {
-  //   id: "sectionGuides",
-  //   children: [
-  //     {
-  //       id: "patterns",
-  //       href: "/docs/patterns",
-  //     },
-  //   ],
-  // },
+  {
+    id: "sectionReference",
+    children: [
+      {
+        id: "reference",
+        href: "/docs/reference",
+      },
+    ],
+  },
 ];

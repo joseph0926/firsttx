@@ -1,31 +1,27 @@
 type NavItemType = {
-  name: string;
+  id: "overview" | "docs" | "patterns" | "troubleshooting" | "reference";
   link: string;
 };
 
 export const navItems: NavItemType[] = [
   {
-    name: "Overview",
+    id: "overview",
     link: "/docs/overview",
   },
   {
-    name: "Quickstart",
+    id: "docs",
     link: "/docs/getting-started",
   },
   {
-    name: "Prepaint",
-    link: "/docs/prepaint",
+    id: "patterns",
+    link: "/docs/patterns",
   },
   {
-    name: "Local-First",
-    link: "/docs/local-first",
+    id: "troubleshooting",
+    link: "/docs/troubleshooting",
   },
   {
-    name: "Tx",
-    link: "/docs/tx",
-  },
-  {
-    name: "DevTools",
-    link: "/docs/devtools",
+    id: "reference",
+    link: "/docs/reference",
   },
 ];

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
+import { useLocale } from "next-intl";
 
 type CodeBlockProps = React.ComponentPropsWithoutRef<"pre">;
 
@@ -51,6 +52,7 @@ function isCodeElement(node: ReactNode): node is ReactElement<CodeChildProps, "c
 
 export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const locale = useLocale();
 
   const { code, language } = getCodeInfo(children);
 
@@ -66,24 +68,24 @@ export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
   }
 
   return (
-    <div className={cn("relative my-6 overflow-hidden rounded-2xl border border-border/60", "bg-card/80 backdrop-blur-xl", "shadow-md", className)}>
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-2 text-[11px] text-muted-foreground">
+    <div className={cn("relative my-7 overflow-hidden rounded-xl border border-border bg-background", className)}>
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-2 w-2 rounded-full bg-red-400/80" />
           <span className="inline-flex h-2 w-2 rounded-full bg-amber-300/80" />
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400/80" />
           {language && <span className="ml-2 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] tracking-[0.14em] uppercase">{language}</span>}
         </div>
-        <button type="button" onClick={handleCopy} className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:bg-muted/70 hover:text-foreground">
+        <button type="button" onClick={handleCopy} className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-md px-3 py-1 text-[10px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground" aria-label={locale === "ko" ? "코드 복사" : "Copy code"}>
           {copied ? (
             <>
               <Check className="h-3 w-3" />
-              Copied
+              {locale === "ko" ? "복사됨" : "Copied"}
             </>
           ) : (
             <>
               <Copy className="h-3 w-3" />
-              Copy
+              {locale === "ko" ? "복사" : "Copy"}
             </>
           )}
         </button>

@@ -1,7 +1,7 @@
 import "./env";
 import path from "node:path";
-import fs from "node:fs";
-import { chunkMarkdown, getMarkdownFiles, readMarkdownFile } from "./chunk-md";
+import { chunkMarkdown } from "./chunk-md";
+import { readCanonicalMdxDocuments } from "./canonical-mdx";
 import type { Chunk, ChunkWithEmbedding, Locale } from "./types";
 import { embed } from "./embed";
 import { resetNamespace, upsertChunks } from "./vector";
@@ -11,34 +11,24 @@ import { fileURLToPath } from "node:url";
 const LOCALES: Locale[] = ["ko", "en"];
 
 async function indexLocale(locale: Locale, contentDir: string): Promise<ChunkWithEmbedding[]> {
-  const localeDir = path.join(contentDir, locale);
-
-  if (!fs.existsSync(localeDir)) {
-    console.log(`Skipping locale "${locale}" - directory not found: ${localeDir}`);
-    return [];
-  }
+  const documents = readCanonicalMdxDocuments(contentDir).filter((document) => document.locale === locale);
 
   console.log(`\n${"=".repeat(50)}`);
   console.log(`Indexing locale: ${locale.toUpperCase()}`);
-  console.log(`Directory: ${localeDir}`);
+  console.log(`Directory: ${contentDir}`);
   console.log(`${"=".repeat(50)}\n`);
 
-  const files = getMarkdownFiles(localeDir);
-  console.log(`Found ${files.length} file(s)`);
-  files.forEach((f) => console.log(`   - ${f}`));
+  console.log(`Found ${documents.length} file(s)`);
+  documents.forEach((document) => console.log(`   - ${document.source}`));
   console.log("");
 
   const allChunks: Chunk[] = [];
 
-  for (const file of files) {
-    const filePath = path.join(localeDir, file);
-    const content = readMarkdownFile(filePath);
-    const docId = file.replace(/\.md$/, "");
-
-    const chunks = chunkMarkdown(content, docId, file, locale);
+  for (const document of documents) {
+    const chunks = chunkMarkdown(document.content, document.docId, document.source, locale);
     allChunks.push(...chunks);
 
-    console.log(`${file}: ${chunks.length} chunks`);
+    console.log(`${document.source}: ${chunks.length} chunks`);
     chunks.forEach((c) => {
       const preview = c.content.slice(0, 60).replace(/\n/g, " ");
       console.log(`   - [${c.id}] ${c.section}: "${preview}..."`);
@@ -84,7 +74,7 @@ async function indexLocale(locale: Locale, contentDir: string): Promise<ChunkWit
 async function main() {
   const __filename = fileURLToPath(import.meta.url);
   const scriptDir = path.dirname(__filename);
-  const contentDir = path.join(scriptDir, "../content/ai");
+  const contentDir = path.join(scriptDir, "../content/docs");
 
   console.log("Content directory:", contentDir);
 

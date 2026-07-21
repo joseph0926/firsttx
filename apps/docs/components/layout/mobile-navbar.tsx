@@ -8,6 +8,13 @@ import Link from "next/link";
 
 export function MobileNavbar({ visible }: { visible?: boolean }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const labels = {
+    overview: "Overview",
+    docs: "Docs",
+    patterns: "Patterns",
+    troubleshooting: "Troubleshooting",
+    reference: "Reference",
+  };
 
   return (
     <MobileNav visible={visible}>
@@ -21,7 +28,7 @@ export function MobileNavbar({ visible }: { visible?: boolean }) {
       <MobileNavMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)}>
         {navItems.map((item, idx) => (
           <Link key={`mobile-link-${idx}`} href={item.link} onClick={() => setIsMobileMenuOpen(false)} className="relative text-neutral-600 dark:text-neutral-300">
-            <span className="block">{item.name}</span>
+            <span className="block">{labels[item.id]}</span>
           </Link>
         ))}
       </MobileNavMenu>
