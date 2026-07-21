@@ -1,0 +1,69 @@
+export const metadata = {
+  title: "Troubleshooting",
+};
+
+# Troubleshooting
+
+Start by identifying the failing layer and the last successful step. When DevTools is available, inspect the `prepaint`, `model`, or `tx` category together with the transaction or model identifier.
+
+<span id="prepaint"></span>
+
+## Prepaint does not replay
+
+| Symptom                            | Likely cause                                           | Next action                                                                  |
+| ---------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Every visit is a cold start        | No stored snapshot or a different route key            | Revisit the same route and inspect the `restore` event strategy              |
+| Snapshot is discarded immediately  | Missing fields, corruption, or policy mismatch         | Inspect `storage.error` and cold-start restore, then create a new snapshot   |
+| Stale sensitive content is visible | Missing sensitive or volatile marker                   | Mark the element for scrubbing or volatility and refresh the stored snapshot |
+| UI jumps after handoff             | Large difference between snapshot and current React UI | Measure replay and handoff timing and reduce volatile regions                |
+
+The Prepaint overlay is non-interactive. Clicks being unavailable during replay is expected behavior.
+
+<span id="local-first"></span>
+
+## Local-First data is not ready
+
+- `useModel` synchronously returns the in-memory external-store snapshot, while IndexedDB loading is asynchronous. Handle the initial `loading` state.
+- When stored data fails the Zod schema, a `validation.error` event is emitted and the stored value may be removed.
+- `useSuspenseSyncedModel` throws the Promise returned by `getSyncPromise()` when both data and error are absent. Provide both an ErrorBoundary and a Suspense fallback.
+- When `broadcast.fallback` or `broadcast.skipped` appears, do not assume live cross-tab updates. Provide refresh or manual sync.
+
+`StorageError.code` uses the `STORAGE_*` namespace. Read the raw classification from `storageCode`, operation details from `storageContext`, and recovery status from `isRecoverable()`.
+
+<span id="tx"></span>
+
+## Tx ends in rollback or timeout
+
+- The failing step's `compensate` function is not called. Only completed steps are compensated in reverse order.
+- If a step ignores `AbortSignal`, the underlying work can continue after timeout. Pass the signal to cancellable APIs.
+- `RetryExhaustedError` means all configured attempts were used. Check server state and idempotency before repeating the request.
+- `CompensationFailedError.failures` contains compensation errors only. Use `completedSteps` with the DevTools timeline to decide the manual recovery scope.
+
+<Callout type="warning" title="Atomicity boundary">
+  Tx compensates completed client work in reverse order, but it does not make every external system atomic. Pair irreversible operations such as payment or inventory changes with server transactions or idempotency contracts.
+</Callout>
+
+<span id="devtools-limits"></span>
+
+## DevTools fields are missing or different
+
+Some runtime payload fields differ from the bridge types. For example, a Tx start event may use `timeout` while the bridge type uses `timeoutMs`, or `hasCompensate` while the type uses `hasCompensation`.
+
+- Treat runtime package emitters as the observable contract.
+- Prefer short diagnostic sessions because long sessions and large payload searches increase memory and serialization cost.
+- Interpret `step.success.attempt` with the transaction timeline because it can reflect configuration rather than the actual attempt count.
+
+<span id="errors"></span>
+
+## Recovery by error type
+
+| Error                     | Default classification   | Response                                                           |
+| ------------------------- | ------------------------ | ------------------------------------------------------------------ |
+| `StorageError`            | Follow `isRecoverable()` | Show the user message and offer retry or refresh                   |
+| `ValidationError`         | Recoverable              | Check stored schema and version, then sync valid data              |
+| `TransactionTimeoutError` | Recoverable              | Check signal propagation and timeout budget                        |
+| `RetryExhaustedError`     | Recoverable              | Check server state and retry policy before explicit retry          |
+| `CompensationFailedError` | Non-recoverable          | Use `failures`, `completedSteps`, and timeline for manual recovery |
+| `TransactionStateError`   | Non-recoverable          | Remove duplicate calls against an already completed transaction    |
+
+See [Reference](./reference) for exact properties and exports, and [DevTools](./devtools) for observation workflows.

@@ -204,8 +204,8 @@ export function CartSidebar() {
 }
 ```
 
-- `useModel`은 **동기적으로 현재 디스크 스냅샷**을 반환합니다.
-- 서버와의 동기화는 전혀 하지 않고, 이미 모델에 있는 값만 읽어옵니다.
+- `useModel`은 모델이 메모리에 보관한 현재 **external-store snapshot**을 동기적으로 반환합니다.
+- IndexedDB 로드는 모델 수명주기에서 비동기로 진행되며, 완료되면 이 snapshot을 갱신합니다. 훅 자체는 서버 동기화를 시작하지 않습니다.
 
 <ApiTable
   kind="returns"
@@ -461,7 +461,7 @@ async function fetchCart() {
 }
 
 function CartInner() {
-  const { data: cart } = useSuspenseSyncedModel(CartModel, fetchCart);
+  const cart = useSuspenseSyncedModel(CartModel, fetchCart);
 
   return (
     <ul className="space-y-2 text-sm">
@@ -481,28 +481,11 @@ export function SuspenseCart() {
 }
 ```
 
-- 내부적으로는 `model.getSyncPromise(fetcher)`를 사용해, 데이터/에러가 아직 없는 경우 fetch를 트리거하고 Promise를 throw합니다.
+- 데이터와 에러가 아직 없으면 훅이 `model.getSyncPromise(fetcher)`를 호출하고 반환된 Promise를 throw하여 가장 가까운 Suspense boundary가 fallback을 표시하게 합니다.
 - 캐시에 데이터가 있으면 즉시 반환하고 Suspense로 빠지지 않습니다.
 - 에러가 있다면 ErrorBoundary로 흘려보냅니다.
 
-보다 저수준 제어가 필요하다면, 직접 `getSyncPromise`를 사용할 수도 있습니다.
-
-```tsx
-function CartInnerLowLevel() {
-  CartModel.getSyncPromise(fetchCart); // 데이터가 없으면 이 Promise가 throw되며 Suspense fallback으로 이동
-
-  const { data: cart } = useModel(CartModel);
-  if (!cart) return null;
-
-  return (
-    <ul className="space-y-2 text-sm">
-      {cart.items.map((item) => (
-        <li key={item.id}>{item.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
+`getSyncPromise()`은 Promise를 반환할 뿐 직접 throw하지 않습니다. cache·error 상태를 확인해 Promise를 throw하는 책임은 `useSuspenseSyncedModel`에 있으므로, 직접 제어할 이유가 없다면 훅을 사용하세요.
 
 ---
 
@@ -513,8 +496,8 @@ Local-First는 DevTools와의 연동을 통해 다음 정보를 전파합니다.
 - 모델 초기화/로드: `init`, `load`
 - 데이터 변경: `patch`, `replace`
 - 재검증/배경 동기화: `revalidate`, `sync.start`, `sync.success`, `sync.error`
-- 브로드캐스트: `broadcast.sent`, `broadcast.received`, `broadcast.fallback`, `broadcast.skipped`
-- 검증/스토리지 오류: `validation.error`, `storage.error`
+- 브로드캐스트: `broadcast`, `broadcast.fallback`, `broadcast.skipped`
+- 검증 실패: `validation.error`
 
 모든 이벤트는:
 
@@ -526,7 +509,7 @@ Local-First는 DevTools와의 연동을 통해 다음 정보를 전파합니다.
 로 구성되며, DevTools 패널에서 “model” 카테고리만 필터링해 보면:
 
 - 어떤 모델이 얼마나 자주 동기화되는지
-- 어느 시점에 ValidationError/StorageError가 났는지
+- 어느 시점에 검증 실패 이벤트가 발생했는지
 - 브로드캐스트가 잘 작동하는지 (fallback·skipped 이벤트 여부)
 
 를 한눈에 추적할 수 있습니다.

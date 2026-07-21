@@ -193,6 +193,7 @@ From the devtools package and your earlier notes: ([GitHub][1])
 - **Schema mismatch caveat**
   - Some field names emitted by runtime packages don’t perfectly match the bridge’s type definitions (e.g. <code>timeout</code> vs <code>timeoutMs</code>).
   - As a result, certain advanced fields may not show up or sort correctly in the panel yet.
+  - Treat the runtime package emitters as the observable event contract. The bridge types are an internal consumer schema that may lag behind them.
 
 <Callout type="info" title="Production usage">
   The bridge itself can run in production, but the extension is mainly for development. Since events are kept in memory and sometimes persisted, it’s best to keep DevTools focused on targeted debugging sessions.
@@ -233,7 +234,7 @@ Recommendation,
 
 - If you can use the existing DevTools panel, prefer that.
 - If you build your own viewer,
-  - Inspect the TypeScript types in `@firsttx/devtools` to understand the event schema.
+  - Inspect the runtime package emitters first, then use the TypeScript types in `@firsttx/devtools` as an integration aid rather than the source of truth.
   - Expect breaking changes across versions and pin versions accordingly.
 
 ---

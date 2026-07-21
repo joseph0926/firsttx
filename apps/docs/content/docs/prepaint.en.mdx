@@ -54,28 +54,26 @@ import react from "@vitejs/plugin-react-swc";
 import { firstTx } from "@firsttx/prepaint/plugin/vite";
 
 export default defineConfig({
-  plugins: [
-    react(),
-    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
-  ],
+  plugins: [react(), firstTx({ policy: { routes: ["/dashboard", "/cart"] } })],
 });
 ```
 
 - `firstTx()` bundles a self-starting boot script and emits `/firsttx-boot.js` by default.
-- Default behavior,
-  - `inline: false` - external classic script for static CSP deployments
-  - `minify` is enabled only in production
 
-- Set `inline: true` only when you intentionally manage a CSP hash for the generated inline script.
+Key plugin options:
+
+- `inline` (`boolean`, default `false`): inline the boot script only when you intentionally manage its CSP hash
+- `policy` (`PrepaintPolicy`, disabled by default): exact routes with optional TTL, byte limit, and CSS capture settings
+- `minify` (`boolean`, default `true` in production): minify the boot script
+- `injectTo` (`"head" | "head-prepend" | "body" | "body-prepend"`, default `"head-prepend"`): script injection position
+- `nonce` (`string | (() => string)`): nonce embedded in generated output; static Vite output cannot create one per response
+- `devFlagOverride` (`boolean`): override the development flag instead of following Vite mode
 
 <Callout type="info" title="Visual overlay">
   Snapshot restore always uses a non-interactive Shadow DOM overlay outside the React root.
   <ul>
     <li>
       <code>overlay</code> and <code>overlayRoutes</code> remain accepted as deprecated no-ops for one release.
-    </li>
-    <li>
-      <code>nonce: string</code> - nonce embedded in generated output; static Vite output cannot create a per-response nonce
     </li>
   </ul>
   <code>policy.routes</code> is an exact pathname allowlist shared by capture, restore, and record pruning. Missing or empty routes disable Prepaint.
@@ -96,11 +94,7 @@ Policy defaults are a 7-day TTL, 1 MiB UTF-8 payload limit, and CSS capture enab
 import { createFirstTxRoot } from "@firsttx/prepaint";
 import { App } from "./App";
 
-createFirstTxRoot(
-  document.getElementById("root")!,
-  <App />,
-  { transition: true },
-);
+createFirstTxRoot(document.getElementById("root")!, <App />, { transition: true });
 ```
 
 Instead of calling `createRoot` yourself, use `createFirstTxRoot`.
@@ -159,12 +153,9 @@ The core of Prepaint is the **boot script** injected into your HTML.
 ```ts
 type Snapshot = {
   route: string;
-  body: string;         // innerHTML of the first child of #root
-  timestamp: number;    // when the snapshot was captured
-  styles?: Array<
-    | { type: "inline"; content: string }
-    | { type: "external"; href: string; content?: string }
-  >;
+  body: string; // innerHTML of the first child of #root
+  timestamp: number; // when the snapshot was captured
+  styles?: Array<{ type: "inline"; content: string } | { type: "external"; href: string; content?: string }>;
 };
 ```
 

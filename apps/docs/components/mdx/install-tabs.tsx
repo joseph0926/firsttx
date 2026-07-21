@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
+import { useLocale } from "next-intl";
 
 const MANAGERS = ["pnpm", "npm", "yarn", "bun"] as const;
 type Manager = (typeof MANAGERS)[number];
@@ -34,6 +35,7 @@ function buildCommand(manager: Manager, packages: string[], dev?: boolean) {
 export function InstallTabs({ packages, dev, title, className }: InstallTabsProps) {
   const [manager, setManager] = useState<Manager>("pnpm");
   const [copied, setCopied] = useState(false);
+  const locale = useLocale();
 
   const commands = useMemo(
     () =>
@@ -68,25 +70,25 @@ export function InstallTabs({ packages, dev, title, className }: InstallTabsProp
           setCopied(false);
         }}
       >
-        <div className={cn("flex flex-col gap-3 rounded-2xl border border-border/60", "bg-card/80 p-2 backdrop-blur-xl", "shadow-md")}>
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-2">
           <div className="flex items-center justify-between gap-2">
             <TabsList className="inline-flex rounded-full bg-muted/60 p-0.5 text-[11px]">
               {MANAGERS.map((m) => (
-                <TabsTrigger key={m} value={m} className={cn("rounded-full border border-transparent px-3 py-1.5", "data-[state=active]:border-border/60 data-[state=active]:bg-background", "data-[state=active]:shadow-2xl", "capitalize")}>
+                <TabsTrigger key={m} value={m} className={cn("min-h-10 rounded-full border border-transparent px-3 py-1.5", "data-[state=active]:border-border/60 data-[state=active]:bg-background", "data-[state=active]:shadow-2xl", "capitalize")}>
                   {m}
                 </TabsTrigger>
               ))}
             </TabsList>
-            <button type="button" onClick={handleCopy} className={cn("inline-flex items-center gap-1 rounded-full border border-border/60", "bg-background/80 px-2 py-1 text-[10px] font-medium text-muted-foreground", "cursor-pointer shadow-2xl backdrop-blur-xl")}>
+            <button type="button" onClick={handleCopy} className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-3 py-1 text-[10px] font-medium text-muted-foreground" aria-label={locale === "ko" ? "설치 명령 복사" : "Copy install command"}>
               {copied ? (
                 <>
                   <Check className="h-3 w-3" />
-                  Copied
+                  {locale === "ko" ? "복사됨" : "Copied"}
                 </>
               ) : (
                 <>
                   <Copy className="h-3 w-3" />
-                  Copy
+                  {locale === "ko" ? "복사" : "Copy"}
                 </>
               )}
             </button>

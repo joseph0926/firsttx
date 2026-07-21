@@ -1,0 +1,84 @@
+export const metadata = {
+  title: "패턴",
+};
+
+# 조합 패턴
+
+FirstTx의 세 레이어는 서로 독립적으로 사용할 수 있습니다. 함께 사용할 때도 각 레이어의 책임은 섞이지 않습니다.
+
+| 해결할 문제                             | 선택할 레이어 | 책임                                                   |
+| --------------------------------------- | ------------- | ------------------------------------------------------ |
+| 재방문 부트 구간의 빈 화면              | Prepaint      | 마지막 DOM snapshot을 비상호작용 visual cache로 replay |
+| 새로고침 뒤에도 남아야 하는 client data | Local-First   | IndexedDB persistence와 server revalidation            |
+| 여러 단계의 낙관적 변경과 실패 복구     | Tx            | 성공한 단계를 역순으로 보상                            |
+
+<Callout type="info" title="먼저 필요한 레이어만 선택하세요">
+  Prepaint는 데이터 저장소가 아니고, Local-First는 트랜잭션 엔진이 아니며, Tx는 화면 snapshot을 만들지 않습니다. 문제에 필요한 책임만 도입한 뒤 조합하세요.
+</Callout>
+
+<span id="prepaint-composition"></span>
+
+## Prepaint와 앱 상태 연결
+
+Prepaint가 replay하는 것은 이전 방문의 화면입니다. 현재 데이터가 최신임을 보장하지 않으므로 React가 mount된 뒤 앱 상태를 다시 읽고 필요한 재검증을 수행해야 합니다.
+
+1. Prepaint가 부트 구간에 visual cache를 replay합니다.
+2. React가 기존 root에 mount됩니다.
+3. 앱이 현재 client data를 읽고 필요한 server revalidation을 시작합니다.
+4. handoff가 끝나면 overlay가 제거되고 현재 UI가 제어권을 가집니다.
+
+민감한 값은 `data-firsttx-sensitive` 또는 `window.__FIRSTTX_SENSITIVE_SELECTORS__`로 scrub하고, 시계나 카운터처럼 오래된 값이 위험한 영역은 `data-firsttx-volatile`로 표시합니다.
+
+자세한 lifecycle과 제한은 [Prepaint 문서](./prepaint)에서 확인하세요.
+
+<span id="local-first"></span>
+
+## Local-First 모델 설계
+
+- 서버에서 다시 가져올 수 있는 data state와 modal·hover 같은 view state를 분리합니다.
+- TTL은 모든 모델에 같은 값을 쓰지 말고 freshness 요구와 호출 비용을 기준으로 정합니다.
+- `merge`는 `replace`에 적용됩니다. 부분 변경은 `patch` 안에서 명시합니다.
+- BroadcastChannel이 없는 환경에서는 실시간 탭 동기화 대신 새로고침 또는 수동 sync 경로를 제공합니다.
+- 큰 객체 하나보다 변경 주기와 소비자가 다른 모델을 나누는 편이 직렬화와 비교 비용을 제어하기 쉽습니다.
+
+훅 반환값과 persistence 동작은 [Local-First 문서](./local-first)에서 확인하세요.
+
+<span id="tx-composition"></span>
+
+## Local-First와 Tx 조합
+
+낙관적 변경은 되돌릴 snapshot을 먼저 확보한 뒤 실행합니다.
+
+1. `optimistic` 단계에서 이전 값을 보관하고 Local-First model을 `patch`합니다.
+2. `request` 단계에서 서버 요청을 실행합니다.
+3. 요청이 실패하면 `rollback`이 snapshot으로 client state를 복구합니다.
+4. 성공하면 transaction을 commit하고 후속 UI를 갱신합니다.
+
+Tx의 보상은 데이터베이스의 원자적 transaction과 같지 않습니다. 보상 자체도 실패할 수 있으며, `CompensationFailedError`가 발생하면 수동 확인이 필요합니다.
+
+retry, timeout과 compensation 계약은 [Tx 문서](./tx)에서 확인하세요.
+
+<span id="three-layer-flow"></span>
+
+## 세 레이어를 함께 쓰는 순서
+
+재방문한 dashboard를 예로 들면 다음 순서가 안전합니다.
+
+1. Prepaint가 마지막 화면을 replay합니다.
+2. Local-First가 IndexedDB에서 model snapshot을 비동기로 불러옵니다.
+3. 각 model의 `syncOnMount`와 TTL 정책에 따라 server data를 revalidate합니다.
+4. 사용자의 변경은 Tx로 실행하고 실패하면 완료한 단계만 역순으로 보상합니다.
+5. DevTools에서 `prepaint`, `model`, `tx` category를 같은 timeline으로 확인합니다.
+
+<span id="verification"></span>
+
+## 검증 체크리스트
+
+- cold start와 revisit를 분리해 확인합니다.
+- IndexedDB가 비어 있는 상태와 저장된 상태를 모두 확인합니다.
+- BroadcastChannel 미지원 또는 fallback 상태를 확인합니다.
+- request 실패, timeout과 compensation 실패를 각각 확인합니다.
+- reduced motion 환경에서도 상태 복구가 애니메이션에 의존하지 않는지 확인합니다.
+- payload 세부 필드는 bridge type보다 runtime emitter를 기준으로 판정합니다.
+
+관찰 절차는 [DevTools 문서](./devtools), 증상별 복구는 [문제 해결](./troubleshooting)에서 이어집니다.

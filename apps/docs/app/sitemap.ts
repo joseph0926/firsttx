@@ -3,7 +3,7 @@ import { routing } from "@/i18n/routing";
 
 const SITE_URL = "https://firsttx.store";
 
-const DOC_PATHS = ["", "/docs/overview", "/docs/getting-started", "/docs/prepaint", "/docs/local-first", "/docs/tx", "/docs/devtools"];
+const DOC_PATHS = ["", "/docs/overview", "/docs/getting-started", "/docs/prepaint", "/docs/local-first", "/docs/tx", "/docs/patterns", "/docs/devtools", "/docs/troubleshooting", "/docs/reference"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();

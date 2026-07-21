@@ -1,0 +1,152 @@
+export const metadata = {
+  title: "Reference",
+};
+
+# API Reference
+
+Use this page to find contracts exported from each package root. Follow the package links for behavior examples and lifecycle details.
+
+<span id="prepaint"></span>
+
+## Prepaint
+
+Install package: `@firsttx/prepaint`
+
+| Export                                              | Role                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| `createFirstTxRoot`                                 | Connect React root creation to Prepaint handoff              |
+| `boot`                                              | Replay a stored snapshot during boot                         |
+| `setupCapture`                                      | Register snapshot capture                                    |
+| `handoff`                                           | Transfer control from the replay overlay to current React UI |
+| `PrepaintError`                                     | Base Prepaint error class                                    |
+| `BootError`, `CaptureError`, `PrepaintStorageError` | Concrete error classes                                       |
+| `HydrationError`                                    | Deprecated error class retained for legacy consumers         |
+
+Public types and helper:
+
+| Export                     | Contract                                                              |
+| -------------------------- | --------------------------------------------------------------------- |
+| `HandoffStrategy`          | `"has-prepaint" \| "cold-start"`                                      |
+| `CreateFirstTxRootOptions` | `transition`, `onCapture`, `onHandoff`, deprecated `onHydrationError` |
+| `PrepaintPolicy`           | `routes`, `ttlMs`, `maxSnapshotBytes`, `includeStyles`                |
+| `convertDOMException`      | Convert a DOM storage error into `PrepaintStorageError`               |
+
+The Vite subpath `@firsttx/prepaint/plugin/vite` exports `firstTx` and `FirstTxPluginOptions`. The `overlay` and `overlayRoutes` options are deprecated; the current restore path uses an overlay.
+
+Details: [Prepaint](./prepaint)
+
+<span id="local-first"></span>
+
+## Local-First
+
+Install package: `@firsttx/local-first`
+
+| Export                                            | Role                                                                 |
+| ------------------------------------------------- | -------------------------------------------------------------------- |
+| `defineModel`                                     | Define a model with Zod schema, version, initialData, TTL, and merge |
+| `Storage`                                         | IndexedDB storage access                                             |
+| `useModel`                                        | Subscribe to the model external-store snapshot                       |
+| `useSyncedModel`                                  | Connect model snapshots to server revalidation                       |
+| `useSuspenseSyncedModel`                          | Return synced `T` through a Suspense boundary                        |
+| `FirstTxError`, `StorageError`, `ValidationError` | Local-First error classes                                            |
+
+`ModelOptions<T>` provides `schema`, `version`, `initialData`, `ttl`, and `merge`. `useModel` returns `{ data, status, error, history, patch }`; `useSyncedModel` adds `sync` and `isSyncing`.
+
+| Public type                        | Contract                                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Model<T>`                         | `patch`, `replace`, `getSnapshot`, `getHistory`, and synchronous cached snapshot methods |
+| `StoredModel<T>`                   | `_v`, `updatedAt`, and `data` persisted in IndexedDB                                     |
+| `ModelHistory`                     | `updatedAt`, `age`, `isStale`, and currently always-false `isConflicted`                 |
+| `SyncOptions<T>`                   | `syncOnMount`, `onSuccess`, and `onError`                                                |
+| `SyncedModelResult<T>`             | `data`, `status`, `patch`, `sync`, `isSyncing`, `error`, and `history`                   |
+| `Fetcher<T>`, `SuspenseFetcher<T>` | Receive current data or `null` and return `Promise<T>`                                   |
+| `SuspenseSyncOptions<T>`           | `revalidateOnMount`, `onSuccess`, and `onError`                                          |
+| `StorageErrorCode`                 | `"QUOTA_EXCEEDED" \| "PERMISSION_DENIED" \| "UNKNOWN"`                                   |
+
+`useSuspenseSyncedModel` checks IndexedDB through `getSyncPromise()` when the memory snapshot has no data. If stored data is found, `revalidateOnMount` controls its background revalidation. When the memory snapshot already has data, the hook returns immediately without starting another revalidation.
+
+The main `StorageError` properties are `code`, `storageCode`, `recoverable`, and `storageContext`; the class implements `isRecoverable()`.
+
+Details: [Local-First](./local-first)
+
+<span id="tx"></span>
+
+## Tx
+
+Install package: `@firsttx/tx`
+
+| Export                                             | Role                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------ |
+| `startTransaction`                                 | Create an imperative transaction                             |
+| `useTx`                                            | Connect optimistic, request, and rollback lifecycle to React |
+| `DEFAULT_RETRY_CONFIG`, `RETRY_PRESETS`            | Retry defaults and presets                                   |
+| `TxError`                                          | Base Tx error class                                          |
+| `TransactionTimeoutError`, `RetryExhaustedError`   | Timeout and exhausted retry errors                           |
+| `CompensationFailedError`, `TransactionStateError` | Compensation failure and invalid state errors                |
+
+`TxOptions` provides `id`, `transition`, and `timeout`. Each `run` step can receive `compensate`, `retry`, and `signal` options.
+
+| Public type   | Contract                                                                                     |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `TxStatus`    | `"pending" \| "running" \| "committed" \| "rolled-back" \| "failed"`                         |
+| `StepOptions` | `compensate`, `retry`, and `signal`                                                          |
+| `RetryConfig` | `maxAttempts`, `delayMs`, and `backoff`                                                      |
+| `UseTxConfig` | `optimistic`, `rollback`, `request`, `transition`, `retry`, callbacks, and `cancelOnUnmount` |
+| `UseTxResult` | `mutate`, `mutateAsync`, `cancel`, pending/error/success state, and `error`                  |
+
+`CompensationFailedError` stores compensation `failures` and `completedSteps`; it does not retain the original step error that triggered rollback.
+
+Details: [Tx](./tx)
+
+<span id="events"></span>
+
+## Runtime event contract
+
+Every event contains `id`, `category`, `type`, `timestamp`, `data`, and `priority`.
+
+| Category   | Representative types                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `prepaint` | `capture`, `restore`, `handoff`, `storage.error`                                                                         |
+| `model`    | `init`, `load`, `patch`, `replace`, `sync.*`, `broadcast`, `broadcast.fallback`, `broadcast.skipped`, `validation.error` |
+| `tx`       | `start`, `step.*`, `commit`, `rollback.*`, `timeout`                                                                     |
+| `system`   | Bridge readiness and internal status events                                                                              |
+
+Runtime package emitters own the observable payload contract. The `@firsttx/devtools` bridge types are an internal consumer schema for the extension and should not be treated as a stable public API.
+
+Observation: [DevTools](./devtools)
+
+<span id="errors"></span>
+
+## Shared error usage
+
+Each package error base class provides a user message, debug details, and recoverability.
+
+| Error class               | Distinct public properties                         |
+| ------------------------- | -------------------------------------------------- |
+| `BootError`               | `phase`, `cause`                                   |
+| `CaptureError`            | `phase`, `route`, `cause`                          |
+| `HydrationError`          | `mismatchType`, `cause`                            |
+| `PrepaintStorageError`    | `storageCode`, `operation`, `cause`                |
+| `StorageError`            | `storageCode`, `recoverable`, `storageContext`     |
+| `ValidationError`         | `modelName`, `zodError`                            |
+| `TransactionTimeoutError` | `timeoutMs`, `elapsedMs`                           |
+| `RetryExhaustedError`     | `stepId`, `attempts`, `errors`                     |
+| `CompensationFailedError` | `failures`, `completedSteps`                       |
+| `TransactionStateError`   | `currentState`, `attemptedAction`, `transactionId` |
+
+```ts
+import { TxError } from "@firsttx/tx";
+
+try {
+  await operation();
+} catch (error) {
+  if (error instanceof TxError) {
+    console.error(error.getDebugInfo());
+    if (error.isRecoverable()) {
+      showRetryAction();
+    }
+  }
+}
+```
+
+See [Troubleshooting](./troubleshooting) for symptom-based decisions and manual recovery scope.

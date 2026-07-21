@@ -22,9 +22,9 @@ export function NavLink({ href, children, exact = false, isActive, indicator = t
   const computedActive = typeof isActive === "boolean" ? isActive : typeof pathname === "string" ? (exact ? pathname === href : pathname === href || pathname.startsWith(href + "/")) : false;
 
   return (
-    <Link href={href} aria-current={computedActive ? "page" : undefined} className={cn("group flex items-center justify-between rounded-xl px-3 py-2", "text-xs font-medium text-muted-foreground transition-colors", "hover:bg-muted/60 hover:text-foreground", computedActive && "bg-muted/80 text-foreground shadow-[0_12px_30px_rgba(15,23,42,0.12)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.7)]", className)} {...linkProps}>
+    <Link href={href} aria-current={computedActive ? "page" : undefined} className={cn("group flex items-center justify-between rounded-lg px-2.5 py-2", "text-xs font-medium text-muted-foreground transition-colors", "hover:bg-muted/70 hover:text-foreground", computedActive && "bg-muted text-foreground", className)} {...linkProps}>
       <span>{children}</span>
-      {indicator && <span className={cn("h-1.5 w-1.5 rounded-full bg-transparent transition-all duration-200", "group-hover:bg-primary/40", computedActive && "bg-primary/80 shadow-[0_0_12px_rgba(0,0,0,0.35)]")} />}
+      {indicator && <span className={cn("h-1.5 w-1.5 rounded-full bg-transparent transition-colors", "group-hover:bg-primary/40", computedActive && "bg-primary")} />}
     </Link>
   );
 }

@@ -203,8 +203,8 @@ export function CartSidebar() {
 }
 ```
 
-- `useModel` returns the **synchronous current snapshot from disk**.
-- It does not talk to the server; it only reads whatever is already stored.
+- `useModel` synchronously returns the model's current **in-memory external-store snapshot**.
+- IndexedDB loading happens asynchronously in the model lifecycle and updates that snapshot when it completes. The hook itself does not trigger server synchronization.
 
 <ApiTable
   kind="returns"
@@ -460,7 +460,7 @@ async function fetchCart() {
 }
 
 function CartInner() {
-  const { data: cart } = useSuspenseSyncedModel(CartModel, fetchCart);
+  const cart = useSuspenseSyncedModel(CartModel, fetchCart);
 
   return (
     <ul className="space-y-2 text-sm">
@@ -480,28 +480,11 @@ export function SuspenseCart() {
 }
 ```
 
-- Internally, this uses `model.getSyncPromise(fetcher)`. When there is no data and no error yet, it triggers a fetch and throws the Promise.
+- When there is no data and no error yet, the hook calls `model.getSyncPromise(fetcher)` and throws the returned Promise so the nearest Suspense boundary can render its fallback.
 - If the cache already has data, it simply returns and does not go through Suspense.
 - If there is an error, it is thrown so that your ErrorBoundary can handle it.
 
-If you need lower-level control, you can call `getSyncPromise` directly:
-
-```tsx
-function CartInnerLowLevel() {
-  CartModel.getSyncPromise(fetchCart); // If there is no data, this throws a Promise and Suspense shows the fallback
-
-  const { data: cart } = useModel(CartModel);
-  if (!cart) return null;
-
-  return (
-    <ul className="space-y-2 text-sm">
-      {cart.items.map((item) => (
-        <li key={item.id}>{item.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
+`getSyncPromise()` only returns a Promise; it does not throw by itself. Prefer `useSuspenseSyncedModel` unless you also implement the cache/error checks and Promise-throwing boundary that the hook owns.
 
 ---
 
@@ -512,8 +495,8 @@ Local-First sends rich events to DevTools so you can understand what’s happeni
 - Model initialization/load: `init`, `load`
 - Data changes: `patch`, `replace`
 - Revalidation/background sync: `revalidate`, `sync.start`, `sync.success`, `sync.error`
-- Broadcast activity: `broadcast.sent`, `broadcast.received`, `broadcast.fallback`, `broadcast.skipped`
-- Validation/storage errors: `validation.error`, `storage.error`
+- Broadcast activity: `broadcast`, `broadcast.fallback`, `broadcast.skipped`
+- Validation failures: `validation.error`
 
 Each event includes:
 
@@ -525,7 +508,7 @@ Each event includes:
 In the DevTools panel, if you filter by the “model” category, you can quickly see:
 
 - How frequently each model is being synced
-- When ValidationError/StorageError events occurred
+- When validation failures were emitted
 - Whether broadcasts are working (or falling back) as expected
 
 ---

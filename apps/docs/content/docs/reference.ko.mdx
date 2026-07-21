@@ -1,0 +1,152 @@
+export const metadata = {
+  title: "Reference",
+};
+
+# API Reference
+
+이 페이지는 package root에서 공개하는 contract를 빠르게 다시 찾기 위한 index입니다. 동작 예제와 lifecycle 설명은 각 package 문서로 연결합니다.
+
+<span id="prepaint"></span>
+
+## Prepaint
+
+설치 package: `@firsttx/prepaint`
+
+| Export                                              | 역할                                                       |
+| --------------------------------------------------- | ---------------------------------------------------------- |
+| `createFirstTxRoot`                                 | React root 생성과 Prepaint handoff 연결                    |
+| `boot`                                              | 저장된 snapshot의 boot-time replay                         |
+| `setupCapture`                                      | snapshot capture 등록                                      |
+| `handoff`                                           | replay overlay에서 현재 React UI로 제어권 전달             |
+| `PrepaintError`                                     | Prepaint 오류 base class                                   |
+| `BootError`, `CaptureError`, `PrepaintStorageError` | 구체 오류 class                                            |
+| `HydrationError`                                    | legacy consumer 호환을 위해 유지되는 deprecated 오류 class |
+
+공개 type과 helper:
+
+| Export                     | Contract                                                              |
+| -------------------------- | --------------------------------------------------------------------- |
+| `HandoffStrategy`          | `"has-prepaint" \| "cold-start"`                                      |
+| `CreateFirstTxRootOptions` | `transition`, `onCapture`, `onHandoff`, deprecated `onHydrationError` |
+| `PrepaintPolicy`           | `routes`, `ttlMs`, `maxSnapshotBytes`, `includeStyles`                |
+| `convertDOMException`      | DOM storage 오류를 `PrepaintStorageError`로 변환                      |
+
+Vite subpath `@firsttx/prepaint/plugin/vite`는 `firstTx`와 `FirstTxPluginOptions`를 공개합니다. `overlay`와 `overlayRoutes` option은 deprecated이며 현재 restore 경로는 overlay를 사용합니다.
+
+상세 설정: [Prepaint](./prepaint)
+
+<span id="local-first"></span>
+
+## Local-First
+
+설치 package: `@firsttx/local-first`
+
+| Export                                            | 역할                                                            |
+| ------------------------------------------------- | --------------------------------------------------------------- |
+| `defineModel`                                     | Zod schema, version, initialData, TTL과 merge를 가진 model 정의 |
+| `Storage`                                         | IndexedDB storage access                                        |
+| `useModel`                                        | model의 external-store snapshot 구독                            |
+| `useSyncedModel`                                  | model snapshot과 server revalidation 연결                       |
+| `useSuspenseSyncedModel`                          | Suspense 경계에서 sync 결과 `T` 반환                            |
+| `FirstTxError`, `StorageError`, `ValidationError` | Local-First 오류 class                                          |
+
+`ModelOptions<T>`는 `schema`, `version`, `initialData`, `ttl`, `merge`를 제공합니다. `useModel`은 `{ data, status, error, history, patch }`, `useSyncedModel`은 여기에 `sync`와 `isSyncing`을 더합니다.
+
+| 공개 type                          | Contract                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `Model<T>`                         | `patch`, `replace`, `getSnapshot`, `getHistory`와 synchronous cached snapshot method |
+| `StoredModel<T>`                   | IndexedDB에 저장되는 `_v`, `updatedAt`, `data`                                       |
+| `ModelHistory`                     | `updatedAt`, `age`, `isStale`, 현재 항상 `false`인 `isConflicted`                    |
+| `SyncOptions<T>`                   | `syncOnMount`, `onSuccess`, `onError`                                                |
+| `SyncedModelResult<T>`             | `data`, `status`, `patch`, `sync`, `isSyncing`, `error`, `history`                   |
+| `Fetcher<T>`, `SuspenseFetcher<T>` | 현재 data 또는 `null`을 받아 `Promise<T>`를 반환                                     |
+| `SuspenseSyncOptions<T>`           | `revalidateOnMount`, `onSuccess`, `onError`                                          |
+| `StorageErrorCode`                 | `"QUOTA_EXCEEDED" \| "PERMISSION_DENIED" \| "UNKNOWN"`                               |
+
+`useSuspenseSyncedModel`은 memory snapshot에 data가 없을 때 `getSyncPromise()`으로 IndexedDB를 확인합니다. 이때 저장 data가 발견되면 `revalidateOnMount`가 background revalidation을 제어합니다. memory snapshot에 이미 data가 있으면 훅은 즉시 반환하고 새 revalidation을 시작하지 않습니다.
+
+`StorageError`의 주요 property는 `code`, `storageCode`, `recoverable`, `storageContext`이며 `isRecoverable()`을 구현합니다.
+
+상세 설정: [Local-First](./local-first)
+
+<span id="tx"></span>
+
+## Tx
+
+설치 package: `@firsttx/tx`
+
+| Export                                             | 역할                                                   |
+| -------------------------------------------------- | ------------------------------------------------------ |
+| `startTransaction`                                 | imperative transaction 생성                            |
+| `useTx`                                            | optimistic, request, rollback lifecycle을 React에 연결 |
+| `DEFAULT_RETRY_CONFIG`, `RETRY_PRESETS`            | retry 기본값과 preset                                  |
+| `TxError`                                          | Tx 오류 base class                                     |
+| `TransactionTimeoutError`, `RetryExhaustedError`   | timeout과 retry 소진 오류                              |
+| `CompensationFailedError`, `TransactionStateError` | 보상 실패와 잘못된 상태 호출 오류                      |
+
+`TxOptions`는 `id`, `transition`, `timeout`을 제공합니다. 각 `run` step은 `compensate`, `retry`, `signal` option을 받을 수 있습니다.
+
+| 공개 type     | Contract                                                                                 |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| `TxStatus`    | `"pending" \| "running" \| "committed" \| "rolled-back" \| "failed"`                     |
+| `StepOptions` | `compensate`, `retry`, `signal`                                                          |
+| `RetryConfig` | `maxAttempts`, `delayMs`, `backoff`                                                      |
+| `UseTxConfig` | `optimistic`, `rollback`, `request`, `transition`, `retry`, callback과 `cancelOnUnmount` |
+| `UseTxResult` | `mutate`, `mutateAsync`, `cancel`, pending/error/success state와 `error`                 |
+
+`CompensationFailedError`는 compensation `failures`와 `completedSteps`를 보관하며 rollback을 시작하게 한 원래 step 오류는 보관하지 않습니다.
+
+상세 설정: [Tx](./tx)
+
+<span id="events"></span>
+
+## Runtime event contract
+
+모든 event는 `id`, `category`, `type`, `timestamp`, `data`, `priority`를 가집니다.
+
+| Category   | 대표 type                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `prepaint` | `capture`, `restore`, `handoff`, `storage.error`                                                                         |
+| `model`    | `init`, `load`, `patch`, `replace`, `sync.*`, `broadcast`, `broadcast.fallback`, `broadcast.skipped`, `validation.error` |
+| `tx`       | `start`, `step.*`, `commit`, `rollback.*`, `timeout`                                                                     |
+| `system`   | bridge 준비와 내부 상태 event                                                                                            |
+
+payload field의 최종 관찰 계약은 각 runtime package emitter가 소유합니다. `@firsttx/devtools` bridge type은 extension을 위한 내부 consumer schema이며 공개 stable API로 간주하지 않습니다.
+
+관찰 방법: [DevTools](./devtools)
+
+<span id="errors"></span>
+
+## 공통 오류 사용법
+
+각 package의 error base class는 사용자 메시지, debug 정보와 recoverability를 제공합니다.
+
+| 오류 class                | 고유 공개 property                                 |
+| ------------------------- | -------------------------------------------------- |
+| `BootError`               | `phase`, `cause`                                   |
+| `CaptureError`            | `phase`, `route`, `cause`                          |
+| `HydrationError`          | `mismatchType`, `cause`                            |
+| `PrepaintStorageError`    | `storageCode`, `operation`, `cause`                |
+| `StorageError`            | `storageCode`, `recoverable`, `storageContext`     |
+| `ValidationError`         | `modelName`, `zodError`                            |
+| `TransactionTimeoutError` | `timeoutMs`, `elapsedMs`                           |
+| `RetryExhaustedError`     | `stepId`, `attempts`, `errors`                     |
+| `CompensationFailedError` | `failures`, `completedSteps`                       |
+| `TransactionStateError`   | `currentState`, `attemptedAction`, `transactionId` |
+
+```ts
+import { TxError } from "@firsttx/tx";
+
+try {
+  await operation();
+} catch (error) {
+  if (error instanceof TxError) {
+    console.error(error.getDebugInfo());
+    if (error.isRecoverable()) {
+      showRetryAction();
+    }
+  }
+}
+```
+
+증상별 판단과 수동 복구 범위는 [문제 해결](./troubleshooting)에서 확인하세요.

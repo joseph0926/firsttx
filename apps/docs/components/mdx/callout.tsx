@@ -39,9 +39,9 @@ export function Callout({ type = "info", title, children, className }: CalloutPr
   const Icon = variant.icon;
 
   return (
-    <div className={cn("my-6 overflow-hidden rounded-2xl border border-border/80 px-4 py-3", "bg-linear-to-br from-background/80 via-background/60 to-muted/60", "shadow-xl", variant.ring, className)}>
+    <div className={cn("my-7 overflow-hidden border border-l-2 border-border bg-muted/45 px-5 py-4", variant.ring, className)}>
       <div className="flex items-start gap-3 text-sm">
-        <div className={cn("mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-border/60", "bg-background/90", variant.iconColor)}>
+        <div className={cn("mt-0.5 flex h-6 w-6 items-center justify-center", variant.iconColor)}>
           <Icon className="h-3.5 w-3.5" />
         </div>
         <div className="space-y-1">

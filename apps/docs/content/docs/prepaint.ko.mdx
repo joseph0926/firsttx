@@ -56,10 +56,7 @@ import react from "@vitejs/plugin-react-swc";
 import { firstTx } from "@firsttx/prepaint/plugin/vite";
 
 export default defineConfig({
-  plugins: [
-    react(),
-    firstTx({ policy: { routes: ["/dashboard", "/cart"] } }),
-  ],
+  plugins: [react(), firstTx({ policy: { routes: ["/dashboard", "/cart"] } })],
 });
 ```
 
@@ -69,8 +66,11 @@ export default defineConfig({
 주요 플러그인 옵션(요약),
 
 - `inline` (`boolean`, 기본 `false`): CSP hash를 직접 관리할 때 부트 스크립트를 HTML에 인라인 삽입할지 여부
-- `injectTo` (`"head" | "head-prepend" | "body" | "body-prepend"`, 기본 `"head"`): 스크립트 삽입 위치
-- `nonce` (`string`): 생성 결과물에 포함할 nonce. 정적 Vite 출력에서는 응답별 nonce를 만들 수 없음
+- `policy` (`PrepaintPolicy`, 기본 비활성화): 정확한 route와 선택 TTL, byte 제한, CSS 저장 설정
+- `minify` (`boolean`, 프로덕션 기본 `true`): 부트 스크립트 minify 여부
+- `injectTo` (`"head" | "head-prepend" | "body" | "body-prepend"`, 기본 `"head-prepend"`): 스크립트 삽입 위치
+- `nonce` (`string | (() => string)`): 생성 결과물에 포함할 nonce. 정적 Vite 출력에서는 응답별 nonce를 만들 수 없음
+- `devFlagOverride` (`boolean`): Vite mode 대신 개발 모드 플래그를 직접 지정
 
 `policy.routes`는 캡처·복원·record 정리가 공유하는 정확한 pathname allowlist입니다. 누락하거나 비우면 Prepaint가 비활성화됩니다. 기본 정책은 TTL 7일, UTF-8 payload 최대 1 MiB, CSS 포함입니다. DB schema v2 진입 시 기존 v1 record를 한 번 폐기합니다.
 
@@ -89,15 +89,11 @@ export default defineConfig({
 import { createFirstTxRoot } from "@firsttx/prepaint";
 import { App } from "./App";
 
-createFirstTxRoot(
-  document.getElementById("root")!,
-  <App />,
-  {
-    transition: true,
-    // onCapture(info) { ... },
-    // onHandoff(info) { ... },
-  },
-);
+createFirstTxRoot(document.getElementById("root")!, <App />, {
+  transition: true,
+  // onCapture(info) { ... },
+  // onHandoff(info) { ... },
+});
 ```
 
 기존 `createRoot`를 직접 사용하는 대신,

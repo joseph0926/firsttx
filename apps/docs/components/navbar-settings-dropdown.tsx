@@ -19,6 +19,7 @@ export function NavbarSettingsDropdown() {
   const pathname = usePathname() || "/";
 
   const currentLocale = locales.find((item) => item.code === locale) ?? locales[0];
+  const isKo = locale === "ko";
 
   const handleLocaleChange = (nextLocale: (typeof locales)[number]["code"]) => {
     if (nextLocale === locale) return;
@@ -39,29 +40,29 @@ export function NavbarSettingsDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="relative bg-background/30 max-sm:border-none">
+        <Button variant="outline" size="icon" className="relative size-10 rounded-lg bg-background" aria-label={isKo ? "테마와 언어 설정" : "Theme and language settings"}>
           <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
           <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-          <span className="sr-only">Toggle theme and language</span>
+          <span className="sr-only">{isKo ? "테마와 언어 설정" : "Theme and language settings"}</span>
           <span className="pointer-events-none absolute right-1 bottom-1 text-[10px] font-semibold uppercase">{currentLocale.short}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <DropdownMenuLabel>{isKo ? "테마" : "Theme"}</DropdownMenuLabel>
           <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme("light")}>
-            Light
+            {isKo ? "라이트" : "Light"}
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme("dark")}>
-            Dark
+            {isKo ? "다크" : "Dark"}
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme("system")}>
-            System
+            {isKo ? "시스템" : "System"}
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Language</DropdownMenuLabel>
+          <DropdownMenuLabel>{isKo ? "언어" : "Language"}</DropdownMenuLabel>
           {locales.map((item) => (
             <DropdownMenuItem key={item.code} onClick={() => handleLocaleChange(item.code)} className="cursor-pointer">
               {item.label}
