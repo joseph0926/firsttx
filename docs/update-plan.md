@@ -162,6 +162,8 @@ Playground 단독 `pnpm dev`는 Vite만 실행하지만 workspace package는 `di
 
 #### P0-E. metric loader, artifact publish와 CI 흐름 수정
 
+> 상태: 2026.07.22 `sync-staleness` vertical slice 구현 완료, P0-E 전체는 진행 중. GitHub Pages를 canonical metric host로 확정하고 schema v1 artifact·manifest, source/freshness 판정 loader, `/lab` current/last-success 상태, PR contract gate, 실패 run 게시 뒤 CI 실패 복원, Pages atomic deploy와 post-deploy source/deep-link smoke를 연결했습니다. Node 24 contract test 13개, Playground와 Playwright source typecheck, lint와 격리 publisher 실행이 통과했습니다. 실제 `main` Pages 배포와 production smoke는 아직 관찰하지 않았고 나머지 8개 scenario는 `not-measured` 또는 legacy이므로 P0-E를 완료로 닫지 않습니다.
+
 - canonical metric host와 app/metric deploy owner를 확정합니다.
 - same-origin 또는 cross-origin 경로, CORS, cache-control, stale cutoff와 fallback을 테스트합니다.
 - CI에서 scenario metric 생성 → schema 검증 → 판정 → public artifact atomic publish를 하나의 재현 가능한 흐름으로 만듭니다.

@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
 
 const METRICS_BASE_URL = process.env.VITE_METRICS_BASE_URL ?? '';
+const SOURCE_REVISION = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? '';
 const PREPAINT_ROUTES = [
   '/',
   '/getting-started',
@@ -46,5 +47,6 @@ export default defineConfig({
   },
   define: {
     __PLAYGROUND_METRICS_BASE__: JSON.stringify(METRICS_BASE_URL),
+    __PLAYGROUND_SOURCE_REVISION__: JSON.stringify(SOURCE_REVISION),
   },
 });

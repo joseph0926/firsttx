@@ -1,88 +1,107 @@
-import { test, expect } from '@playwright/test';
-import { createMetricRecord, writeMetrics } from './utils/metrics';
+import { expect, test } from '@playwright/test';
+import { createSyncStalenessArtifact, writeMetrics } from './utils/metrics';
+
+const baseTime = Date.parse('2026-07-22T08:00:00.000Z');
+const contractTestTitle = 'publishes deterministic stale and never-mount contract results';
 
 test.describe('Sync Staleness Detection', () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
+    await page.addInitScript((initialTime) => {
       Math.random = () => 0.5;
-    });
+      const storedTime = window.localStorage.getItem('playground-test-now');
+      const currentTime = storedTime ? Number(storedTime) : initialTime;
+      Date.now = () => currentTime;
+    }, baseTime);
   });
 
-  test('detects stale data and allows manual refresh', async ({ page }, testInfo) => {
-    await page.goto('/sync/staleness');
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.title !== contractTestTitle || testInfo.status === testInfo.expectedStatus) {
+      return;
+    }
 
-    // Wait for page to load - look for zone headers
-    await expect(page.locator('h3:has-text("Auto-Sync Zone")')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('h3:has-text("Manual-Sync Zone")')).toBeVisible();
-
-    // Wait for data to load in both zones
-    await expect(page.locator('text="Revenue"').first()).toBeVisible({ timeout: 10_000 });
-
-    // Find Manual Zone by its header
-    const manualZoneHeader = page.locator('h3:has-text("Manual-Sync Zone")');
-    const manualZone = manualZoneHeader.locator('..');
-
-    // Check initial status - look for Fresh or Stale text near the button
-    const refreshButton = manualZone.locator('button:has-text("Refresh")');
-    await expect(refreshButton).toBeVisible();
-
-    // Click the Refresh button
-    await refreshButton.click();
-
-    // Wait for sync to complete (button text changes back)
-    await expect(refreshButton).toContainText('Refresh', { timeout: 10_000 });
-
-    // After refresh, zone should show Fresh status (green text)
-    await expect(manualZone.locator('.text-green-500').filter({ hasText: 'Fresh' })).toBeVisible({
-      timeout: 5_000,
-    });
-
-    // Write metrics
-    await writeMetrics(
-      createMetricRecord(
-        'sync-staleness',
-        {
-          manualRefreshWorked: true,
+    const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+    const dpr = page.isClosed()
+      ? 1
+      : await page.evaluate(() => window.devicePixelRatio).catch(() => 1);
+    const artifact = await createSyncStalenessArtifact(
+      {
+        staleMount: {
+          fetchCount: 0,
+          isStale: true,
         },
-        {
-          project: testInfo.project.name,
-          url: '/sync/staleness',
+        neverMount: {
+          automaticFetchCount: 0,
+          manualFetchCount: 0,
+          isStale: true,
         },
-      ),
+      },
+      {
+        browser: testInfo.project.name,
+        viewport,
+        dpr,
+      },
     );
+    await writeMetrics(artifact);
   });
 
-  test('auto-sync zone automatically refreshes stale data', async ({ page }) => {
+  test(contractTestTitle, async ({ page }, testInfo) => {
+    const state = page.getByTestId('staleness-contract-state');
     await page.goto('/sync/staleness');
+    await expect(state).toHaveAttribute('data-auto-fetch-count', '1', { timeout: 10_000 });
+    await expect(state).toHaveAttribute('data-auto-is-stale', 'false');
+    await expect(state).toHaveAttribute('data-manual-fetch-count', '0');
 
-    // Wait for Auto-Sync zone header to be visible
-    const autoZoneHeader = page.locator('h3:has-text("Auto-Sync Zone")');
-    await expect(autoZoneHeader).toBeVisible({ timeout: 10_000 });
+    const manualZone = page.getByRole('heading', { name: /Manual-Sync Zone/ }).locator('..');
+    const refreshButton = manualZone.getByRole('button', { name: 'Refresh' });
+    await refreshButton.click();
+    await expect(state).toHaveAttribute('data-manual-fetch-count', '1');
+    await expect(state).toHaveAttribute('data-manual-is-stale', 'false', { timeout: 10_000 });
 
-    // The Auto zone is the parent div of this header
-    const autoZone = autoZoneHeader.locator('..');
+    await page.evaluate((nextTime) => {
+      window.localStorage.setItem('playground-test-now', String(nextTime));
+    }, baseTime + 31_000);
+    await page.reload();
 
-    // Wait for data to load - Revenue should appear
-    await expect(autoZone.locator('text="Revenue"')).toBeVisible({ timeout: 10_000 });
+    await expect(state).toHaveAttribute('data-auto-fetch-count', '1', { timeout: 10_000 });
+    await expect(state).toHaveAttribute('data-auto-is-stale', 'false');
+    await expect(state).toHaveAttribute('data-manual-fetch-count', '0');
+    await expect(state).toHaveAttribute('data-manual-is-stale', 'true');
 
-    // Verify the strategy description is present
-    await expect(
-      autoZone.locator('text="Strategy: Syncs on mount when data exceeds TTL"'),
-    ).toBeVisible();
+    const automaticFetchCount = Number(await state.getAttribute('data-manual-fetch-count'));
+    const reloadedManualZone = page
+      .getByRole('heading', { name: /Manual-Sync Zone/ })
+      .locator('..');
+    await reloadedManualZone.getByRole('button', { name: 'Refresh' }).click();
+    await expect(state).toHaveAttribute('data-manual-fetch-count', '1');
+    await expect(state).toHaveAttribute('data-manual-is-stale', 'false', { timeout: 10_000 });
+
+    const viewport = page.viewportSize();
+    const artifact = await createSyncStalenessArtifact(
+      {
+        staleMount: {
+          fetchCount: Number(await state.getAttribute('data-auto-fetch-count')),
+          isStale: (await state.getAttribute('data-auto-is-stale')) === 'true',
+        },
+        neverMount: {
+          automaticFetchCount,
+          manualFetchCount: Number(await state.getAttribute('data-manual-fetch-count')),
+          isStale: (await state.getAttribute('data-manual-is-stale')) === 'true',
+        },
+      },
+      {
+        browser: testInfo.project.name,
+        viewport: viewport ?? { width: 1280, height: 720 },
+        dpr: await page.evaluate(() => window.devicePixelRatio),
+      },
+    );
+    await writeMetrics(artifact);
+
+    expect(artifact.currentStatus).toBe('passed');
   });
 
-  test('displays correct TTL strategy descriptions', async ({ page }) => {
+  test('describes stale and never mount strategies', async ({ page }) => {
     await page.goto('/sync/staleness');
-
-    // Wait for page to load
-    await expect(page.locator('h3:has-text("Auto-Sync Zone")')).toBeVisible({ timeout: 10_000 });
-
-    // Verify strategy descriptions are visible
-    await expect(
-      page.locator('text="Strategy: Syncs on mount when data exceeds TTL"'),
-    ).toBeVisible();
-    await expect(
-      page.locator('text="Strategy: Never auto-syncs - full manual control"'),
-    ).toBeVisible();
+    await expect(page.getByText('Strategy: Syncs on mount when data exceeds TTL')).toBeVisible();
+    await expect(page.getByText('Strategy: Never auto-syncs - full manual control')).toBeVisible();
   });
 });

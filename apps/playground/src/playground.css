@@ -698,7 +698,7 @@
 
 .atlas-lab-toolbar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   border-bottom: 1px solid var(--atlas-line);
 }
 
@@ -802,6 +802,38 @@
   align-items: center;
   gap: 6px;
   color: var(--atlas-muted);
+  font-size: 8px;
+}
+
+.atlas-ledger-contract > .atlas-runtime-status {
+  color: var(--atlas-ink);
+  font-weight: 800;
+}
+
+.atlas-runtime-status > i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--atlas-muted);
+}
+
+.atlas-runtime-status[data-status='passed'] > i {
+  background: #16a34a;
+}
+
+.atlas-runtime-status[data-status='failed'] > i,
+.atlas-runtime-status[data-status='stale'] > i {
+  background: var(--atlas-coral);
+}
+
+.atlas-runtime-status[data-status='expected-limitation'] > i,
+.atlas-runtime-status[data-status='unsupported'] > i {
+  background: #d97706;
+}
+
+.atlas-last-success code {
+  color: var(--atlas-ink);
   font-size: 8px;
 }
 
