@@ -54,7 +54,8 @@ jobs:
         id: metric_manifest
         working-directory: apps/playground
         run: |
-          echo "current_status=$(jq -r '.scenarios[\"sync-staleness\"].currentStatus' public/metrics/manifest.json)" >> "$GITHUB_OUTPUT"
+          current_status="$(jq -er '.scenarios["sync-staleness"].currentStatus' public/metrics/manifest.json)"
+          echo "current_status=$current_status" >> "$GITHUB_OUTPUT"
 
       - name: Upload metrics artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
