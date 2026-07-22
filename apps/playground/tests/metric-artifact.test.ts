@@ -358,6 +358,12 @@ test('keeps the metrics directory under the deployed Pages root', async () => {
     workflow,
     /if: \$\{\{ always\(\) && needs\.metrics\.outputs\.pages_ready == 'true' \}\}/,
   );
+  assert.ok(
+    workflow.includes(
+      `current_status="$(jq -er '.scenarios["sync-staleness"].currentStatus' public/metrics/manifest.json)"`,
+    ),
+  );
+  assert.ok(!workflow.includes(`.scenarios[\\"sync-staleness\\"].currentStatus`));
   assert.match(workflow, /EXPECTED_STATUS: \$\{\{ needs\.metrics\.outputs\.current_status \}\}/);
   assert.doesNotMatch(workflow, /currentStatus' <<< "\$artifact"\)" = "passed"/);
 });
