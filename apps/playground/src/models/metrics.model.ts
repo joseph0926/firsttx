@@ -1,11 +1,16 @@
 import { defineModel } from '@firsttx/local-first';
 import { z } from 'zod';
+import {
+  metricArtifactSchema,
+  metricArtifactStatusSchema,
+  metricLoadIssueSchema,
+} from '@/lib/metric-artifact';
 
 const ScenarioMetricsSchema = z.object({
   scenarioId: z.string(),
-  runId: z.string(),
-  metrics: z.record(z.union([z.number(), z.string(), z.boolean()])),
-  meta: z.record(z.any()).nullable(),
+  status: metricArtifactStatusSchema,
+  artifact: metricArtifactSchema.nullable(),
+  issue: metricLoadIssueSchema.nullable(),
   updatedAt: z.number(),
 });
 

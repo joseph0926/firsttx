@@ -35,6 +35,6 @@ test.describe('Playground home smoke test', () => {
       page.getByRole('heading', { name: /Contracts and release criteria by scenario/i }),
     ).toBeVisible();
     await expect(page.locator('.atlas-ledger > article')).toHaveCount(9);
-    await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
+    await expect(page.getByText('GitHub Pages manifest', { exact: true })).toBeVisible();
   });
 });

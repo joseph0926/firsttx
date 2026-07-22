@@ -15,7 +15,8 @@
     "lint:fix": "eslint . --fix",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "metrics:sync": "node ./scripts/sync-metrics.mjs"
+    "metrics:sync": "node --experimental-strip-types ./scripts/sync-metrics.ts",
+    "test:contract": "node --experimental-strip-types --test ./tests/metric-artifact.test.ts"
   },
   "dependencies": {
     "@firsttx/local-first": "workspace:*",

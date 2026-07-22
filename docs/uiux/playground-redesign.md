@@ -40,16 +40,16 @@ capture_manifest: 'artifacts/uiux/playground-redesign'
 
 ## Acceptance와 Evidence Trace
 
-| ID  | Actor/trigger/state           | Expected outcome                                                              | Planned/actual evidence                                              | Status                      |
-| --- | ----------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------- |
-| AC1 | 첫 방문 OSS 사용자            | 강제 redirect 없이 guided path와 자유 검증 path를 이해                        | production `/` desktop/mobile                                        | integrated                  |
-| AC2 | 개발자가 current run 확인     | source, freshness, environment, metric kind와 test owner를 한 흐름에서 추적   | production `/lab`, scenario contract receipt                         | integrated                  |
-| AC3 | metric이 없거나 유효하지 않음 | 성공 수치 대신 not-measured, failed, stale, unsupported를 구분                | artifact 미연결·source 미게시를 명시하고 static success fixture 제거 | integrated, runtime pending |
-| AC4 | expected-limitation scenario  | 실패가 아니라 현재 지원 경계를 설명하고 실행 근거를 제공                      | production `/sync/timing` contract receipt                           | integrated                  |
-| AC5 | 390px mobile                  | 수평 overflow 없이 overview, Lab row와 scenario detail을 사용                 | browser `innerWidth=390`, `scrollWidth=390`                          | integrated                  |
-| AC6 | keyboard 사용자               | semantic link/button, `aria-current`, visible focus와 disabled control을 구분 | production DOM snapshot, 42px target와 focus-visible                 | integrated                  |
-| AC7 | KO/EN 전환                    | 대표 copy와 `<html lang>`이 locale과 일치                                     | production KO/EN, light/dark                                         | integrated                  |
-| AC8 | production integration        | 실제 registry/artifact/handler를 연결하고 candidate-only code 제거            | registry 연결·candidate 제거; runtime artifact는 P0-E                | partial: UI integrated      |
+| ID  | Actor/trigger/state           | Expected outcome                                                              | Planned/actual evidence                                            | Status                    |
+| --- | ----------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |
+| AC1 | 첫 방문 OSS 사용자            | 강제 redirect 없이 guided path와 자유 검증 path를 이해                        | production `/` desktop/mobile                                      | integrated                |
+| AC2 | 개발자가 current run 확인     | source, freshness, environment, metric kind와 test owner를 한 흐름에서 추적   | production `/lab`, scenario contract receipt                       | integrated                |
+| AC3 | metric이 없거나 유효하지 않음 | 성공 수치 대신 not-measured, failed, stale, unsupported를 구분                | `sync-staleness` schema v1 loader와 나머지 scenario `not-measured` | vertical slice integrated |
+| AC4 | expected-limitation scenario  | 실패가 아니라 현재 지원 경계를 설명하고 실행 근거를 제공                      | production `/sync/timing` contract receipt                         | integrated                |
+| AC5 | 390px mobile                  | 수평 overflow 없이 overview, Lab row와 scenario detail을 사용                 | browser `innerWidth=390`, `scrollWidth=390`                        | integrated                |
+| AC6 | keyboard 사용자               | semantic link/button, `aria-current`, visible focus와 disabled control을 구분 | production DOM snapshot, 42px target와 focus-visible               | integrated                |
+| AC7 | KO/EN 전환                    | 대표 copy와 `<html lang>`이 locale과 일치                                     | production KO/EN, light/dark                                       | integrated                |
+| AC8 | production integration        | 실제 registry/artifact/handler를 연결하고 candidate-only code 제거            | registry·`sync-staleness` artifact 연결; 나머지 runtime은 P0-E     | partial: runtime slice    |
 
 Edge cases는 metric fetch failure, source mismatch, stale artifact, unsupported capability, expected limitation, deterministic reset unavailable, long test-owner text와 390px reflow입니다. Runtime loading·retry와 real artifact freshness는 P0-E~H 구현 뒤 production evidence로 다시 확인합니다.
 
@@ -181,7 +181,7 @@ Edge cases는 metric fetch failure, source mismatch, stale artifact, unsupported
   - Proof Atlas 후보의 static verification fixture와 hard-coded source revision
   - 기존 home의 `0ms`, `100%`, 고정 target fallback
 - Production IA: Proof Atlas overview와 chapter를 base로 사용하고 `/lab` ledger 및 모든 공개 scenario의 contract receipt에 Signal Desk provenance 구조를 결합했습니다.
-- 남은 위험: runtime artifact schema·loader 판정·deterministic reset handler는 P0-E~F가 소유하며 현재 UI는 이를 정직하게 미연결로 표시합니다.
+- 남은 위험: `sync-staleness` 외 runtime artifact와 deterministic reset handler는 P0-E~F가 소유하며 현재 UI는 나머지 scenario를 `not-measured`로 표시합니다. 실제 Pages production smoke는 아직 관찰하지 않았습니다.
 - 승인 evidence/date: 2026.07.19 사용자 “진행” 승인
 
 ## Terminal State와 Recovery
@@ -207,7 +207,8 @@ Edge cases는 metric fetch failure, source mismatch, stale artifact, unsupported
 - Keyboard: semantic link/button, route별 `aria-current`, 42px 이상 action target과 `focus-visible` outline
 - Sensitive data: repo mock/local fixture만 사용
 - Production correctness evidence: contract registry 연결과 artifact 미연결 disclosure. Runtime correctness는 P0-E~F 전까지 증명하지 않습니다.
-- Gaps: real metric artifact, deterministic reset, zoom/text spacing과 assistive-technology flow
+- P0-E evidence: 2026.07.22 `sync-staleness` schema v1 artifact·manifest·loader·Lab current/last-success vertical slice, Node 24 contract test 13개, Playground·Playwright source typecheck, lint와 격리 publisher 실행 통과
+- Gaps: 나머지 scenario artifact, 실제 Pages production smoke, deterministic reset, zoom/text spacing과 assistive-technology flow
 
 ## Research Status
 

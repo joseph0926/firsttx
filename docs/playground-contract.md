@@ -117,11 +117,11 @@ UI status는 `passed`, `failed`, `expected-limitation`, `not-measured`, `stale`,
 - README와 UI는 registry에서 계산한 scenario 수를 사용합니다.
 - 기존 metric key는 새 catalog key로 migration하기 전까지 `legacy`로만 읽고 공개 status 판정에는 사용하지 않습니다.
 
-## 미결정 범위
+## 후속 범위
 
-P0-A와 metric 분류는 확정했지만 아래는 이후 단계가 소유합니다.
+P0-A와 metric 분류는 확정했습니다. 2026.07.22 P0-E vertical slice에서 GitHub Pages를 canonical metric host로 확정하고 `sync-staleness` schema v1 artifact·manifest·loader·Lab 연결, 실패 run 게시와 last-success 계승, Pages publish workflow를 구현했습니다. 실제 `main` 배포 관찰과 나머지 scenario 전환은 아직 남아 있습니다.
 
-- metric canonical host, atomic publish와 deploy owner: P0-E
+- 나머지 scenario의 schema v1 artifact 전환과 production post-deploy 확인: P0-E
 - deterministic scheduler와 scenario fixture 구현: P0-F
 - workspace build fingerprint 생성 방식: P0-G
 - 승인된 UI의 production 통합과 locale copy: P0-H

@@ -19,6 +19,9 @@ concurrency:
 jobs:
   metrics:
     runs-on: ubuntu-latest
+    outputs:
+      current_status: ${{ steps.metric_manifest.outputs.current_status }}
+      pages_ready: ${{ steps.pages_artifact.outputs.pages_ready }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -29,15 +32,29 @@ jobs:
       - name: Build FirstTx packages
         run: pnpm run build --filter='./packages/*'
 
+      - name: Validate metric contracts
+        working-directory: apps/playground
+        run: pnpm test:contract
+
       - name: Run Playwright metrics suite
+        id: metrics_suite
+        continue-on-error: true
         working-directory: apps/playground
         run: |
           pnpm exec playwright install --with-deps
-          pnpm test:e2e tests/prepaint-heavy.spec.ts tests/instant-cart.metrics.spec.ts tests/tx-concurrent.metrics.spec.ts
+          pnpm test:e2e tests/prepaint-heavy.spec.ts tests/instant-cart.metrics.spec.ts tests/sync-staleness.spec.ts tests/tx-concurrent.metrics.spec.ts
 
       - name: Copy metrics to public/
         working-directory: apps/playground
+        env:
+          METRICS_PREVIOUS_MANIFEST_URL: https://joseph0926.github.io/firsttx/metrics/manifest.json
         run: pnpm metrics:sync
+
+      - name: Read published metric status
+        id: metric_manifest
+        working-directory: apps/playground
+        run: |
+          echo "current_status=$(jq -r '.scenarios[\"sync-staleness\"].currentStatus' public/metrics/manifest.json)" >> "$GITHUB_OUTPUT"
 
       - name: Upload metrics artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
@@ -45,15 +62,24 @@ jobs:
           name: playground-metrics
           path: |
             apps/playground/.metrics/*.json
-            apps/playground/public/metrics/*.json
+            apps/playground/public/metrics/**
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
         with:
-          path: apps/playground/public/metrics
+          path: apps/playground/public
+
+      - name: Mark Pages artifact ready
+        id: pages_artifact
+        run: echo "pages_ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve metrics suite failure
+        if: steps.metrics_suite.outcome == 'failure'
+        run: exit 1
 
   deploy:
     needs: metrics
+    if: ${{ always() && needs.metrics.outputs.pages_ready == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -65,3 +91,16 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+
+      - name: Verify published metric source and deep link
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_STATUS: ${{ needs.metrics.outputs.current_status }}
+        run: |
+          manifest_url="${PAGE_URL%/}/metrics/manifest.json"
+          manifest="$(curl --fail --silent --show-error --retry 5 "$manifest_url")"
+          test "$(jq -r '.sourceCommit' <<< "$manifest")" = "$GITHUB_SHA"
+          artifact_path="$(jq -r '.scenarios["sync-staleness"].artifactPath' <<< "$manifest")"
+          artifact="$(curl --fail --silent --show-error --retry 5 "${PAGE_URL%/}${artifact_path}")"
+          test "$(jq -r '.source.dirty' <<< "$artifact")" = "false"
+          test "$(jq -r '.currentStatus' <<< "$artifact")" = "$EXPECTED_STATUS"

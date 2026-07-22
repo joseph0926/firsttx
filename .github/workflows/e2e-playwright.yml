@@ -25,7 +25,7 @@ jobs:
           - name: smoke
             testArgs: tests/home.smoke.spec.ts
           - name: metrics
-            testArgs: tests/prepaint-heavy.spec.ts tests/instant-cart.metrics.spec.ts tests/tx-concurrent.metrics.spec.ts
+            testArgs: tests/prepaint-heavy.spec.ts tests/instant-cart.metrics.spec.ts tests/sync-staleness.spec.ts tests/tx-concurrent.metrics.spec.ts
     env:
       CI: true
     steps:
@@ -49,6 +49,10 @@ jobs:
 
       - name: Build FirstTx packages
         run: pnpm --filter @firsttx/shared --filter @firsttx/prepaint --filter @firsttx/local-first --filter @firsttx/tx build
+
+      - name: Validate metric contracts
+        if: matrix.suite.name == 'metrics'
+        run: pnpm --filter playground test:contract
 
       - name: Install Playwright browsers (Chromium)
         run: pnpm --filter playground exec playwright install chromium --with-deps

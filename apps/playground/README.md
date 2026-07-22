@@ -46,7 +46,7 @@ FirstTx Playground는 두 가지 용도로 운영합니다.
 
 ## 실행
 
-저장소 루트에서 실행합니다. 이 저장소는 Node.js 24 이상과 pnpm을 사용합니다.
+저장소 루트에서 실행합니다. 이 저장소는 Node.js 24와 pnpm을 사용합니다.
 
 ```bash
 pnpm install
@@ -64,11 +64,12 @@ pnpm --filter playground dev
 ```bash
 pnpm --filter playground lint
 pnpm --filter playground typecheck
+pnpm --filter playground test:contract
 pnpm --filter playground build
 pnpm --filter playground test:e2e --workers=2
 ```
 
-Playwright 테스트가 생성하는 측정 결과는 `.metrics/`에 저장됩니다. 현재 `/lab`의 런타임 측정 결과 연결과 배포 흐름은 아직 구현 중이며, 계약 정보만 표시합니다.
+Playwright 테스트가 생성하는 측정 결과는 `.metrics/`에 저장됩니다. `sync-staleness`는 schema v1 artifact와 provenance를 생성하며 `metrics:sync`가 immutable run과 manifest를 만듭니다. 실패 run도 현재 상태로 게시하되 workflow는 실패를 유지하고 이전 성공 run ID를 별도로 보존합니다. GitHub Pages의 `https://joseph0926.github.io/firsttx/`가 canonical metric host이고 `/lab`은 source revision, freshness와 current/last-success 상태를 읽습니다. 나머지 시나리오는 schema 전환 전까지 `not-measured` 또는 legacy로 유지합니다.
 
 ## 주요 경로
 

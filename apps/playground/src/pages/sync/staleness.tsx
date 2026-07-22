@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Clock, AlertCircle, RefreshCw, CheckCircle2, Zap } from 'lucide-react';
 import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
@@ -10,11 +10,21 @@ const demoMeta = getDemoById('staleness')!;
 const relatedDemos = getRelatedDemos('staleness', 2);
 
 export default function StalenessDetection() {
+  const [autoFetchCount, setAutoFetchCount] = useState(0);
+  const [manualFetchCount, setManualFetchCount] = useState(0);
+  const autoFetcher = useCallback(async () => {
+    setAutoFetchCount((count) => count + 1);
+    return fetchDashboardStats();
+  }, []);
+  const manualFetcher = useCallback(async () => {
+    setManualFetchCount((count) => count + 1);
+    return fetchDashboardStats();
+  }, []);
   const {
     data: autoStats,
     isSyncing: isAutoSyncing,
     history: autoHistory,
-  } = useSyncedModel(AutoStatsModel, fetchDashboardStats);
+  } = useSyncedModel(AutoStatsModel, autoFetcher, { syncOnMount: 'stale' });
 
   const {
     data: manualStats,
@@ -22,7 +32,7 @@ export default function StalenessDetection() {
     isSyncing: isManualSyncing,
     error: manualError,
     history: manualHistory,
-  } = useSyncedModel(ManualStatsModel, fetchDashboardStats, {
+  } = useSyncedModel(ManualStatsModel, manualFetcher, {
     syncOnMount: 'never',
   });
 
@@ -51,6 +61,16 @@ export default function StalenessDetection() {
       docsLink={demoMeta.docsLink}
       relatedDemos={relatedDemos}
     >
+      <output
+        className="sr-only"
+        data-testid="staleness-contract-state"
+        data-auto-fetch-count={autoFetchCount}
+        data-auto-is-stale={String(autoHistory.isStale)}
+        data-manual-fetch-count={manualFetchCount}
+        data-manual-is-stale={String(manualHistory.isStale)}
+      >
+        Auto fetches {autoFetchCount}; manual fetches {manualFetchCount}
+      </output>
       <MetricsGrid>
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
