@@ -21,19 +21,28 @@ test.describe('Instant Cart metrics', () => {
     });
     await page.goto('/sync/instant-cart');
 
-    const traditionalPlus = page.locator('[data-testid^="traditional-increment-"]').first();
+    const traditionalPlus = page.getByTestId('traditional-increment-1');
     await traditionalPlus.waitFor({ state: 'visible', timeout: 20_000 });
     await traditionalPlus.click();
 
-    const firstTxPlus = page.locator('[data-testid^="firsttx-increment-"]').first();
+    await page.getByTestId('instant-cart-fixture').selectOption('ack');
+    const firstTxPlus = page.getByTestId('firsttx-increment-1');
     await firstTxPlus.waitFor({ state: 'visible', timeout: 20_000 });
     await firstTxPlus.click();
 
-    await expect(page.locator('[data-testid="instant-cart-metrics"]')).toHaveAttribute(
-      'data-firsttx-action',
-      /.+/,
-      { timeout: 10_000 },
-    );
+    const metricsElement = page.getByTestId('instant-cart-metrics');
+    await expect(metricsElement).toHaveAttribute('data-firsttx-action', /.+/, { timeout: 10_000 });
+    await page.getByTestId('release-instant-cart-server').click();
+    await expect(page.getByTestId('instant-cart-events').locator('li')).toHaveText([
+      'optimistic-patch',
+      'optimistic-paint',
+      'server-gate-released',
+      'request-started',
+      'server-gate-completed',
+      'server-acknowledged',
+    ]);
+    await expect(metricsElement).toHaveAttribute('data-firsttx-server-ack', /.+/);
+    await expect(metricsElement).toHaveAttribute('data-traditional-action', /.+/);
 
     const attrs = await readMetricsAttributes(page);
 

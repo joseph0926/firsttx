@@ -95,6 +95,48 @@ test.describe('Tx Network Chaos', () => {
     expect(parseInt(failed ?? '0')).toBe(3);
   });
 
+  test('uses the fixed stable delay for every production request', async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => 0;
+
+      const testWindow = window as typeof window & {
+        __networkChaosScheduledDelays: number[];
+      };
+      const nativeSetTimeout = window.setTimeout.bind(window);
+
+      testWindow.__networkChaosScheduledDelays = [];
+      window.setTimeout = ((...args: Parameters<typeof window.setTimeout>) => {
+        testWindow.__networkChaosScheduledDelays.push(args[1] ?? 0);
+        return nativeSetTimeout(...args);
+      }) as typeof window.setTimeout;
+    });
+    await page.goto('/tx/network-chaos');
+
+    await expect(page.locator('h3:has-text("Failure Configuration")')).toBeVisible();
+    await page.locator('select').selectOption('none');
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __networkChaosScheduledDelays: number[];
+      };
+      testWindow.__networkChaosScheduledDelays = [];
+    });
+
+    await page.locator('button:has-text("Run Retry Test")').click();
+    await expect(page.locator('button:has-text("Run Retry Test")')).toBeEnabled({
+      timeout: 15_000,
+    });
+
+    const scheduledDelays = await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __networkChaosScheduledDelays: number[];
+      };
+      return testWindow.__networkChaosScheduledDelays;
+    });
+    const scenarioDelays = scheduledDelays.filter((delay) => delay >= 150 && delay <= 350);
+
+    expect(scenarioDelays).toEqual([250, 150, 250, 150, 250, 150]);
+  });
+
   test('succeeds with stable network (chaos: none)', async ({ page }) => {
     await page.goto('/tx/network-chaos');
 

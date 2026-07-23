@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   GitBranch,
   CheckCircle2,
@@ -13,15 +13,22 @@ import { useSyncedModel } from '@firsttx/local-first';
 import { useTx } from '@firsttx/tx';
 import { ConcurrentInventoryModel } from '@/models/concurrent-inventory.model';
 import { reserveItem, fetchInventory } from '@/api/concurrent-inventory.api';
-import { sleep } from '@/lib/utils';
 import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
 
 const demoMeta = getDemoById('concurrent')!;
 const relatedDemos = getRelatedDemos('concurrent', 2);
 
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
 interface TransactionLog {
   id: number;
-  status: 'pending' | 'running' | 'success' | 'failed' | 'rolled-back';
+  status: 'pending' | 'running' | 'success' | 'failed' | 'rolled-back' | 'cancelled';
   startTime: number;
   endTime?: number;
   attempts: number;
@@ -54,6 +61,8 @@ export default function ConcurrentUpdates() {
   const [concurrentCount, setConcurrentCount] = useState(5);
   const [failureRate, setFailureRate] = useState(30);
   const [stats, setStats] = useState({ success: 0, failed: 0, total: 0 });
+  const [readyRequestIds, setReadyRequestIds] = useState<number[]>([]);
+  const requestGatesRef = useRef(new Map<number, ReturnType<typeof createDeferred>>());
 
   const updateTransaction = useCallback((id: number, status: TransactionLog['status']) => {
     setTransactions((prev) =>
@@ -96,9 +105,20 @@ export default function ConcurrentUpdates() {
   );
 
   const request = useCallback(
-    async ({ txId, itemId }: { txId: number; itemId: string }) => {
-      await sleep(50 + Math.random() * 100);
-      await reserveItem(itemId, failureRate);
+    async ({ txId, itemId }: { txId: number; itemId: string }, signal?: AbortSignal) => {
+      const gate = requestGatesRef.current.get(txId) ?? createDeferred();
+      requestGatesRef.current.set(txId, gate);
+      setReadyRequestIds((ids) => (ids.includes(txId) ? ids : [...ids, txId]));
+      await Promise.race([
+        gate.promise,
+        new Promise<never>((_, reject) => {
+          signal?.addEventListener('abort', () => reject(new Error('Request aborted')), {
+            once: true,
+          });
+        }),
+      ]);
+      const shouldFail = (txId * 37) % 100 < failureRate;
+      await reserveItem(itemId, shouldFail);
       console.log(`[Tx ${txId}] Server confirmed: ${itemId}`);
       return { txId, itemId };
     },
@@ -112,20 +132,30 @@ export default function ConcurrentUpdates() {
     [updateTransaction],
   );
 
-  const { mutateAsync: reserveItemTx } = useTx({
+  const {
+    mutateAsync: reserveItemTx,
+    cancel,
+    isPending,
+    isError,
+    error,
+  } = useTx({
     optimistic,
     rollback,
     request,
     transition: true,
     retry: { maxAttempts: 1 },
     onSuccess,
-    onError: () => {},
+    onError: (_error, { txId }) => {
+      updateTransaction(txId, 'failed');
+    },
   });
 
   const launchConcurrent = async () => {
     setIsRunning(true);
     setTransactions([]);
     setStats({ success: 0, failed: 0, total: 0 });
+    setReadyRequestIds([]);
+    requestGatesRef.current = new Map();
 
     const itemIds = inventory
       ? Object.keys(inventory.items).slice(0, concurrentCount)
@@ -156,6 +186,14 @@ export default function ConcurrentUpdates() {
       total: concurrentCount,
     });
 
+    setTransactions((current) =>
+      current.map((transaction) =>
+        transaction.status === 'running' && results[transaction.id - 1]?.status === 'rejected'
+          ? { ...transaction, status: 'cancelled', endTime: Date.now() }
+          : transaction,
+      ),
+    );
+
     setIsRunning(false);
   };
 
@@ -165,6 +203,12 @@ export default function ConcurrentUpdates() {
     await sync();
     setTransactions([]);
     setStats({ success: 0, failed: 0, total: 0 });
+  };
+
+  const releaseRequestGates = () => {
+    for (const gate of requestGatesRef.current.values()) {
+      gate.resolve();
+    }
   };
 
   const avgDuration =
@@ -278,6 +322,18 @@ export default function ConcurrentUpdates() {
           data-total-retries={metrics.totalRetries}
           data-data-consistent={metrics.dataConsistent ?? ''}
         />
+        <div
+          className="sr-only"
+          data-testid="concurrent-hook-state"
+          data-pending={isPending}
+          data-error={error?.message ?? ''}
+          data-is-error={isError}
+        />
+        <div
+          className="sr-only"
+          data-testid="concurrent-gates"
+          data-ready-count={readyRequestIds.length}
+        />
         <div className="rounded-lg border border-border bg-card p-6">
           <h3 className="mb-4 text-lg font-semibold">Test Configuration</h3>
           <div className="grid gap-6 md:grid-cols-2">
@@ -313,7 +369,7 @@ export default function ConcurrentUpdates() {
                 data-testid="failure-slider"
               />
               <div className="mt-1 text-xs text-muted-foreground">
-                Probability of server rejecting reservation
+                A fixed seed maps this rate to the same transaction outcomes on every replay.
               </div>
             </div>
           </div>
@@ -326,6 +382,22 @@ export default function ConcurrentUpdates() {
             >
               <GitBranch className={`h-4 w-4 ${isRunning ? 'animate-pulse' : ''}`} />
               {isRunning ? 'Running...' : 'Launch Concurrent Transactions'}
+            </button>
+            <button
+              onClick={cancel}
+              disabled={!isRunning}
+              className="flex items-center gap-2 rounded border border-yellow-500/50 bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+              data-testid="cancel-concurrent"
+            >
+              Cancel shared hook
+            </button>
+            <button
+              onClick={releaseRequestGates}
+              disabled={!isRunning || readyRequestIds.length === 0}
+              className="flex items-center gap-2 rounded border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+              data-testid="release-concurrent-gates"
+            >
+              Release request gates
             </button>
             <button
               onClick={resetInventory}
@@ -343,7 +415,13 @@ export default function ConcurrentUpdates() {
             <h3 className="mb-4 text-lg font-semibold">Inventory State</h3>
             <div className="grid gap-3 md:grid-cols-5">
               {Object.values(inventory.items).map((item) => (
-                <div key={item.id} className="rounded bg-muted p-3">
+                <div
+                  key={item.id}
+                  className="rounded bg-muted p-3"
+                  data-testid={`inventory-${item.id}`}
+                  data-stock={item.stock}
+                  data-reserved={item.reserved}
+                >
                   <div className="text-sm font-medium">{item.name}</div>
                   <div className="mt-2 text-xs text-muted-foreground">
                     Stock: {item.stock} | Reserved: {item.reserved}
@@ -362,6 +440,8 @@ export default function ConcurrentUpdates() {
                 <div
                   key={tx.id}
                   className="flex items-center justify-between rounded border border-border p-3"
+                  data-testid={`concurrent-tx-${tx.id}`}
+                  data-status={tx.status}
                 >
                   <div className="flex items-center gap-3">
                     {tx.status === 'pending' && <Clock className="h-4 w-4 text-muted-foreground" />}
@@ -371,6 +451,7 @@ export default function ConcurrentUpdates() {
                     {tx.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                     {tx.status === 'failed' && <XCircle className="h-4 w-4 text-red-500" />}
                     {tx.status === 'rolled-back' && <XCircle className="h-4 w-4 text-yellow-500" />}
+                    {tx.status === 'cancelled' && <XCircle className="h-4 w-4 text-yellow-500" />}
                     <div>
                       <div className="text-sm font-medium">
                         Tx #{tx.id}: {tx.action}
@@ -381,6 +462,7 @@ export default function ConcurrentUpdates() {
                         {tx.status === 'success' && 'Committed successfully'}
                         {tx.status === 'failed' && 'Failed - initiating rollback'}
                         {tx.status === 'rolled-back' && 'Rolled back successfully'}
+                        {tx.status === 'cancelled' && 'Cancelled after shared hook cancellation'}
                       </div>
                     </div>
                   </div>

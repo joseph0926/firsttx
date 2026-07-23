@@ -17,21 +17,21 @@ test.describe('Concurrent updates metrics', () => {
   test('collects transaction stats', async ({ page }, testInfo) => {
     await page.goto('/tx/concurrent');
 
-    await page.locator('[data-testid="concurrent-slider"]').evaluate((node: HTMLInputElement) => {
-      node.value = '5';
-      node.dispatchEvent(new Event('input', { bubbles: true }));
-      node.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const concurrentSlider = page.getByTestId('concurrent-slider');
+    const failureSlider = page.getByTestId('failure-slider');
 
-    await page.locator('[data-testid="failure-slider"]').evaluate((node: HTMLInputElement) => {
-      node.value = '80';
-      node.dispatchEvent(new Event('input', { bubbles: true }));
-      node.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    await concurrentSlider.fill('5');
+    await failureSlider.fill('80');
+    await expect(concurrentSlider).toHaveValue('5');
+    await expect(failureSlider).toHaveValue('80');
+    await expect(page.getByText('Concurrent Transactions: 5', { exact: true })).toBeVisible();
+    await expect(page.getByText('Failure Rate: 80%', { exact: true })).toBeVisible();
 
-    await page.locator('[data-testid="launch-concurrent"]').click();
+    await page.getByTestId('launch-concurrent').click();
+    await expect(page.getByTestId('concurrent-gates')).toHaveAttribute('data-ready-count', '5');
+    await page.getByTestId('release-concurrent-gates').click();
 
-    const statusIndicator = page.locator('[data-testid="concurrent-metrics"]');
+    const statusIndicator = page.getByTestId('concurrent-metrics');
     await expect(statusIndicator).toHaveAttribute('data-total-transactions', /5/, {
       timeout: 20_000,
     });

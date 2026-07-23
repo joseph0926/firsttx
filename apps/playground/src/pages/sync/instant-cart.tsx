@@ -4,11 +4,31 @@ import { DemoLayout, MetricsGrid, MetricCard, SectionHeader, BeforeAfter } from 
 import { useSyncedModel } from '@firsttx/local-first';
 import { useTx } from '@firsttx/tx';
 import { CartModel, type Cart, type CartItem } from '@/models/cart.model';
-import { fetchCart, updateCartItem } from '@/api/cart.api';
+import {
+  createCartRequestGate,
+  fetchCart,
+  runCartFixture,
+  updateCartItem,
+  type CartRequestFixture,
+  type CartRequestGate,
+  type CartRequestGateEvent,
+} from '@/api/cart.api';
 import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
 
 const demoMeta = getDemoById('instant-cart')!;
 const relatedDemos = getRelatedDemos('instant-cart', 2);
+
+type FixtureEvent =
+  | 'optimistic-patch'
+  | 'optimistic-paint'
+  | CartRequestGateEvent
+  | 'server-acknowledged'
+  | 'snapshot-restored';
+type IncrementRequest = {
+  itemId: string;
+  fixture: CartRequestFixture;
+  gate: CartRequestGate;
+};
 
 export default function InstantCart() {
   const { data: firstTxCart, patch, isSyncing } = useSyncedModel(CartModel, fetchCart);
@@ -24,9 +44,17 @@ export default function InstantCart() {
   const [traditionalInitialLoadMs, setTraditionalInitialLoadMs] = useState<number | null>(null);
   const [traditionalResponseTime, setTraditionalResponseTime] = useState(0);
   const [actionLatency, setActionLatency] = useState({ firstTx: 0, traditional: 0 });
+  const [fixture, setFixture] = useState<CartRequestFixture>('ack');
+  const [fixtureEvents, setFixtureEvents] = useState<FixtureEvent[]>([]);
+  const [isServerGateOpen, setIsServerGateOpen] = useState(false);
+  const requestGateRef = useRef<CartRequestGate | null>(null);
+
+  const addFixtureEvent = (event: FixtureEvent) => {
+    setFixtureEvents((events) => [...events, event]);
+  };
 
   const { mutateAsync: incrementItem, isPending: isIncrementing } = useTx({
-    optimistic: async (itemId: string) => {
+    optimistic: async ({ itemId, gate }: IncrementRequest) => {
       if (!firstTxCart) {
         throw new Error('Cart unavailable');
       }
@@ -40,40 +68,57 @@ export default function InstantCart() {
           draft.lastModified = new Date().toISOString();
         }
       });
+      addFixtureEvent('optimistic-patch');
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (firstTxMutationStartRef.current !== null) {
+        setActionLatency((prev) => ({
+          ...prev,
+          firstTx: performance.now() - firstTxMutationStartRef.current!,
+        }));
+      }
+      addFixtureEvent('optimistic-paint');
+      await gate.holdRequestStart();
       return snapshot;
     },
 
-    rollback: async (_itemId: string, snapshot?: Cart) => {
+    rollback: async (_request: IncrementRequest, snapshot?: Cart) => {
       if (!snapshot) return;
       await patch((draft) => {
         draft.items = snapshot.items.map((item) => ({ ...item }));
         draft.total = snapshot.total;
         draft.lastModified = snapshot.lastModified;
       });
+      addFixtureEvent('snapshot-restored');
     },
 
-    request: async (itemId: string) => {
+    request: async ({ itemId, fixture: requestFixture, gate }: IncrementRequest) => {
       const latest = await CartModel.getSnapshot();
       const item = latest?.items.find((i) => i.id === itemId);
       if (!item) {
         throw new Error('Item not found');
       }
 
-      const result = await updateCartItem(itemId, item.quantity);
+      const result = await runCartFixture({
+        itemId,
+        quantity: item.quantity,
+        fixture: requestFixture,
+        gate,
+      });
       return result;
     },
 
     transition: true,
 
-    onSuccess: (result, itemId) => {
+    onSuccess: (result, { itemId }: IncrementRequest) => {
       if (firstTxMutationStartRef.current !== null) {
         setFirstTxServerAck(performance.now() - firstTxMutationStartRef.current);
         firstTxMutationStartRef.current = null;
       }
+      addFixtureEvent('server-acknowledged');
       console.log('[SUCCESS]', itemId, result);
     },
 
-    onError: (error, itemId) => {
+    onError: (error, { itemId }: IncrementRequest) => {
       firstTxMutationStartRef.current = null;
       console.error('[ERROR]', itemId, error);
     },
@@ -122,12 +167,29 @@ export default function InstantCart() {
     }
 
     firstTxMutationStartRef.current = start;
-    incrementItem(itemId).catch(() => {
+    setFixtureEvents([]);
+    const gate = createCartRequestGate(addFixtureEvent);
+    requestGateRef.current = gate;
+    setIsServerGateOpen(true);
+    incrementItem({ itemId, fixture, gate }).catch(() => {
       firstTxMutationStartRef.current = null;
     });
+  };
 
-    const end = performance.now();
-    setActionLatency((prev) => ({ ...prev, firstTx: end - start }));
+  const releaseServerGate = () => {
+    requestGateRef.current?.release();
+    requestGateRef.current = null;
+    setIsServerGateOpen(false);
+  };
+
+  const resetFixture = async () => {
+    releaseServerGate();
+    const cart = await fetchCart();
+    await CartModel.replace(cart);
+    setTraditionalCart(null);
+    setFixtureEvents([]);
+    setFirstTxServerAck(null);
+    setActionLatency({ firstTx: 0, traditional: 0 });
   };
 
   const handleTraditionalIncrement = async (itemId: string) => {
@@ -229,7 +291,56 @@ export default function InstantCart() {
         data-traditional-action={actionLatency.traditional || ''}
         data-firsttx-server-ack={firstTxServerAck ?? ''}
         data-time-saved={timeSaved || ''}
+        data-fixture={fixture}
       />
+
+      <div className="mb-6 rounded-lg border border-border bg-card p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label
+            className="flex min-w-52 flex-1 flex-col gap-2 text-sm font-medium"
+            htmlFor="instant-cart-fixture"
+          >
+            Deterministic request fixture
+            <select
+              id="instant-cart-fixture"
+              data-testid="instant-cart-fixture"
+              value={fixture}
+              onChange={(event) => setFixture(event.target.value as CartRequestFixture)}
+              className="rounded border border-input bg-background px-3 py-2 text-sm"
+              disabled={isIncrementing}
+            >
+              <option value="ack">Server acknowledgement</option>
+              <option value="reject">Server rejection and snapshot restore</option>
+            </select>
+          </label>
+          <button
+            data-testid="reset-instant-cart-fixture"
+            onClick={() => void resetFixture()}
+            disabled={isIncrementing}
+            className="rounded border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          >
+            Reset fixture
+          </button>
+          <button
+            data-testid="release-instant-cart-server"
+            onClick={releaseServerGate}
+            disabled={!isServerGateOpen}
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            Release server
+          </button>
+        </div>
+        <ol
+          data-testid="instant-cart-events"
+          className="mt-4 space-y-1 text-sm text-muted-foreground"
+        >
+          {fixtureEvents.length === 0 ? (
+            <li>Run the selected fixture to inspect its ordered events.</li>
+          ) : (
+            fixtureEvents.map((event, index) => <li key={`${event}-${index}`}>{event}</li>)
+          )}
+        </ol>
+      </div>
 
       <BeforeAfter
         before={{
@@ -386,7 +497,10 @@ function CartItemCard({ item, onIncrement, loading, testId }: CartItemCardProps)
       <div className="flex-1">
         <div className="font-medium">{item.name}</div>
         <div className="text-sm text-muted-foreground">
-          ${item.price.toFixed(2)} x {item.quantity}
+          ${item.price.toFixed(2)} x{' '}
+          <span data-testid={testId ? `${testId}-quantity-${item.id}` : undefined}>
+            {item.quantity}
+          </span>
         </div>
       </div>
       <button
