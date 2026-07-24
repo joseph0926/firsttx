@@ -39,6 +39,8 @@ docs/temp.*
 .vercel
 .env*.local
 .claude/**/*.json
+.claude/skills/
+.claude/harness/
 artifacts/
 
 .docs/git-convention.md
