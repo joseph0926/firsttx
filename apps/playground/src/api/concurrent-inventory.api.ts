@@ -3,10 +3,10 @@ import type { ConcurrentInventory } from '@/models/concurrent-inventory.model';
 
 const API_DELAY_MS = 150;
 
-export async function reserveItem(itemId: string, failureRate: number): Promise<void> {
+export async function reserveItem(itemId: string, shouldFail: boolean): Promise<void> {
   await sleep(API_DELAY_MS);
 
-  if (Math.random() * 100 < failureRate) {
+  if (shouldFail) {
     throw new Error(`Failed to reserve ${itemId}: Server error`);
   }
 

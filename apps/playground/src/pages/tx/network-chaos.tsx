@@ -520,7 +520,7 @@ async function simulateChaosRequest(
   maxAttempts: number,
 ): Promise<void> {
   if (mode === 'none') {
-    await sleep(200 + Math.random() * 150);
+    await sleep(250);
     return;
   }
 

@@ -1,177 +1,275 @@
 import { useEffect, useState } from 'react';
-import { Clock, Zap, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Clock, RotateCcw, Zap } from 'lucide-react';
 import { DemoLayout, MetricsGrid, MetricCard, SectionHeader } from '@/components/demo';
-import { useSyncedModel } from '@firsttx/local-first';
-import { startTransaction } from '@firsttx/tx';
-import { CartModel, type Cart } from '@/models/cart.model';
-import { fetchCart, updateCartItem } from '@/api/cart.api';
-import { sleep } from '@/lib/utils';
+import { RetryExhaustedError, startTransaction } from '@firsttx/tx';
+import {
+  TIMING_INITIAL_CART,
+  TIMING_SERVER_CART,
+  TimingCartModel,
+  replaceTimingCartFixture,
+  subscribeToTimingCart,
+  type TimingCart,
+  type TimingCartResetOperation,
+} from '@/models/timing-cart.model';
 import { getDemoById, getRelatedDemos } from '@/data/learning-paths';
 
 const demoMeta = getDemoById('timing')!;
 const relatedDemos = getRelatedDemos('timing', 2);
+const TARGET_ITEM_ID = '1';
+const EXPECTED_FIXTURE_FAILURE = 'Deterministic fixture failure';
+
+type Interleaving = 'before-rollback' | 'during-rollback' | 'after-rollback';
+type TimelineEventType = 'tx-start' | 'tx-step' | 'server-sync' | 'tx-rollback';
 
 interface TimelineEvent {
-  time: number;
   label: string;
-  type: 'tx-start' | 'tx-step' | 'server-sync' | 'tx-rollback' | 'tx-commit';
-  status?: 'pending' | 'success' | 'error';
+  type: TimelineEventType;
+  status: 'pending' | 'success' | 'error';
 }
 
-const TARGET_ITEM_ID = '1';
-const SERVER_OVERRIDE_QTY = 5;
+interface FixtureFailureDetails {
+  errorType: string;
+  stepId: string;
+  attempts: number;
+  cause: string;
+}
 
-const countItems = (cart?: Cart | null) =>
-  cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+const interleavings: Record<Interleaving, { label: string; expectedQuantity: number }> = {
+  'before-rollback': { label: 'Replace before rollback', expectedQuantity: 4 },
+  'during-rollback': { label: 'Replace during rollback', expectedQuantity: 4 },
+  'after-rollback': { label: 'Replace after rollback', expectedQuantity: 5 },
+};
+
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
+function targetQuantity(cart: TimingCart | null) {
+  return cart?.items.find((item) => item.id === TARGET_ITEM_ID)?.quantity ?? 0;
+}
+
+function getExpectedFixtureFailure(error: unknown): FixtureFailureDetails | null {
+  if (
+    !(error instanceof RetryExhaustedError) ||
+    error.stepId !== 'step-1' ||
+    error.attempts !== 1 ||
+    error.errors.length !== 1 ||
+    error.errors[0]?.message !== EXPECTED_FIXTURE_FAILURE
+  ) {
+    return null;
+  }
+
+  return {
+    errorType: error.name,
+    stepId: error.stepId,
+    attempts: error.attempts,
+    cause: error.errors[0].message,
+  };
+}
 
 export default function TimingAttack() {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [cartItems, setCartItems] = useState(0);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [testResult, setTestResult] = useState<'pass' | 'fail' | null>(null);
-  const [serverSyncTiming, setServerSyncTiming] = useState(50);
-  const [stats, setStats] = useState({ total: 0, passes: 0 });
+  const [cart, setCart] = useState<TimingCart | null>(null);
+  const [interleaving, setInterleaving] = useState<Interleaving>('during-rollback');
+  const [isRunning, setIsRunning] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [result, setResult] = useState<'expected-limitation' | 'failed' | null>(null);
+  const [failureMessage, setFailureMessage] = useState<string | null>(null);
+  const [fixtureFailure, setFixtureFailure] = useState<FixtureFailureDetails | null>(null);
 
-  const {
-    data: cart,
-    patch,
-    sync,
-  } = useSyncedModel(CartModel, fetchCart, {
-    syncOnMount: 'stale',
-  });
+  const refresh = async () => {
+    setCart(await TimingCartModel.getSnapshot());
+  };
+
+  const resetFixture = async (operation: TimingCartResetOperation) => {
+    await replaceTimingCartFixture(structuredClone(TIMING_INITIAL_CART), operation);
+    await refresh();
+    setTimeline([]);
+    setResult(null);
+    setFailureMessage(null);
+    setFixtureFailure(null);
+  };
 
   useEffect(() => {
-    setCartItems(countItems(cart));
-  }, [cart]);
+    let isCurrent = true;
+    const unsubscribe = subscribeToTimingCart(() => {
+      void TimingCartModel.getSnapshot()
+        .then((snapshot) => {
+          if (isCurrent) setCart(snapshot);
+        })
+        .catch((error: unknown) => {
+          if (!isCurrent) return;
+          setResult('failed');
+          setFailureMessage(
+            `Fixture subscription failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+    });
 
-  const runTimingTest = async () => {
-    if (!cart) {
-      await sync();
-      return;
-    }
+    void (async () => {
+      setIsReady(false);
+      try {
+        await replaceTimingCartFixture(structuredClone(TIMING_INITIAL_CART), 'initialization');
+        const snapshot = await TimingCartModel.getSnapshot();
+        if (!isCurrent) return;
+        setCart(snapshot);
+        setTimeline([]);
+        setResult(null);
+        setFailureMessage(null);
+        setFixtureFailure(null);
+      } catch (error) {
+        if (!isCurrent) return;
+        setResult('failed');
+        setFailureMessage(
+          `Fixture initialization failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      } finally {
+        if (isCurrent) setIsReady(true);
+      }
+    })();
 
-    setIsSimulating(true);
-    setTimeline([]);
-    setTestResult(null);
+    return () => {
+      isCurrent = false;
+      unsubscribe();
+    };
+  }, []);
 
-    const startTime = performance.now();
+  const runFixture = async () => {
+    if (isRunning || !isReady) return;
+
+    setIsRunning(true);
+    setIsReady(false);
+
     const events: TimelineEvent[] = [];
-
-    const addEvent = (
-      label: string,
-      type: TimelineEvent['type'],
-      status?: TimelineEvent['status'],
-    ) => {
-      const time = performance.now() - startTime;
-      events.push({ time, label, type, status: status || 'pending' });
+    const addEvent = (label: string, type: TimelineEventType, status: TimelineEvent['status']) => {
+      events.push({ label, type, status });
       setTimeline([...events]);
     };
-
-    const tx = startTransaction({ transition: true });
-    addEvent('Transaction started', 'tx-start', 'success');
-
-    const refreshCartCount = async () => {
-      const snapshot = await CartModel.getSnapshot();
-      setCartItems(countItems(snapshot));
-      return snapshot;
+    const markUnexpectedFixtureError = (error: unknown) => {
+      addEvent(
+        `Unexpected fixture error: ${error instanceof Error ? error.message : String(error)}`,
+        'tx-step',
+        'error',
+      );
+      setResult('failed');
+      setFailureMessage(error instanceof Error ? error.message : String(error));
     };
-
-    const triggerServerSync = () =>
-      (async () => {
-        addEvent('Server sync scheduled', 'server-sync', 'pending');
-        await sleep(serverSyncTiming);
-        const serverCart = await updateCartItem(TARGET_ITEM_ID, SERVER_OVERRIDE_QTY);
-        await CartModel.replace(serverCart);
-        await refreshCartCount();
-        addEvent(`Server sync applied ${SERVER_OVERRIDE_QTY} items`, 'server-sync', 'success');
-      })();
-
-    let serverSyncPromise: Promise<void> | null = null;
-
     try {
+      try {
+        await resetFixture('run-reset');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        addEvent(`Fixture run reset failed: ${message}`, 'tx-step', 'error');
+        setResult('failed');
+        setFailureMessage(`Fixture run reset failed: ${message}`);
+        return;
+      }
+
+      const serverGate = createDeferred();
+      const serverReplace = async () => {
+        await serverGate.promise;
+        await TimingCartModel.replace(structuredClone(TIMING_SERVER_CART));
+        addEvent('External server replacement applied (5)', 'server-sync', 'success');
+      };
+      const serverReplacePromise = serverReplace();
+      const tx = startTransaction({ transition: false });
+
+      addEvent('Transaction started', 'tx-start', 'success');
       await tx.run(
         async () => {
-          addEvent('Step 1: Optimistic update (+1 item)', 'tx-step', 'pending');
-          await patch((draft) => {
-            const item = draft.items.find((i) => i.id === TARGET_ITEM_ID);
-            if (item) {
-              item.quantity += 1;
-              draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-              draft.lastModified = new Date().toISOString();
-            }
+          await TimingCartModel.patch((draft) => {
+            const item = draft.items.find((candidate) => candidate.id === TARGET_ITEM_ID);
+            if (item) item.quantity += 1;
+            draft.total = draft.items.reduce(
+              (sum, candidate) => sum + candidate.price * candidate.quantity,
+              0,
+            );
+            draft.lastModified = '2026-07-23T00:00:03.000Z';
           });
-          await refreshCartCount();
-          addEvent('Optimistic write applied locally', 'tx-step', 'success');
+          addEvent('Optimistic patch applied (+1)', 'tx-step', 'success');
         },
         {
           compensate: async () => {
-            addEvent('Rollback: reverting optimistic change', 'tx-rollback', 'pending');
-            await patch((draft) => {
-              const item = draft.items.find((i) => i.id === TARGET_ITEM_ID);
-              if (item) {
-                item.quantity -= 1;
-                draft.total = draft.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-                draft.lastModified = new Date().toISOString();
-              }
+            addEvent('Rollback started', 'tx-rollback', 'pending');
+            if (interleaving === 'during-rollback') {
+              serverGate.resolve();
+              await serverReplacePromise;
+            }
+            await TimingCartModel.patch((draft) => {
+              const item = draft.items.find((candidate) => candidate.id === TARGET_ITEM_ID);
+              if (item) item.quantity -= 1;
+              draft.total = draft.items.reduce(
+                (sum, candidate) => sum + candidate.price * candidate.quantity,
+                0,
+              );
+              draft.lastModified = '2026-07-23T00:00:04.000Z';
             });
-            await refreshCartCount();
-            addEvent('Optimistic change reverted', 'tx-rollback', 'success');
+            addEvent('Rollback patch applied (-1)', 'tx-rollback', 'success');
           },
         },
       );
 
-      serverSyncPromise = triggerServerSync();
-
-      await tx.run(async () => {
-        addEvent('Step 2: Server mutation (simulated)', 'tx-step', 'pending');
-        await sleep(250);
-        throw new Error('API request failed');
-      });
-
-      await serverSyncPromise;
-      await tx.commit();
-      addEvent('Transaction committed', 'tx-commit', 'success');
-      setTestResult('pass');
-      setStats((prev) => ({
-        total: prev.total + 1,
-        passes: prev.passes + 1,
-      }));
-    } catch (error) {
-      console.error(error);
-      addEvent('Step 2 failed - starting rollback', 'tx-step', 'error');
-
-      if (!serverSyncPromise) {
-        serverSyncPromise = triggerServerSync();
+      if (interleaving === 'before-rollback') {
+        serverGate.resolve();
+        await serverReplacePromise;
       }
 
-      await serverSyncPromise;
-      const latest = await refreshCartCount();
-      const serverPreserved =
-        latest?.items.find((item) => item.id === TARGET_ITEM_ID)?.quantity === SERVER_OVERRIDE_QTY;
+      addEvent('Forced request failure', 'tx-step', 'error');
+      try {
+        await tx.run(async () => {
+          throw new Error(EXPECTED_FIXTURE_FAILURE);
+        });
+      } catch (error) {
+        const expectedFailure = getExpectedFixtureFailure(error);
+        if (!expectedFailure) {
+          markUnexpectedFixtureError(error);
+          return;
+        }
+        setFixtureFailure(expectedFailure);
 
-      addEvent(
-        serverPreserved
-          ? 'Rollback respected server snapshot'
-          : 'Rollback overwrote server snapshot',
-        'tx-rollback',
-        serverPreserved ? 'success' : 'error',
-      );
+        try {
+          if (interleaving === 'after-rollback') {
+            serverGate.resolve();
+            await serverReplacePromise;
+          }
 
-      setTestResult(serverPreserved ? 'pass' : 'fail');
-      setStats((prev) => ({
-        total: prev.total + 1,
-        passes: prev.passes + (serverPreserved ? 1 : 0),
-      }));
+          const finalCart =
+            TimingCartModel.getCachedSnapshot() ?? (await TimingCartModel.getSnapshot());
+          const matchesFixture =
+            targetQuantity(finalCart) === interleavings[interleaving].expectedQuantity;
+          setResult(matchesFixture ? 'expected-limitation' : 'failed');
+          await refresh();
+        } catch (unexpectedError) {
+          markUnexpectedFixtureError(unexpectedError);
+        }
+      }
     } finally {
-      setIsSimulating(false);
+      setIsRunning(false);
+      setIsReady(true);
     }
   };
 
-  const resetTest = () => {
-    setTimeline([]);
-    setCartItems(countItems(cart));
-    setTestResult(null);
+  const handleReset = async () => {
+    if (isRunning || !isReady) return;
+
+    setIsReady(false);
+    try {
+      await resetFixture('manual-reset');
+    } catch (error) {
+      setResult('failed');
+      setFailureMessage(
+        `Fixture reset failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setIsReady(true);
+    }
   };
+
+  const fixture = interleavings[interleaving];
 
   return (
     <DemoLayout
@@ -192,240 +290,144 @@ export default function TimingAttack() {
       <MetricsGrid>
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
-          label="Server Sync Delay"
-          value={`${serverSyncTiming}ms`}
-          target="Variable"
+          label="Fixture"
+          value={fixture.label}
+          target="Fixed order"
           status="good"
         />
         <MetricCard
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          label="Observed Runs"
-          value={stats.total === 0 ? 'Not tested' : `${stats.passes}/${stats.total} matched`}
-          target="This fixture only"
-          status={stats.total === 0 ? 'good' : stats.passes === stats.total ? 'excellent' : 'poor'}
+          icon={<Activity className="h-5 w-5" />}
+          label="Final quantity"
+          value={`${targetQuantity(cart)}`}
+          target={`${fixture.expectedQuantity} in this fixture`}
+          status={result === 'failed' ? 'poor' : result ? 'excellent' : 'good'}
         />
         <MetricCard
           icon={<AlertTriangle className="h-5 w-5" />}
-          label="Final Snapshot"
-          value={
-            testResult === 'fail'
-              ? 'Overwritten'
-              : testResult === 'pass'
-                ? 'Preserved'
-                : 'Not tested'
-          }
+          label="Coordination"
+          value={result ? 'Not supported' : 'Not run'}
           target="Expected limitation"
-          status={testResult === 'pass' ? 'excellent' : testResult === 'fail' ? 'poor' : 'good'}
+          status={result === 'failed' ? 'poor' : 'good'}
         />
       </MetricsGrid>
 
       <SectionHeader
         title="Replace / Rollback Ordering Fixture"
-        description="Run a server replace while a transaction is failing and inspect which snapshot remains after rollback."
+        description="The deferred gate fixes the external replacement before, during, or after rollback. Different final snapshots demonstrate that cross-store ordering is application-owned."
       />
 
-      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
-        <div className="flex gap-3">
-          <Zap className="h-5 w-5 shrink-0 text-blue-400" />
-          <div className="text-sm">
-            <div className="font-medium text-blue-400">Try This</div>
-            <div className="text-muted-foreground">
-              Adjust the server timing and run the fixture. This scenario records whether the later
-              server snapshot survives; it does not claim cross-store coordination.
-            </div>
-          </div>
-        </div>
+      <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 text-sm text-muted-foreground">
+        This fixture resets the dedicated <code>sync-timing</code> model before every run. It
+        intentionally preserves no state between runs or other scenarios.
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Current State</h3>
-
-            <div className="mb-6 rounded-lg bg-muted/50 p-8 text-center">
-              <div className="text-sm text-muted-foreground mb-2">Cart Items</div>
-              <div
-                className={`text-6xl font-bold transition-colors ${
-                  testResult === 'pass'
-                    ? 'text-green-500'
-                    : testResult === 'fail'
-                      ? 'text-red-500'
-                      : 'text-foreground'
-                }`}
+            <h3 className="mb-4 text-lg font-semibold">Deterministic configuration</h3>
+            <label
+              className="mb-2 block text-sm text-muted-foreground"
+              htmlFor="timing-interleaving"
+            >
+              External replacement order
+            </label>
+            <select
+              id="timing-interleaving"
+              data-testid="timing-interleaving"
+              value={interleaving}
+              onChange={(event) => setInterleaving(event.target.value as Interleaving)}
+              disabled={isRunning || !isReady}
+              className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            >
+              {Object.entries(interleavings).map(([value, option]) => (
+                <option key={value} value={value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="mt-4 flex gap-2">
+              <button
+                data-testid="run-timing-fixture"
+                onClick={() => void runFixture()}
+                disabled={isRunning || !isReady}
+                className="flex flex-1 items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
-                {cartItems}
-              </div>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between rounded bg-muted/30 px-3 py-2">
-                <span className="text-muted-foreground">Initial state:</span>
-                <span className="font-medium">3 items</span>
-              </div>
-              <div className="flex justify-between rounded bg-muted/30 px-3 py-2">
-                <span className="text-muted-foreground">Optimistic update:</span>
-                <span className="font-medium">+1 item (4 total)</span>
-              </div>
-              <div className="flex justify-between rounded bg-muted/30 px-3 py-2">
-                <span className="text-muted-foreground">Server sync:</span>
-                <span className="font-medium">5 items</span>
-              </div>
-              <div className="flex justify-between rounded bg-primary/10 px-3 py-2">
-                <span className="text-muted-foreground">Expected after rollback:</span>
-                <span className="font-medium text-primary">5 items</span>
-              </div>
+                <Zap className="h-4 w-4" />
+                {isRunning ? 'Running fixture…' : 'Run deterministic fixture'}
+              </button>
+              <button
+                data-testid="reset-timing-fixture"
+                onClick={() => void handleReset()}
+                disabled={isRunning || !isReady}
+                className="flex items-center justify-center gap-2 rounded border border-border bg-card px-4 py-3 text-sm font-medium disabled:opacity-50"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </button>
             </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Test Configuration</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Server Sync Timing</span>
-                  <span className="font-medium terminal-text">{serverSyncTiming}ms</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="200"
-                  step="10"
-                  value={serverSyncTiming}
-                  onChange={(e) => setServerSyncTiming(Number(e.target.value))}
-                  className="w-full"
-                  disabled={isSimulating}
-                />
-                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                  <span>Early (10ms)</span>
-                  <span>Late (200ms)</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={runTimingTest}
-                  disabled={isSimulating}
-                  className="flex-1 flex items-center justify-center gap-2 rounded bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
-                  <Zap className={`h-4 w-4 ${isSimulating ? 'animate-pulse' : ''}`} />
-                  {isSimulating ? 'Testing...' : 'Run Timing Test'}
-                </button>
-                <button
-                  onClick={resetTest}
-                  disabled={isSimulating}
-                  className="rounded border border-border bg-card px-4 py-3 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {testResult && (
+            <h3 className="mb-4 text-lg font-semibold">Current snapshot</h3>
             <div
-              className={`rounded-lg border p-6 ${
-                testResult === 'pass'
-                  ? 'border-green-500/50 bg-green-500/5'
-                  : 'border-red-500/50 bg-red-500/5'
-              }`}
+              data-testid="timing-final-quantity"
+              data-result={result ?? 'not-run'}
+              className="text-6xl font-bold"
             >
-              <div className="flex items-center gap-3">
-                {testResult === 'pass' ? (
-                  <CheckCircle2 className="h-6 w-6 text-green-500" />
-                ) : (
-                  <AlertTriangle className="h-6 w-6 text-red-500" />
-                )}
-                <div>
-                  <h4 className="font-semibold">
-                    {testResult === 'pass' ? 'Test Passed' : 'Test Failed'}
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {testResult === 'pass'
-                      ? 'Server data was preserved during rollback'
-                      : 'Race condition detected: server data was lost'}
-                  </p>
-                </div>
-              </div>
+              {targetQuantity(cart)}
             </div>
-          )}
+            {fixtureFailure && (
+              <div
+                data-testid="timing-fixture-failure"
+                data-error-type={fixtureFailure.errorType}
+                data-step-id={fixtureFailure.stepId}
+                data-attempts={fixtureFailure.attempts}
+                data-cause={fixtureFailure.cause}
+                className="sr-only"
+              />
+            )}
+            <p className="mt-2 text-sm text-muted-foreground">
+              Target item quantity; the initial fixture is 1 and the external server snapshot is 5.
+            </p>
+            {result && (
+              <div
+                data-testid="timing-result"
+                className={`mt-4 flex gap-3 rounded border p-4 text-sm ${result === 'expected-limitation' ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-red-500/50 bg-red-500/5'}`}
+              >
+                {result === 'expected-limitation' ? (
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-500" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-red-500" />
+                )}
+                <span>
+                  {result === 'expected-limitation'
+                    ? 'Expected limitation reproduced: the final snapshot depends on the selected ordering.'
+                    : (failureMessage ?? 'Fixture result did not match its declared ordering.')}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Timeline</h3>
-
-            <div className="space-y-2">
-              {timeline.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  Run a test to see the timeline
-                </div>
-              ) : (
-                timeline.map((event, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="shrink-0 w-16 pt-1 text-xs text-muted-foreground terminal-text">
-                      {event.time.toFixed(0)}ms
-                    </div>
-                    <div className="shrink-0 pt-1">
-                      {event.type === 'tx-start' && <Zap className="h-4 w-4 text-blue-500" />}
-                      {event.type === 'tx-step' && event.status === 'success' && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                      {event.type === 'tx-step' && event.status === 'error' && (
-                        <AlertTriangle className="h-4 w-4 text-red-500" />
-                      )}
-                      {event.type === 'server-sync' && (
-                        <Activity className="h-4 w-4 text-yellow-500" />
-                      )}
-                      {event.type === 'tx-rollback' && event.status === 'success' && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                      {event.type === 'tx-rollback' && event.status === 'error' && (
-                        <AlertTriangle className="h-4 w-4 text-red-500" />
-                      )}
-                      {event.type === 'tx-rollback' && event.status === 'pending' && (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 rounded bg-muted/30 px-3 py-2 text-sm">
-                      {event.label}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="mb-4 text-lg font-semibold">Expected Behavior</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">Server Snapshot Check</div>
-                  <div className="text-muted-foreground">
-                    The timeline records whether rollback overwrote the later server snapshot
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">Memory Cache Result</div>
-                  <div className="text-muted-foreground">The final cache value is shown above</div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
-                <div>
-                  <div className="font-medium">Subscriber Update Order</div>
-                  <div className="text-muted-foreground">
-                    Timeline entries show when the React view received each change
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="mb-4 text-lg font-semibold">Ordered events</h3>
+          <ol data-testid="timing-timeline" className="space-y-2">
+            {timeline.length === 0 ? (
+              <li className="py-12 text-center text-sm text-muted-foreground">
+                Run a fixture to see its fixed event order.
+              </li>
+            ) : (
+              timeline.map((event, index) => (
+                <li
+                  key={`${event.label}-${index}`}
+                  className="flex items-center gap-3 rounded bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <span className="font-mono text-xs text-muted-foreground">{index + 1}</span>
+                  <span>{event.label}</span>
+                </li>
+              ))
+            )}
+          </ol>
         </div>
       </div>
     </DemoLayout>

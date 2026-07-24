@@ -173,8 +173,16 @@ Playground 단독 `pnpm dev`는 Vite만 실행하지만 workspace package는 `di
 
 #### P0-F. 대표 scenario를 deterministic하게 재구현
 
+> 상태: 2026.07.24 P0-F의 deterministic correctness 범위를 완료했습니다. Timing Attack은 전용 `sync-timing` model namespace와 deferred gate로 replace-before/during/after-rollback 세 interleaving을 고정하고 StrictMode subscription lifecycle과 initialization·run-reset·manual-reset recovery witness를 갖췄습니다. Instant Cart는 server gate가 닫힌 동안의 optimistic quantity paint, 정확한 `server-gate-released → request-started` 순서, acknowledgement와 rejection 뒤 snapshot restore를 검증합니다. Concurrent Tx는 seeded overlap outcome과 shared hook controller 취소가 겹친 호출 전체에 미치는 limitation을 각 call·inventory 상태로 재현합니다. Network Chaos는 stable request delay를 고정하고 `Math.random()`을 강제로 바꿔도 정확한 delay sequence를 요구하는 witness로 random delay 구현을 거부합니다.
+
+> 검증: 직전 Verify Gate는 `PASS_WITH_GAPS`입니다. Selected Chromium 19/19(Timing 8, Instant Cart 4, Concurrent 3, Network Chaos 4), isolated `tx-rollback` 2/2, Playground typecheck, Playground lint 0 errors와 기존 warning 1건, `git diff --check`가 통과했고 검증 시점의 source state drift는 없었습니다. 유일한 non-blocking gap은 fresh native `/review`가 제공되지 않은 것이며 native review를 완료로 기록하지 않습니다.
+
+> 남은 범위: Instant Cart benchmark의 3회 warm-up + 20 measured samples와 `median`/`p95`, schema/manifest publication과 production metric observation은 계속 열어 둡니다. `sync-instant-cart` disposition도 `demo-rewrite`로 유지하며 이 후속 범위를 deterministic correctness 완료에 포함하지 않습니다.
+
+> 소유권 보고: Timing의 external `replace()`와 Tx rollback은 공유 coordinator가 없는 cross-package limitation입니다. `packages/tx`와 `packages/local-first`의 단독 unit test는 각각의 package 계약만 소유하며, 이 interleaving의 package/unit integration owner는 현재 없습니다. `sync-timing.contract.spec.ts`는 공개 scenario에서 limitation을 재현하고 기대 snapshot을 확인하는 E2E fixture일 뿐 package ordering 보장을 대체하지 않습니다. ordering 보장을 새로 도입할 때에만 별도 cross-package integration workspace와 owner를 결정합니다.
+
 - Timing Attack을 실제로 순서를 제어할 수 있는 deterministic scheduler 또는 deferred promise 기반으로 재작성합니다.
-- transaction patch, rollback, server replacement interleaving은 package/unit integration test가 소유하고 E2E는 대표 흐름을 검증합니다.
+- transaction patch, rollback, server replacement interleaving은 E2E fixture에서 현재 limitation으로 재현하며, package/unit integration ownership이나 ordering 보장을 주장하지 않습니다.
 - Instant Cart는 initial load, optimistic paint, server acknowledgement를 서로 다른 metric으로 분리합니다.
 - Concurrent Tx는 지원하는 동시성 계약만 보여주고 unsupported guarantee를 제거합니다.
 - 무작위 failure는 seeded sequence로 바꾸고 correctness test에서는 virtual clock 또는 deferred gate를 사용합니다.
@@ -216,7 +224,7 @@ Playground 단독 `pnpm dev`는 Vite만 실행하지만 workspace package는 `di
 - 대표 metric의 UI key, artifact key, test key와 provenance가 schema 검증을 통과합니다.
 - `contract` invariant 실패는 CI를 차단하고 `benchmark`는 통제된 환경의 regression 결과로 분리됩니다.
 - `expected-limitation` scenario는 실제 한계와 UI 설명이 일치하면 검증을 통과할 수 있습니다.
-- Timing Attack은 rollback 전·중·후 server replacement interleaving을 package/integration test로 재현하고 E2E 대표 흐름에서 기대 snapshot을 검증합니다.
+- Timing Attack은 rollback 전·중·후 server replacement interleaving을 E2E limitation fixture로 재현하고 기대 snapshot을 검증하며, package/integration ordering 보장을 주장하지 않습니다.
 - Instant Cart는 traditional action 완료를 기다린 뒤 action latency를 기록하며 `0`을 미측정 값으로 성공 처리하지 않습니다.
 - metric 부재·만료·실패 상태가 정적 성공 fallback으로 대체되지 않습니다.
 - metric artifact와 앱 build의 source revision·package version·환경·freshness가 사용자에게 표시됩니다.
