@@ -10,7 +10,11 @@ import {
   carryForwardLastSuccessfulRun,
   evaluateMetricArtifact,
   metricArtifactSchema,
+  metricManifestSchema,
+  summarizeBenchmarkSamples,
   type MetricArtifact,
+  type SyncInstantCartMetricArtifact,
+  type SyncStalenessMetricArtifact,
 } from '../src/lib/metric-artifact.ts';
 import { loadMetricFeed } from '../src/lib/metric-feed.ts';
 
@@ -19,7 +23,7 @@ const measuredAt = '2026-07-22T08:00:00.000Z';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const execFileAsync = promisify(execFile);
 
-function createArtifact(): MetricArtifact {
+function createArtifact(): SyncStalenessMetricArtifact {
   return {
     schemaVersion: 1,
     scenarioVersion: 1,
@@ -74,7 +78,9 @@ function createArtifact(): MetricArtifact {
   };
 }
 
-function createFailedArtifact(lastSuccessfulRunId: string | null = null): MetricArtifact {
+function createFailedArtifact(
+  lastSuccessfulRunId: string | null = null,
+): SyncStalenessMetricArtifact {
   const artifact = createArtifact();
   artifact.currentStatus = 'failed';
   artifact.lastSuccessfulRunId = lastSuccessfulRunId;
@@ -84,18 +90,96 @@ function createFailedArtifact(lastSuccessfulRunId: string | null = null): Metric
   return artifact;
 }
 
-function createManifest(artifact: MetricArtifact) {
+function createBenchmarkMetric(samples: number[]) {
+  return {
+    kind: 'benchmark' as const,
+    unit: 'ms' as const,
+    samples,
+    failedSamples: 0,
+    ...summarizeBenchmarkSamples(samples),
+  };
+}
+
+function createInstantCartArtifact(): SyncInstantCartMetricArtifact {
+  const inputSamples = Array.from({ length: 20 }, (_, index) => index + 1);
+  const acknowledgementSamples = Array.from({ length: 20 }, (_, index) => index + 21);
+  const traditionalSamples = Array.from({ length: 20 }, (_, index) => index + 501);
+
   return {
     schemaVersion: 1,
-    publishedAt: artifact.measuredAt,
-    sourceCommit: artifact.source.commitSha,
-    scenarios: {
-      'sync-staleness': {
-        artifactPath: '/metrics/runs/fixture/sync-staleness.json',
+    scenarioVersion: 1,
+    scenarioId: 'sync-instant-cart',
+    runId: measuredAt,
+    source: {
+      commitSha: sourceCommit,
+      dirty: false,
+    },
+    build: {
+      appVersion: '0.0.0',
+      packages: {
+        '@firsttx/local-first': '0.11.4',
+        '@firsttx/tx': '0.8.2',
+      },
+      fingerprint: 'instant-cart-fixture',
+    },
+    environment: {
+      browser: 'chromium',
+      os: 'linux',
+      viewport: {
+        width: 1280,
+        height: 720,
+      },
+      dpr: 1,
+      cpuProfile: 'uncontrolled',
+      networkProfile: 'uncontrolled',
+    },
+    sampling: {
+      warmupRuns: 3,
+      measuredRuns: 20,
+      aggregation: 'median,p95',
+      rawArtifactPath: 'playwright-report/instant-cart',
+    },
+    measuredAt,
+    currentStatus: 'passed',
+    lastSuccessfulRunId: measuredAt,
+    metrics: {
+      'optimistic-paint-precedes-ack': {
+        kind: 'contract',
+        passed: true,
+        passedRuns: 20,
+        events: [
+          'optimistic-patch',
+          'optimistic-paint',
+          'server-gate-released',
+          'request-started',
+          'server-gate-completed',
+          'server-acknowledged',
+        ],
+      },
+      'input-to-optimistic-paint-ms': createBenchmarkMetric(inputSamples),
+      'server-ack-ms': createBenchmarkMetric(acknowledgementSamples),
+      'traditional-input-to-paint-ms': createBenchmarkMetric(traditionalSamples),
+    },
+  };
+}
+
+function createManifest(...artifacts: MetricArtifact[]) {
+  const scenarios = Object.fromEntries(
+    artifacts.map((artifact) => [
+      artifact.scenarioId,
+      {
+        artifactPath: `/metrics/runs/fixture/${artifact.scenarioId}.json`,
         currentStatus: artifact.currentStatus,
         lastSuccessfulRunId: artifact.lastSuccessfulRunId,
       },
-    },
+    ]),
+  );
+
+  return {
+    schemaVersion: 1,
+    publishedAt: artifacts[0]?.measuredAt ?? measuredAt,
+    sourceCommit: artifacts[0]?.source.commitSha ?? sourceCommit,
+    scenarios,
   };
 }
 
@@ -108,6 +192,20 @@ function createFetcher(responses: Record<string, Response>) {
 
 test('accepts the sync-staleness contract artifact', () => {
   assert.equal(metricArtifactSchema.safeParse(createArtifact()).success, true);
+});
+
+test('accepts a complete Instant Cart contract and benchmark artifact', () => {
+  assert.equal(metricArtifactSchema.safeParse(createInstantCartArtifact()).success, true);
+});
+
+test('rejects incomplete Instant Cart samples and incorrect aggregates', () => {
+  const incomplete = createInstantCartArtifact();
+  incomplete.metrics['input-to-optimistic-paint-ms'].samples.pop();
+  assert.equal(metricArtifactSchema.safeParse(incomplete).success, false);
+
+  const incorrectAggregate = createInstantCartArtifact();
+  incorrectAggregate.metrics['server-ack-ms'].p95 = 1;
+  assert.equal(metricArtifactSchema.safeParse(incorrectAggregate).success, false);
 });
 
 test('rejects missing provenance and unknown metric ids', () => {
@@ -191,11 +289,12 @@ test('carries the previous successful run across a failed current run', () => {
   assert.equal(passed.lastSuccessfulRunId, passed.runId);
 });
 
-test('publisher carries last-success into a failed immutable artifact', async () => {
+test('publisher carries last-success and publishes multiple schema v1 artifacts', async () => {
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), 'firsttx-metrics-'));
   const metricsDir = path.join(temporaryRoot, 'input');
   const publicMetricsDir = path.join(temporaryRoot, 'public', 'metrics');
   const artifact = createFailedArtifact();
+  const instantCartArtifact = createInstantCartArtifact();
   const previousArtifact = createArtifact();
   previousArtifact.runId = 'previous-run';
   previousArtifact.lastSuccessfulRunId = 'previous-run';
@@ -206,6 +305,11 @@ test('publisher carries last-success into a failed immutable artifact', async ()
     await writeFile(
       path.join(metricsDir, 'sync-staleness.latest.json'),
       JSON.stringify(artifact),
+      'utf-8',
+    );
+    await writeFile(
+      path.join(metricsDir, 'sync-instant-cart.latest.json'),
+      JSON.stringify(instantCartArtifact),
       'utf-8',
     );
     await writeFile(
@@ -231,9 +335,9 @@ test('publisher carries last-success into a failed immutable artifact', async ()
       },
     );
 
-    const manifest = JSON.parse(
-      await readFile(path.join(publicMetricsDir, 'manifest.json'), 'utf-8'),
-    ) as ReturnType<typeof createManifest>;
+    const manifest = metricManifestSchema.parse(
+      JSON.parse(await readFile(path.join(publicMetricsDir, 'manifest.json'), 'utf-8')),
+    );
     const manifestEntry = manifest.scenarios['sync-staleness'];
     const publishedArtifact = metricArtifactSchema.parse(
       JSON.parse(
@@ -243,11 +347,29 @@ test('publisher carries last-success into a failed immutable artifact', async ()
         ),
       ),
     );
+    const instantCartManifestEntry = manifest.scenarios['sync-instant-cart'];
+    const publishedInstantCartArtifact = metricArtifactSchema.parse(
+      JSON.parse(
+        await readFile(
+          path.join(
+            publicMetricsDir,
+            instantCartManifestEntry.artifactPath.replace('/metrics/', ''),
+          ),
+          'utf-8',
+        ),
+      ),
+    );
 
     assert.equal(manifestEntry.currentStatus, 'failed');
     assert.equal(manifestEntry.lastSuccessfulRunId, previousArtifact.runId);
     assert.equal(publishedArtifact.currentStatus, 'failed');
     assert.equal(publishedArtifact.lastSuccessfulRunId, previousArtifact.runId);
+    assert.equal(instantCartManifestEntry.currentStatus, 'passed');
+    assert.equal(
+      instantCartManifestEntry.lastSuccessfulRunId,
+      instantCartArtifact.lastSuccessfulRunId,
+    );
+    assert.equal(publishedInstantCartArtifact.scenarioId, 'sync-instant-cart');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -255,20 +377,27 @@ test('publisher carries last-success into a failed immutable artifact', async ()
 
 test('loads a valid feed and leaves unreported scenarios not measured', async () => {
   const artifact = createArtifact();
+  const instantCartArtifact = createInstantCartArtifact();
   const baseUrl = 'https://metrics.example.test';
   const scenarios = await loadMetricFeed({
     baseUrl,
     currentSourceRevision: sourceCommit,
-    scenarioIds: ['sync-staleness', 'sync-suspense'],
+    scenarioIds: ['sync-staleness', 'sync-instant-cart', 'sync-suspense'],
     fetcher: createFetcher({
-      [`${baseUrl}/metrics/manifest.json`]: Response.json(createManifest(artifact)),
+      [`${baseUrl}/metrics/manifest.json`]: Response.json(
+        createManifest(artifact, instantCartArtifact),
+      ),
       [`${baseUrl}/metrics/runs/fixture/sync-staleness.json`]: Response.json(artifact),
+      [`${baseUrl}/metrics/runs/fixture/sync-instant-cart.json`]:
+        Response.json(instantCartArtifact),
     }),
     now: Date.parse(measuredAt),
   });
 
   assert.equal(scenarios['sync-staleness']?.status, 'passed');
   assert.equal(scenarios['sync-staleness']?.issue, null);
+  assert.equal(scenarios['sync-instant-cart']?.status, 'passed');
+  assert.equal(scenarios['sync-instant-cart']?.issue, null);
   assert.equal(scenarios['sync-suspense']?.status, 'not-measured');
   assert.equal(scenarios['sync-suspense']?.issue, 'unreported');
 });
@@ -363,7 +492,17 @@ test('keeps the metrics directory under the deployed Pages root', async () => {
       `current_status="$(jq -er '.scenarios["sync-staleness"].currentStatus' public/metrics/manifest.json)"`,
     ),
   );
+  assert.ok(
+    workflow.includes(
+      `instant_cart_status="$(jq -er '.scenarios["sync-instant-cart"].currentStatus' public/metrics/manifest.json)"`,
+    ),
+  );
   assert.ok(!workflow.includes(`.scenarios[\\"sync-staleness\\"].currentStatus`));
   assert.match(workflow, /EXPECTED_STATUS: \$\{\{ needs\.metrics\.outputs\.current_status \}\}/);
+  assert.match(
+    workflow,
+    /EXPECTED_INSTANT_CART_STATUS: \$\{\{ needs\.metrics\.outputs\.instant_cart_status \}\}/,
+  );
+  assert.match(workflow, /verify_artifact "sync-instant-cart" "\$EXPECTED_INSTANT_CART_STATUS"/);
   assert.doesNotMatch(workflow, /currentStatus' <<< "\$artifact"\)" = "passed"/);
 });

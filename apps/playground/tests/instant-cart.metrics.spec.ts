@@ -1,65 +1,161 @@
-import { test, expect, Page } from '@playwright/test';
-import { createMetricRecord, writeMetrics } from './utils/metrics';
+import { expect, test, type Page } from '@playwright/test';
+import { createInstantCartArtifact, writeMetrics } from './utils/metrics';
 
-async function readMetricsAttributes(page: Page) {
-  return page.locator('[data-testid="instant-cart-metrics"]').evaluate((node) => {
-    return {
-      firstTxInitial: node.getAttribute('data-firsttx-initial'),
-      traditionalInitial: node.getAttribute('data-traditional-initial'),
-      firstTxAction: node.getAttribute('data-firsttx-action'),
-      traditionalAction: node.getAttribute('data-traditional-action'),
-      firstTxServerAck: node.getAttribute('data-firsttx-server-ack'),
-      timeSaved: node.getAttribute('data-time-saved'),
-    };
-  });
+const warmupRunCount = 3;
+const measuredRunCount = 20;
+const expectedEvents = [
+  'optimistic-patch',
+  'optimistic-paint',
+  'server-gate-released',
+  'request-started',
+  'server-gate-completed',
+  'server-acknowledged',
+] as const;
+
+interface InstantCartSample {
+  inputToOptimisticPaintMs: number;
+  serverAckMs: number;
+  traditionalInputToPaintMs: number;
+  events: string[];
+}
+
+async function readPositiveAttribute(page: Page, name: string) {
+  const metrics = page.getByTestId('instant-cart-metrics');
+  await expect
+    .poll(async () => Number(await metrics.getAttribute(name)), { timeout: 10_000 })
+    .toBeGreaterThan(0);
+  return Number(await metrics.getAttribute(name));
+}
+
+async function measureInstantCart(page: Page): Promise<InstantCartSample> {
+  const traditionalButton = page.getByTestId('traditional-increment-1');
+  const traditionalQuantity = page.getByTestId('traditional-increment-quantity-1');
+  const traditionalBefore = Number(await traditionalQuantity.textContent());
+  await traditionalButton.click();
+  await expect(traditionalQuantity).toHaveText(String(traditionalBefore + 1), { timeout: 10_000 });
+  const traditionalInputToPaintMs = await readPositiveAttribute(page, 'data-traditional-action');
+  await expect(traditionalButton).toBeEnabled();
+
+  const firstTxButton = page.getByTestId('firsttx-increment-1');
+  const firstTxQuantity = page.getByTestId('firsttx-increment-quantity-1');
+  const firstTxBefore = Number(await firstTxQuantity.textContent());
+  await firstTxButton.click();
+  await expect(firstTxQuantity).toHaveText(String(firstTxBefore + 1));
+  const events = page.getByTestId('instant-cart-events').locator('li');
+  await expect(events).toHaveText(['optimistic-patch', 'optimistic-paint']);
+  const inputToOptimisticPaintMs = await readPositiveAttribute(page, 'data-firsttx-action');
+
+  await page.getByTestId('release-instant-cart-server').click();
+  await expect(events).toHaveText([...expectedEvents]);
+  const serverAckMs = await readPositiveAttribute(page, 'data-firsttx-server-ack');
+  await expect(page.getByTestId('instant-cart-fixture')).toBeEnabled();
+
+  return {
+    inputToOptimisticPaintMs,
+    serverAckMs,
+    traditionalInputToPaintMs,
+    events: await events.allTextContents(),
+  };
 }
 
 test.describe('Instant Cart metrics', () => {
-  test('collects latency comparisons', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+
+  let completedWarmups = 0;
+  let failedSamples = 0;
+  let passedRuns = 0;
+  let latestEvents: string[] = [];
+  let inputToOptimisticPaintMs: number[] = [];
+  let serverAckMs: number[] = [];
+  let traditionalInputToPaintMs: number[] = [];
+
+  test.beforeEach(() => {
+    completedWarmups = 0;
+    failedSamples = 0;
+    passedRuns = 0;
+    latestEvents = [];
+    inputToOptimisticPaintMs = [];
+    serverAckMs = [];
+    traditionalInputToPaintMs = [];
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status === testInfo.expectedStatus) {
+      return;
+    }
+
+    const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+    const dpr = page.isClosed()
+      ? 1
+      : await page.evaluate(() => window.devicePixelRatio).catch(() => 1);
+    const artifact = await createInstantCartArtifact(
+      {
+        warmupRuns: completedWarmups,
+        failedSamples: Math.max(failedSamples, 1),
+        passedRuns,
+        events: latestEvents as (typeof expectedEvents)[number][],
+        inputToOptimisticPaintMs,
+        serverAckMs,
+        traditionalInputToPaintMs,
+      },
+      {
+        browser: testInfo.project.name,
+        viewport,
+        dpr,
+      },
+    );
+    await writeMetrics(artifact);
+  });
+
+  test('publishes 3 warm-up and 20 measured latency samples', async ({ page }, testInfo) => {
     await page.addInitScript(() => {
       window.sessionStorage.setItem('firsttx:autoLoadTraditional', '1');
     });
     await page.goto('/sync/instant-cart');
-
-    const traditionalPlus = page.getByTestId('traditional-increment-1');
-    await traditionalPlus.waitFor({ state: 'visible', timeout: 20_000 });
-    await traditionalPlus.click();
-
+    await expect(page.getByTestId('traditional-increment-1')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('firsttx-increment-1')).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('instant-cart-fixture').selectOption('ack');
-    const firstTxPlus = page.getByTestId('firsttx-increment-1');
-    await firstTxPlus.waitFor({ state: 'visible', timeout: 20_000 });
-    await firstTxPlus.click();
 
-    const metricsElement = page.getByTestId('instant-cart-metrics');
-    await expect(metricsElement).toHaveAttribute('data-firsttx-action', /.+/, { timeout: 10_000 });
-    await page.getByTestId('release-instant-cart-server').click();
-    await expect(page.getByTestId('instant-cart-events').locator('li')).toHaveText([
-      'optimistic-patch',
-      'optimistic-paint',
-      'server-gate-released',
-      'request-started',
-      'server-gate-completed',
-      'server-acknowledged',
-    ]);
-    await expect(metricsElement).toHaveAttribute('data-firsttx-server-ack', /.+/);
-    await expect(metricsElement).toHaveAttribute('data-traditional-action', /.+/);
+    for (let index = 0; index < warmupRunCount + measuredRunCount; index += 1) {
+      let sample: InstantCartSample;
+      try {
+        sample = await measureInstantCart(page);
+      } catch (error) {
+        failedSamples += 1;
+        throw error;
+      }
 
-    const attrs = await readMetricsAttributes(page);
+      latestEvents = sample.events;
+      if (index < warmupRunCount) {
+        completedWarmups += 1;
+        continue;
+      }
 
-    const metrics = {
-      firstTxInitialLoadMs: Number(attrs.firstTxInitial ?? 0),
-      traditionalInitialLoadMs: Number(attrs.traditionalInitial ?? 0),
-      firstTxActionLatency: Number(attrs.firstTxAction ?? 0),
-      traditionalActionLatency: Number(attrs.traditionalAction ?? 0),
-      firstTxServerAckMs: Number(attrs.firstTxServerAck ?? 0),
-      timeSavedPerInteraction: Number(attrs.timeSaved ?? 0),
-    };
+      passedRuns += 1;
+      inputToOptimisticPaintMs.push(sample.inputToOptimisticPaintMs);
+      serverAckMs.push(sample.serverAckMs);
+      traditionalInputToPaintMs.push(sample.traditionalInputToPaintMs);
+    }
 
-    await writeMetrics(
-      createMetricRecord('instant-cart', metrics, {
-        project: testInfo.project.name,
-        url: '/sync/instant-cart',
-      }),
+    const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+    const artifact = await createInstantCartArtifact(
+      {
+        warmupRuns: completedWarmups,
+        failedSamples,
+        passedRuns,
+        events: latestEvents as (typeof expectedEvents)[number][],
+        inputToOptimisticPaintMs,
+        serverAckMs,
+        traditionalInputToPaintMs,
+      },
+      {
+        browser: testInfo.project.name,
+        viewport,
+        dpr: await page.evaluate(() => window.devicePixelRatio),
+      },
     );
+    await writeMetrics(artifact);
+
+    expect(artifact.currentStatus).toBe('passed');
   });
 });

@@ -51,7 +51,7 @@ const samplingSchema = z.object({
   rawArtifactPath: z.string().min(1),
 });
 
-export const metricArtifactSchema = z
+const syncStalenessArtifactSchema = z
   .object({
     schemaVersion: z.literal(1),
     scenarioVersion: z.literal(1),
@@ -82,11 +82,139 @@ export const metricArtifactSchema = z
       })
       .strict(),
   })
-  .strict()
+  .strict();
+
+const instantCartEventSchema = z.enum([
+  'optimistic-patch',
+  'optimistic-paint',
+  'server-gate-released',
+  'request-started',
+  'server-gate-completed',
+  'server-acknowledged',
+]);
+
+const benchmarkMetricSchema = z
+  .object({
+    kind: z.literal('benchmark'),
+    unit: z.literal('ms'),
+    samples: z.array(z.number().finite().positive()).max(20),
+    failedSamples: z.number().int().nonnegative(),
+    median: z.number().finite().positive().nullable(),
+    p95: z.number().finite().positive().nullable(),
+  })
+  .strict();
+
+const syncInstantCartArtifactSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    scenarioVersion: z.literal(1),
+    scenarioId: z.literal('sync-instant-cart'),
+    runId: z.string().min(1),
+    source: sourceSchema,
+    build: buildSchema,
+    environment: environmentSchema,
+    sampling: z
+      .object({
+        warmupRuns: z.number().int().min(0).max(3),
+        measuredRuns: z.number().int().min(0).max(20),
+        aggregation: z.literal('median,p95'),
+        rawArtifactPath: z.string().min(1),
+      })
+      .strict(),
+    measuredAt: z.string().datetime(),
+    currentStatus: z.enum(['passed', 'failed']),
+    lastSuccessfulRunId: z.string().min(1).nullable(),
+    metrics: z
+      .object({
+        'optimistic-paint-precedes-ack': z
+          .object({
+            kind: z.literal('contract'),
+            passed: z.boolean(),
+            passedRuns: z.number().int().min(0).max(20),
+            events: z.array(instantCartEventSchema).max(6),
+          })
+          .strict(),
+        'input-to-optimistic-paint-ms': benchmarkMetricSchema,
+        'server-ack-ms': benchmarkMetricSchema,
+        'traditional-input-to-paint-ms': benchmarkMetricSchema,
+      })
+      .strict(),
+  })
+  .strict();
+
+const expectedInstantCartEvents = [
+  'optimistic-patch',
+  'optimistic-paint',
+  'server-gate-released',
+  'request-started',
+  'server-gate-completed',
+  'server-acknowledged',
+] as const;
+
+export function summarizeBenchmarkSamples(samples: number[]) {
+  if (samples.length === 0) {
+    return { median: null, p95: null };
+  }
+
+  const sorted = [...samples].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const median =
+    sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+  const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1];
+
+  return { median, p95 };
+}
+
+function validateBenchmarkMetric(
+  metric: z.infer<typeof benchmarkMetricSchema>,
+  path: string,
+  context: z.RefinementCtx,
+) {
+  const summary = summarizeBenchmarkSamples(metric.samples);
+  if (metric.median !== summary.median || metric.p95 !== summary.p95) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['metrics', path],
+      message: 'Benchmark aggregates must match the raw samples',
+    });
+  }
+}
+
+export const metricArtifactSchema = z
+  .discriminatedUnion('scenarioId', [syncStalenessArtifactSchema, syncInstantCartArtifactSchema])
   .superRefine((artifact, context) => {
-    const metricsPassed =
-      artifact.metrics['stale-mount-triggers-sync'].passed &&
-      artifact.metrics['never-mount-skips-sync'].passed;
+    let metricsPassed: boolean;
+
+    if (artifact.scenarioId === 'sync-staleness') {
+      metricsPassed =
+        artifact.metrics['stale-mount-triggers-sync'].passed &&
+        artifact.metrics['never-mount-skips-sync'].passed;
+    } else {
+      const contractMetric = artifact.metrics['optimistic-paint-precedes-ack'];
+      const benchmarkMetrics = [
+        ['input-to-optimistic-paint-ms', artifact.metrics['input-to-optimistic-paint-ms']],
+        ['server-ack-ms', artifact.metrics['server-ack-ms']],
+        ['traditional-input-to-paint-ms', artifact.metrics['traditional-input-to-paint-ms']],
+      ] as const;
+
+      for (const [path, metric] of benchmarkMetrics) {
+        validateBenchmarkMetric(metric, path, context);
+      }
+
+      const eventsMatch =
+        contractMetric.events.length === expectedInstantCartEvents.length &&
+        contractMetric.events.every((event, index) => event === expectedInstantCartEvents[index]);
+      const benchmarkComplete = benchmarkMetrics.every(
+        ([, metric]) => metric.samples.length === 20 && metric.failedSamples === 0,
+      );
+      metricsPassed =
+        contractMetric.passed &&
+        contractMetric.passedRuns === 20 &&
+        eventsMatch &&
+        artifact.sampling.warmupRuns === 3 &&
+        artifact.sampling.measuredRuns === 20 &&
+        benchmarkComplete;
+    }
 
     if ((artifact.currentStatus === 'passed') !== metricsPassed) {
       context.addIssue({
@@ -133,6 +261,11 @@ export const metricManifestSchema = z
 export type MetricArtifactStatus = z.infer<typeof metricArtifactStatusSchema>;
 export type MetricLoadIssue = z.infer<typeof metricLoadIssueSchema>;
 export type MetricArtifact = z.infer<typeof metricArtifactSchema>;
+export type SyncStalenessMetricArtifact = Extract<MetricArtifact, { scenarioId: 'sync-staleness' }>;
+export type SyncInstantCartMetricArtifact = Extract<
+  MetricArtifact,
+  { scenarioId: 'sync-instant-cart' }
+>;
 export type MetricManifest = z.infer<typeof metricManifestSchema>;
 
 export interface MetricArtifactEvaluation {
