@@ -60,6 +60,7 @@
 - `contract`: 독립 model namespace, reset된 storage, seeded fixture 또는 deferred gate에서 1회 이상 실행하며 모든 assertion이 통과해야 합니다. retry로 성공을 덮지 않습니다.
 - `expected-limitation`: 지원하지 않는 상태를 고정 fixture로 최소 1회 재현하고 관찰값·설명·테스트 기대값이 모두 같아야 합니다.
 - `benchmark`: 3회 warm-up 후 20 measured samples를 수집하고 `median`과 `p95`를 게시합니다. raw samples와 실패 sample 수를 artifact에 남깁니다.
+- `median`은 정렬된 표본의 중앙 두 값 평균, `p95`는 정렬된 표본의 nearest-rank 95번째 백분위로 계산합니다.
 - benchmark baseline이 승인되기 전에는 절대 target을 홍보하지 않습니다. 승인 후 동일 runner에서 median 15% 초과 또는 p95 20% 초과 회귀가 3회 연속 발생하면 `degraded`로 판정합니다.
 
 ### 환경과 freshness
@@ -119,7 +120,7 @@ UI status는 `passed`, `failed`, `expected-limitation`, `not-measured`, `stale`,
 
 ## 후속 범위
 
-P0-A와 metric 분류는 확정했습니다. 2026.07.22 P0-E vertical slice에서 GitHub Pages를 canonical metric host로 확정하고 `sync-staleness` schema v1 artifact·manifest·loader·Lab 연결, 실패 run 게시와 last-success 계승, Pages publish workflow를 구현했습니다. 실제 `main` 배포 관찰과 나머지 scenario 전환은 아직 남아 있습니다.
+P0-A와 metric 분류는 확정했습니다. 2026.07.22 P0-E vertical slice에서 GitHub Pages를 canonical metric host로 확정하고 `sync-staleness` schema v1 artifact·manifest·loader·Lab 연결, 실패 run 게시와 last-success 계승, Pages publish workflow를 구현했습니다. 2026.07.25 `main` source revision `12f295aa33eede4b9c5893932d114de4cc918e13`의 [Playground Metrics #103](https://github.com/joseph0926/firsttx/actions/runs/30142953400)에서 schema v1 artifact 게시, Pages deploy와 source/deep-link smoke를 관찰했고 게시 artifact의 `dirty: false`, `currentStatus: passed`를 확인했습니다. 나머지 scenario 전환은 아직 남아 있습니다.
 
 - 나머지 scenario의 schema v1 artifact 전환과 production post-deploy 확인: P0-E
 - deterministic scheduler와 scenario fixture 구현: P0-F
