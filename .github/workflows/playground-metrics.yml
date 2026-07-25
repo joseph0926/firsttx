@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       current_status: ${{ steps.metric_manifest.outputs.current_status }}
+      instant_cart_status: ${{ steps.metric_manifest.outputs.instant_cart_status }}
       pages_ready: ${{ steps.pages_artifact.outputs.pages_ready }}
     steps:
       - name: Checkout
@@ -55,7 +56,9 @@ jobs:
         working-directory: apps/playground
         run: |
           current_status="$(jq -er '.scenarios["sync-staleness"].currentStatus' public/metrics/manifest.json)"
+          instant_cart_status="$(jq -er '.scenarios["sync-instant-cart"].currentStatus' public/metrics/manifest.json)"
           echo "current_status=$current_status" >> "$GITHUB_OUTPUT"
+          echo "instant_cart_status=$instant_cart_status" >> "$GITHUB_OUTPUT"
 
       - name: Upload metrics artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
@@ -97,11 +100,20 @@ jobs:
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
           EXPECTED_STATUS: ${{ needs.metrics.outputs.current_status }}
+          EXPECTED_INSTANT_CART_STATUS: ${{ needs.metrics.outputs.instant_cart_status }}
         run: |
           manifest_url="${PAGE_URL%/}/metrics/manifest.json"
           manifest="$(curl --fail --silent --show-error --retry 5 "$manifest_url")"
           test "$(jq -r '.sourceCommit' <<< "$manifest")" = "$GITHUB_SHA"
-          artifact_path="$(jq -r '.scenarios["sync-staleness"].artifactPath' <<< "$manifest")"
-          artifact="$(curl --fail --silent --show-error --retry 5 "${PAGE_URL%/}${artifact_path}")"
-          test "$(jq -r '.source.dirty' <<< "$artifact")" = "false"
-          test "$(jq -r '.currentStatus' <<< "$artifact")" = "$EXPECTED_STATUS"
+          verify_artifact() {
+            scenario_id="$1"
+            expected_status="$2"
+            artifact_path="$(jq -r --arg scenario "$scenario_id" '.scenarios[$scenario].artifactPath' <<< "$manifest")"
+            manifest_status="$(jq -r --arg scenario "$scenario_id" '.scenarios[$scenario].currentStatus' <<< "$manifest")"
+            artifact="$(curl --fail --silent --show-error --retry 5 "${PAGE_URL%/}${artifact_path}")"
+            test "$manifest_status" = "$expected_status"
+            test "$(jq -r '.source.dirty' <<< "$artifact")" = "false"
+            test "$(jq -r '.currentStatus' <<< "$artifact")" = "$expected_status"
+          }
+          verify_artifact "sync-staleness" "$EXPECTED_STATUS"
+          verify_artifact "sync-instant-cart" "$EXPECTED_INSTANT_CART_STATUS"

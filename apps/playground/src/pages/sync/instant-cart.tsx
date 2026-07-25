@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Clock, Zap, RefreshCw, Loader2 } from 'lucide-react';
 import { DemoLayout, MetricsGrid, MetricCard, SectionHeader, BeforeAfter } from '@/components/demo';
 import { useSyncedModel } from '@firsttx/local-first';
@@ -167,6 +168,8 @@ export default function InstantCart() {
     }
 
     firstTxMutationStartRef.current = start;
+    setFirstTxServerAck(null);
+    setActionLatency((previous) => ({ ...previous, firstTx: 0 }));
     setFixtureEvents([]);
     const gate = createCartRequestGate(addFixtureEvent);
     requestGateRef.current = gate;
@@ -197,12 +200,14 @@ export default function InstantCart() {
 
     const start = performance.now();
     setTraditionalUpdating(true);
+    setActionLatency((previous) => ({ ...previous, traditional: 0 }));
 
     try {
       const item = traditionalCart.items.find((i) => i.id === itemId);
       if (item) {
         const newCart = await updateCartItem(itemId, item.quantity + 1);
-        setTraditionalCart(newCart);
+        flushSync(() => setTraditionalCart(newCart));
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         const end = performance.now();
         setActionLatency((prev) => ({ ...prev, traditional: end - start }));
       }

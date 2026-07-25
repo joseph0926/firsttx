@@ -61,7 +61,7 @@ pnpm --filter playground exec playwright test \
 
 ## 측정 결과
 
-측정값을 기록하는 테스트는 `tests/utils/metrics.ts`를 사용하며 저장소 루트의 `.metrics/`에 결과를 생성합니다. `sync-staleness`는 source, package fingerprint, 실행 환경, 측정 시각과 current/last-success 상태를 포함하는 schema v1 artifact를 생성합니다. 기존 benchmark 파일은 schema 전환 전까지 legacy로 분리합니다.
+측정값을 기록하는 테스트는 `tests/utils/metrics.ts`를 사용하며 저장소 루트의 `.metrics/`에 결과를 생성합니다. `sync-staleness`와 `sync-instant-cart`는 source, package fingerprint, 실행 환경, 측정 시각과 current/last-success 상태를 포함하는 schema v1 artifact를 생성합니다. Instant Cart benchmark는 3회 warm-up 뒤 20개 raw sample, 실패 sample 수, median과 nearest-rank p95를 기록합니다. 기존 benchmark 파일은 schema 전환 전까지 legacy로 분리합니다.
 
 다음 명령은 schema 검증을 통과한 artifact를 immutable run 경로에 게시하고 `public/metrics/manifest.json`을 마지막에 교체합니다. main workflow는 실패한 contract artifact도 게시한 뒤 job 실패를 복원하며, publisher는 이전 manifest의 마지막 성공 run ID를 계승합니다.
 
