@@ -41,6 +41,8 @@ docs/temp.*
 .claude/**/*.json
 .claude/skills/
 .claude/harness/
+.codex/skills/
+.codex/harness/
 artifacts/
 
 .docs/git-convention.md
