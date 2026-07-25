@@ -120,9 +120,9 @@ UI status는 `passed`, `failed`, `expected-limitation`, `not-measured`, `stale`,
 
 ## 후속 범위
 
-P0-A와 metric 분류는 확정했습니다. 2026.07.22 P0-E vertical slice에서 GitHub Pages를 canonical metric host로 확정하고 `sync-staleness` schema v1 artifact·manifest·loader·Lab 연결, 실패 run 게시와 last-success 계승, Pages publish workflow를 구현했습니다. 2026.07.25 `main` source revision `12f295aa33eede4b9c5893932d114de4cc918e13`의 [Playground Metrics #103](https://github.com/joseph0926/firsttx/actions/runs/30142953400)에서 schema v1 artifact 게시, Pages deploy와 source/deep-link smoke를 관찰했고 게시 artifact의 `dirty: false`, `currentStatus: passed`를 확인했습니다. 나머지 scenario 전환은 아직 남아 있습니다.
+P0-A와 metric 분류는 확정했습니다. 2026.07.22 P0-E vertical slice에서 GitHub Pages를 canonical metric host로 확정하고 `sync-staleness` schema v1 artifact·manifest·loader·Lab 연결, 실패 run 게시와 last-success 계승, Pages publish workflow를 구현했습니다. 2026.07.25 `main` source revision `00eb54122604e94acb38fa781710c8d02eee2d92`의 [Playground Metrics #104](https://github.com/joseph0926/firsttx/actions/runs/30143915032)에서 `sync-staleness`와 `sync-instant-cart` schema v1 artifact 게시, Pages deploy와 source/deep-link smoke를 관찰했고 게시 manifest와 두 artifact의 `dirty: false`, `currentStatus: passed`를 확인했습니다. Instant Cart benchmark는 3회 warm-up 뒤 20개 measured sample을 수집해 실패 sample 0개와 contract 20/20 통과를 기록했습니다. production artifact의 optimistic paint는 `median 40.85ms`·`p95 68.9ms`, server acknowledgement는 `median 160.4ms`·`p95 269.2ms`, traditional paint는 `median 528.95ms`·`p95 561.8ms`입니다. 나머지 7개 scenario 전환은 아직 남아 있습니다.
 
 - 나머지 scenario의 schema v1 artifact 전환과 production post-deploy 확인: P0-E
-- deterministic scheduler와 scenario fixture 구현: P0-F
+- deterministic scheduler와 scenario fixture 구현 완료: P0-F
 - workspace build fingerprint 생성 방식: P0-G
 - 승인된 UI의 production 통합과 locale copy: P0-H

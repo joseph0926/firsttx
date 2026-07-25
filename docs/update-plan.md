@@ -162,9 +162,9 @@ Playground 단독 `pnpm dev`는 Vite만 실행하지만 workspace package는 `di
 
 #### P0-E. metric loader, artifact publish와 CI 흐름 수정
 
-> 상태: 2026.07.22 `sync-staleness` vertical slice 구현 완료, P0-E 전체는 진행 중. GitHub Pages를 canonical metric host로 확정하고 schema v1 artifact·manifest, source/freshness 판정 loader, `/lab` current/last-success 상태, PR contract gate, 실패 run 게시 뒤 CI 실패 복원, Pages atomic deploy와 post-deploy source/deep-link smoke를 연결했습니다. Node 24 contract test 13개, Playground와 Playwright source typecheck, lint와 격리 publisher 실행이 통과했습니다.
+> 상태: 2026.07.25 `sync-staleness`와 `sync-instant-cart` vertical slice 구현 완료, P0-E 전체는 진행 중. GitHub Pages를 canonical metric host로 확정하고 schema v1 artifact·manifest, source/freshness 판정 loader, `/lab` current/last-success 상태, PR contract gate, 실패 run 게시 뒤 CI 실패 복원, Pages atomic deploy와 post-deploy source/deep-link smoke를 연결했습니다. Node 24 contract test 15개, Playground와 Playwright source typecheck, lint와 격리 publisher 실행이 통과했습니다.
 >
-> Production evidence: 2026.07.25 `main` source revision `12f295aa33eede4b9c5893932d114de4cc918e13`의 [Playground Metrics #103](https://github.com/joseph0926/firsttx/actions/runs/30142953400)에서 package build 5/5, metric contract 13/13, Chromium metric suite 5/5, schema v1 artifact 게시, GitHub Pages deploy와 post-deploy source/deep-link smoke가 통과했습니다. 게시 manifest와 `sync-staleness` artifact는 같은 source revision, `dirty: false`, `currentStatus: passed`를 확인했습니다. 나머지 8개 scenario는 `not-measured` 또는 legacy이므로 P0-E를 완료로 닫지 않습니다.
+> Production evidence: 2026.07.25 `main` source revision `00eb54122604e94acb38fa781710c8d02eee2d92`의 [Playground Metrics #104](https://github.com/joseph0926/firsttx/actions/runs/30143915032)에서 package build 5/5, metric contract 15/15, Chromium metric suite 5/5, schema v1 artifact 2개 게시, GitHub Pages deploy와 `sync-staleness`·`sync-instant-cart` post-deploy source/deep-link smoke가 통과했습니다. 게시 manifest와 두 artifact는 같은 source revision, `dirty: false`, `currentStatus: passed`를 확인했습니다. 나머지 7개 scenario는 `not-measured` 또는 legacy이므로 P0-E를 완료로 닫지 않습니다.
 
 - canonical metric host와 app/metric deploy owner를 확정합니다.
 - same-origin 또는 cross-origin 경로, CORS, cache-control, stale cutoff와 fallback을 테스트합니다.
@@ -179,7 +179,7 @@ Playground 단독 `pnpm dev`는 Vite만 실행하지만 workspace package는 `di
 
 > 검증: 직전 Verify Gate는 `PASS_WITH_GAPS`입니다. Selected Chromium 19/19(Timing 8, Instant Cart 4, Concurrent 3, Network Chaos 4), isolated `tx-rollback` 2/2, Playground typecheck, Playground lint 0 errors와 기존 warning 1건, `git diff --check`가 통과했고 검증 시점의 source state drift는 없었습니다. 유일한 non-blocking gap은 fresh native `/review`가 제공되지 않은 것이며 native review를 완료로 기록하지 않습니다.
 
-> 남은 범위: Instant Cart benchmark의 3회 warm-up + 20 measured samples와 `median`/`p95`, schema/manifest publication과 production metric observation은 계속 열어 둡니다. `sync-instant-cart` disposition도 `demo-rewrite`로 유지하며 이 후속 범위를 deterministic correctness 완료에 포함하지 않습니다.
+> 후속 측정 완료: 2026.07.25 Instant Cart benchmark의 3회 warm-up + 20 measured samples와 `median`/`p95`, schema/manifest publication과 production metric observation을 완료했습니다. 측정 실패 sample은 0개이고 contract 20회가 모두 통과했습니다. production artifact는 optimistic paint `median 40.85ms`·`p95 68.9ms`, server acknowledgement `median 160.4ms`·`p95 269.2ms`, traditional paint `median 528.95ms`·`p95 561.8ms`를 기록했습니다. `sync-instant-cart` disposition은 `demo-rewrite`로 유지하며 benchmark evidence는 deterministic correctness 완료 판정이나 disposition을 변경하지 않습니다.
 
 > 소유권 보고: Timing의 external `replace()`와 Tx rollback은 공유 coordinator가 없는 cross-package limitation입니다. `packages/tx`와 `packages/local-first`의 단독 unit test는 각각의 package 계약만 소유하며, 이 interleaving의 package/unit integration owner는 현재 없습니다. `sync-timing.contract.spec.ts`는 공개 scenario에서 limitation을 재현하고 기대 snapshot을 확인하는 E2E fixture일 뿐 package ordering 보장을 대체하지 않습니다. ordering 보장을 새로 도입할 때에만 별도 cross-package integration workspace와 owner를 결정합니다.
 
