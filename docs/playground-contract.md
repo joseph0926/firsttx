@@ -6,7 +6,7 @@
 >
 > 기준 source: `df1e923d531a` + 문서·격리 preview 작업 트리
 >
-> 소유 단계: `docs/update-plan.md`의 P0-A, P0-C
+> 소유 단계: `docs/architecture/roadmap.md`의 Playground 신뢰성 게이트 (P0-A·P0-C에서 확정)
 
 이 문서는 Playground가 보여 줄 9개 공개 시나리오의 처분과 metric 판정 계약을 고정합니다. UI copy, scenario registry, Playwright, metric artifact와 공개 문서는 이 계약을 소비하며 서로 독립적으로 더 강한 보장을 만들지 않습니다.
 

@@ -5,7 +5,7 @@ target: 'apps/playground: home, verification lab, scenario detail, guided entry'
 mode: redesign
 anchor: 'No external anchor'
 baseline: 'artifacts/uiux/playground-redesign/baseline'
-acceptance_source: 'docs/update-plan.md P0-D + docs/playground-contract.md'
+acceptance_source: 'docs/architecture/roadmap.md 1-C + docs/playground-contract.md'
 candidate_ids:
   - signal-desk
   - proof-atlas

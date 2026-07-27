@@ -90,6 +90,5 @@ pnpm --filter @firsttx/docs test:e2e
 
 ## 관련 문서
 
-- [Docs redesign decision packet](../../docs/uiux/docs-redesign.md)
-- [Canonical content ledger](../../docs/uiux/docs-redesign-content-ledger.md)
-- [전체 업데이트 계획](../../docs/update-plan.md)
+- [아키텍처 개요](../../docs/architecture/overview.md)
+- [실행 로드맵](../../docs/architecture/roadmap.md)

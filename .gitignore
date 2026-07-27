@@ -46,3 +46,5 @@ docs/temp.*
 artifacts/
 
 .docs/git-convention.md
+docs/architecture/
+.harness/

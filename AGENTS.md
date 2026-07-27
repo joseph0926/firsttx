@@ -17,6 +17,8 @@
   - `packages/tx`: optimistic transaction/retry/rollback
   - `packages/devtools`: Chromium DevTools companion
   - `packages/shared`: 공통 상수/유틸/에러
+- 현재 구조와 레이어 간 계약은 `docs/architecture/overview.md`가 소유한다.
+- 확인된 구조적 결함과 그 소유자는 `docs/architecture/known-issues.md`가 소유한다.
 
 ## Package And Runtime
 
