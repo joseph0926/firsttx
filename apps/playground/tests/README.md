@@ -40,7 +40,7 @@ Regression guard는 다음 evidence를 함께 가져야 합니다.
 | `tx-rollback.spec.ts`              | 실패 뒤 역순 보상 처리                                            |
 | `tx-network-chaos.spec.ts`         | 고정 실패 사례의 재시도·소진·롤백                                 |
 
-`Suspense Cache Flow`의 전용 계약 테스트는 아직 추가하지 않았습니다. 해당 항목은 [`docs/update-plan.md`](../../../docs/update-plan.md)의 P0-I에서 추적합니다.
+`Suspense Cache Flow`의 전용 계약 테스트는 아직 추가하지 않았습니다. 해당 항목은 [`docs/architecture/roadmap.md`](../../../docs/architecture/roadmap.md)의 1-C(P0-I)에서 추적합니다.
 
 ## 실행
 
