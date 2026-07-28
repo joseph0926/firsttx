@@ -41,12 +41,23 @@ describe('sanitize', () => {
         expect(result).toContain('Content');
       });
 
-      it('removes form tags', () => {
-        const html = '<form action="/steal"><input type="text" /></form>';
+      it('keeps form controls but removes the submit path', () => {
+        const html = '<form action="/steal" method="post"><input type="text" /></form>';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('<form');
-        expect(result).not.toContain('<input');
+        expect(result).toContain('<form');
+        expect(result).toContain('<input');
+        expect(result).not.toContain('action=');
+        expect(result).not.toContain('method=');
+      });
+
+      it('removes formaction and formtarget from buttons', () => {
+        const html = '<button formaction="https://evil.example" formtarget="_blank">Send</button>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).toContain('<button');
+        expect(result).not.toContain('formaction');
+        expect(result).not.toContain('formtarget');
       });
 
       it('removes object and embed tags', () => {
@@ -216,12 +227,22 @@ describe('sanitize', () => {
         expect(result).toContain('alt="An image"');
       });
 
-      it('preserves anchor tags with safe href', () => {
+      it('preserves anchor tags but drops href entirely', () => {
         const html = '<a href="https://example.com">Link</a>';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).toContain('<a href="https://example.com">');
+        expect(result).toContain('<a>');
         expect(result).toContain('Link');
+        expect(result).not.toContain('href');
+      });
+
+      it('drops pointer-events from inline style so the overlay stays non-interactive', () => {
+        const html = '<div style="color:red; pointer-events:auto; position:fixed">x</div>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).toContain('color:red');
+        expect(result).toContain('position:fixed');
+        expect(result).not.toContain('pointer-events');
       });
 
       it('preserves data attributes except dangerous ones', () => {
@@ -493,11 +514,12 @@ describe('sanitize', () => {
     });
 
     it('handles textarea with dangerous content as text', () => {
-      // Note: textarea is in DANGEROUS_HTML_TAGS, so it gets removed
       const html = '<textarea><script>alert(1)</script></textarea>';
       const result = sanitizeSnapshotHTMLSync(html);
 
-      expect(result).not.toContain('<textarea');
+      expect(result).toContain('<textarea');
+      expect(result).toContain('&lt;script&gt;');
+      expect(result).not.toContain('<script');
     });
   });
 });
