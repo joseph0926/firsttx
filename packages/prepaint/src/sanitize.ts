@@ -1,9 +1,5 @@
 import { DANGEROUS_ATTRIBUTES } from '@firsttx/shared';
 
-type DOMPurifyLike = {
-  sanitize: (html: string, config?: Record<string, unknown>) => string;
-};
-
 /**
  * snapshot은 비대화형 overlay로만 재생된다. 따라서 제거 대상은
  * "코드를 실행하거나 원격 리소스를 불러오는 태그"로 한정한다.
@@ -40,7 +36,6 @@ const STRIPPED_ATTRIBUTES = new Set([
   'autocomplete',
 ]);
 
-let cachedDOMPurify: DOMPurifyLike | null | undefined = undefined;
 const DANGEROUS_ATTRIBUTE_SET = new Set<string>(DANGEROUS_ATTRIBUTES);
 const URL_ATTRIBUTE_SET = new Set(['background', 'cite', 'poster', 'src']);
 const RASTER_DATA_URL_PATTERN =
@@ -64,21 +59,6 @@ function isUnsafeAttributeUrl(rawValue: string): boolean {
   }
 
   return scheme === 'data' && !RASTER_DATA_URL_PATTERN.test(value);
-}
-
-async function tryLoadDOMPurify(): Promise<DOMPurifyLike | null> {
-  if (cachedDOMPurify !== undefined) {
-    return cachedDOMPurify;
-  }
-
-  try {
-    const module = await import('dompurify');
-    cachedDOMPurify = module.default || module;
-    return cachedDOMPurify;
-  } catch {
-    cachedDOMPurify = null;
-    return null;
-  }
 }
 
 function stripInteractiveStyle(value: string): string {
@@ -125,33 +105,6 @@ function fallbackSanitize(html: string): string {
   return doc.body.innerHTML;
 }
 
-export async function sanitizeSnapshotHTML(html: string): Promise<string> {
-  const DOMPurify = await tryLoadDOMPurify();
-
-  if (DOMPurify) {
-    const sanitized = DOMPurify.sanitize(html, {
-      FORBID_TAGS: [...SNAPSHOT_FORBIDDEN_TAGS],
-      FORBID_ATTR: [...DANGEROUS_ATTRIBUTES, ...STRIPPED_ATTRIBUTES],
-      ALLOW_DATA_ATTR: false,
-      ALLOW_ARIA_ATTR: true,
-    });
-
-    return fallbackSanitize(sanitized);
-  }
-
-  return fallbackSanitize(html);
-}
-
 export function sanitizeSnapshotHTMLSync(html: string): string {
   return fallbackSanitize(html);
-}
-
-export async function safeSetInnerHTML(container: HTMLElement, html: string): Promise<void> {
-  const sanitized = await sanitizeSnapshotHTML(html);
-  container.innerHTML = sanitized;
-}
-
-export function safeSetInnerHTMLSync(container: HTMLElement, html: string): void {
-  const sanitized = sanitizeSnapshotHTMLSync(html);
-  container.innerHTML = sanitized;
 }

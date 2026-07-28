@@ -56,7 +56,7 @@ function deleteSnapshot(db: IDBDatabase, route: string): Promise<void> {
  * ```html
  * <!-- In index.html, as early as possible -->
  * <script type="module">
- *   import { boot } from '@firsttx/prepaint/boot';
+ *   import { boot } from '@firsttx/prepaint';
  *   boot().catch(console.error);
  * </script>
  * ```

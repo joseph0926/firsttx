@@ -292,15 +292,11 @@ Prepaint sanitizes all restored HTML to prevent XSS attacks:
 - Removes event handlers: `onclick`, `onerror`, `onload`, etc.
 - Blocks `javascript:` and `data:text/html` URLs
 
-**Note on DOMPurify**
+**Note on the sanitizer**
 
-The boot-time restore path uses a synchronous built-in sanitizer for speed. For async helpers (`safeSetInnerHTML`), [DOMPurify](https://github.com/cure53/DOMPurify) is used if available:
+Restore happens on the boot path, so Prepaint uses a single synchronous built-in sanitizer and takes no sanitizer dependency. It covers the vectors listed above but is not a general-purpose HTML sanitizer.
 
-```bash
-npm install dompurify
-```
-
-The built-in fallback covers common attack vectors but may not catch all edge cases. For maximum security in custom restore flows, use `safeSetInnerHTML` with DOMPurify installed.
+Captured CSS is visual cache data and is not sanitized. Set `includeStyles: false` for routes with user-controlled or sensitive CSS.
 
 ### Sensitive Data
 

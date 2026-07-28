@@ -1,26 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import {
-  sanitizeSnapshotHTML,
-  sanitizeSnapshotHTMLSync,
-  safeSetInnerHTML,
-  safeSetInnerHTMLSync,
-} from '../src/sanitize';
+import { describe, it, expect } from 'vitest';
+import { sanitizeSnapshotHTMLSync } from '../src/sanitize';
 
-/**
- * Sanitization tests cover both sync (fallback-only) and async (DOMPurify/fallback) paths.
- *
- * - sanitizeSnapshotHTMLSync: Always uses built-in fallback sanitizer
- * - sanitizeSnapshotHTML: Uses DOMPurify if available, otherwise fallback
- *
- * DOMPurify IS installed in this monorepo (root package.json), so async tests
- * exercise the DOMPurify path. The fallback path is tested separately using
- * vi.doMock() to simulate DOMPurify being unavailable.
- */
 describe('sanitize', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   describe('fallbackSanitize (via sanitizeSnapshotHTMLSync)', () => {
     describe('dangerous tags removal', () => {
       it('removes script tags', () => {
@@ -134,55 +115,68 @@ describe('sanitize', () => {
     });
 
     describe('unsafe URL removal', () => {
-      it('removes javascript: href', () => {
-        const html = '<a href="javascript:alert(1)">Click</a>';
+      /**
+       * `href`는 태그와 무관하게 항상 제거되므로 scheme 검사에 도달하지 않는다.
+       * scheme 검사가 실제로 도는 속성(`src`/`poster`/`cite`/`background`)으로 검증한다.
+       */
+      it('removes javascript: src', () => {
+        const html = '<img src="javascript:alert(1)" alt="Click">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('javascript:');
-        expect(result).toContain('Click');
+        expect(result).toContain('alt="Click"');
       });
 
-      it('removes javascript: href with whitespace', () => {
-        const html = '<a href="  javascript:alert(1)">Click</a>';
+      it('removes javascript: src with whitespace', () => {
+        const html = '<img src="  javascript:alert(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('javascript:');
       });
 
-      it('removes javascript: href case-insensitive', () => {
-        const html = '<a href="JAVASCRIPT:alert(1)">Click</a>';
+      it('removes javascript: src case-insensitive', () => {
+        const html = '<img src="JAVASCRIPT:alert(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('javascript:');
         expect(result).not.toContain('JAVASCRIPT:');
       });
 
-      it('removes javascript: href with embedded control characters', () => {
-        const html = '<a href="java&#10;script:alert(1)">Click</a>';
+      it('removes javascript: src with embedded control characters', () => {
+        const html = '<img src="java&#10;script:alert(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('href=');
+        expect(result).not.toContain('src=');
       });
 
       it('removes data:text/html URLs with embedded whitespace', () => {
-        const html = '<a href="data: text/html,<p>unsafe</p>">Click</a>';
+        const html = '<video poster="data: text/html,<p>unsafe</p>"></video>';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('href=');
+        expect(result).not.toContain('poster=');
       });
 
       it('removes data:text/html URLs', () => {
-        const html = '<a href="data:text/html,<script>alert(1)</script>">Click</a>';
+        const html = '<img src="data:text/html,<script>alert(1)</script>">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('data:text/html');
       });
 
       it('removes vbscript URLs and control-character variants', () => {
-        const html = '<a href="vB\tsCrIpT:msgbox(1)">Click</a>';
+        const html = '<img src="vB\tsCrIpT:msgbox(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('href=');
+        expect(result).not.toContain('src=');
+      });
+
+      it('removes href regardless of scheme', () => {
+        const html = '<a href="https://example.com">Link</a><a href="/local">Local</a>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).not.toContain('href');
+        expect(result).toContain('Link');
+        expect(result).toContain('Local');
       });
 
       it.each(['png', 'jpeg', 'gif', 'webp', 'avif'])(
@@ -322,133 +316,6 @@ describe('sanitize', () => {
         const result = sanitizeSnapshotHTMLSync('Just plain text');
         expect(result).toBe('Just plain text');
       });
-    });
-  });
-
-  describe('sanitizeSnapshotHTML (async)', () => {
-    // Note: DOMPurify is installed in this monorepo, so these tests use DOMPurify path
-    it('sanitizes with DOMPurify when available', async () => {
-      const html = '<div onclick="alert(1)">Content</div>';
-      const result = await sanitizeSnapshotHTML(html);
-
-      expect(result).not.toContain('onclick');
-      expect(result).toContain('Content');
-    });
-
-    it('applies the raster data URL policy after DOMPurify', async () => {
-      const result = await sanitizeSnapshotHTML(
-        '<img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=" alt="preview">',
-      );
-
-      expect(result).not.toContain('src=');
-    });
-
-    it('removes script tags', async () => {
-      const html = '<div><script>alert("xss")</script>Safe content</div>';
-      const result = await sanitizeSnapshotHTML(html);
-
-      expect(result).not.toContain('<script>');
-      expect(result).toContain('Safe content');
-    });
-
-    it('caches module lookup result for performance', async () => {
-      // First call loads and caches DOMPurify
-      await sanitizeSnapshotHTML('<div>Test 1</div>');
-      // Second call uses cached DOMPurify
-      const result = await sanitizeSnapshotHTML('<div>Test 2</div>');
-
-      expect(result).toContain('Test 2');
-    });
-  });
-
-  describe('sanitizeSnapshotHTML fallback path', () => {
-    it('uses fallback when DOMPurify import fails', async () => {
-      // Reset module cache and mock dompurify to throw
-      vi.resetModules();
-      vi.doMock('dompurify', () => {
-        throw new Error('Module not found');
-      });
-
-      // Dynamic import to get fresh module with mocked dependency
-      const { sanitizeSnapshotHTML: sanitizeWithMock } = await import('../src/sanitize');
-
-      const html = '<div onclick="alert(1)">Content</div>';
-      const result = await sanitizeWithMock(html);
-
-      expect(result).not.toContain('onclick');
-      expect(result).toContain('Content');
-
-      vi.doUnmock('dompurify');
-    });
-  });
-
-  describe('safeSetInnerHTML', () => {
-    it('sanitizes HTML before setting innerHTML', async () => {
-      const container = document.createElement('div');
-      const dangerousHTML = '<div onclick="alert(1)"><script>evil()</script>Safe</div>';
-
-      await safeSetInnerHTML(container, dangerousHTML);
-
-      expect(container.innerHTML).not.toContain('onclick');
-      expect(container.innerHTML).not.toContain('<script>');
-      expect(container.innerHTML).toContain('Safe');
-    });
-
-    it('handles empty HTML', async () => {
-      const container = document.createElement('div');
-      container.innerHTML = 'Original';
-
-      await safeSetInnerHTML(container, '');
-
-      expect(container.innerHTML).toBe('');
-    });
-
-    it('preserves safe HTML structure', async () => {
-      const container = document.createElement('div');
-      const safeHTML = '<div class="wrapper"><p>Paragraph</p><span>Span</span></div>';
-
-      await safeSetInnerHTML(container, safeHTML);
-
-      expect(container.querySelector('.wrapper')).toBeTruthy();
-      expect(container.querySelector('p')?.textContent).toBe('Paragraph');
-      expect(container.querySelector('span')?.textContent).toBe('Span');
-    });
-  });
-
-  describe('safeSetInnerHTMLSync', () => {
-    it('sanitizes HTML synchronously before setting innerHTML', () => {
-      const container = document.createElement('div');
-      const dangerousHTML = '<div onmouseover="alert(1)">Content</div>';
-
-      safeSetInnerHTMLSync(container, dangerousHTML);
-
-      expect(container.innerHTML).not.toContain('onmouseover');
-      expect(container.innerHTML).toContain('Content');
-    });
-
-    it('removes javascript: URLs synchronously', () => {
-      const container = document.createElement('div');
-      const dangerousHTML = '<a href="javascript:void(0)">Link</a>';
-
-      safeSetInnerHTMLSync(container, dangerousHTML);
-
-      expect(container.innerHTML).not.toContain('javascript:');
-    });
-
-    it('handles multiple dangerous elements', () => {
-      const container = document.createElement('div');
-      const dangerousHTML = `
-        <script>alert(1)</script>
-        <iframe src="evil.com"></iframe>
-        <div onclick="alert(2)">Click</div>
-      `;
-
-      safeSetInnerHTMLSync(container, dangerousHTML);
-
-      expect(container.innerHTML).not.toContain('<script>');
-      expect(container.innerHTML).not.toContain('<iframe');
-      expect(container.innerHTML).not.toContain('onclick');
-      expect(container.innerHTML).toContain('Click');
     });
   });
 
