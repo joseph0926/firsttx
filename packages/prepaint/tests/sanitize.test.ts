@@ -115,55 +115,68 @@ describe('sanitize', () => {
     });
 
     describe('unsafe URL removal', () => {
-      it('removes javascript: href', () => {
-        const html = '<a href="javascript:alert(1)">Click</a>';
+      /**
+       * `href`는 태그와 무관하게 항상 제거되므로 scheme 검사에 도달하지 않는다.
+       * scheme 검사가 실제로 도는 속성(`src`/`poster`/`cite`/`background`)으로 검증한다.
+       */
+      it('removes javascript: src', () => {
+        const html = '<img src="javascript:alert(1)" alt="Click">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('javascript:');
-        expect(result).toContain('Click');
+        expect(result).toContain('alt="Click"');
       });
 
-      it('removes javascript: href with whitespace', () => {
-        const html = '<a href="  javascript:alert(1)">Click</a>';
+      it('removes javascript: src with whitespace', () => {
+        const html = '<img src="  javascript:alert(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('javascript:');
       });
 
-      it('removes javascript: href case-insensitive', () => {
-        const html = '<a href="JAVASCRIPT:alert(1)">Click</a>';
+      it('removes javascript: src case-insensitive', () => {
+        const html = '<img src="JAVASCRIPT:alert(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('javascript:');
         expect(result).not.toContain('JAVASCRIPT:');
       });
 
-      it('removes javascript: href with embedded control characters', () => {
-        const html = '<a href="java&#10;script:alert(1)">Click</a>';
+      it('removes javascript: src with embedded control characters', () => {
+        const html = '<img src="java&#10;script:alert(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('href=');
+        expect(result).not.toContain('src=');
       });
 
       it('removes data:text/html URLs with embedded whitespace', () => {
-        const html = '<a href="data: text/html,<p>unsafe</p>">Click</a>';
+        const html = '<video poster="data: text/html,<p>unsafe</p>"></video>';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('href=');
+        expect(result).not.toContain('poster=');
       });
 
       it('removes data:text/html URLs', () => {
-        const html = '<a href="data:text/html,<script>alert(1)</script>">Click</a>';
+        const html = '<img src="data:text/html,<script>alert(1)</script>">';
         const result = sanitizeSnapshotHTMLSync(html);
 
         expect(result).not.toContain('data:text/html');
       });
 
       it('removes vbscript URLs and control-character variants', () => {
-        const html = '<a href="vB\tsCrIpT:msgbox(1)">Click</a>';
+        const html = '<img src="vB\tsCrIpT:msgbox(1)">';
         const result = sanitizeSnapshotHTMLSync(html);
 
-        expect(result).not.toContain('href=');
+        expect(result).not.toContain('src=');
+      });
+
+      it('removes href regardless of scheme', () => {
+        const html = '<a href="https://example.com">Link</a><a href="/local">Local</a>';
+        const result = sanitizeSnapshotHTMLSync(html);
+
+        expect(result).not.toContain('href');
+        expect(result).toContain('Link');
+        expect(result).toContain('Local');
       });
 
       it.each(['png', 'jpeg', 'gif', 'webp', 'avif'])(
