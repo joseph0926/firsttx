@@ -287,7 +287,8 @@ const [data] = useModel(Model);
 
 Prepaint sanitizes all restored HTML to prevent XSS attacks:
 
-- Removes dangerous tags: `<script>`, `<iframe>`, `<form>`, `<object>`, etc.
+- Removes tags that execute code or load remote resources: `<script>`, `<iframe>`, `<object>`, `<embed>`, `<meta>`, `<link>`, `<base>`, etc.
+- Keeps form controls so the restored overlay matches the captured screen, and removes their interaction paths instead: `href`, `action`, `formaction`, `method`, `target`, `autocomplete`, and inline `pointer-events`.
 - Removes event handlers: `onclick`, `onerror`, `onload`, etc.
 - Blocks `javascript:` and `data:text/html` URLs
 
