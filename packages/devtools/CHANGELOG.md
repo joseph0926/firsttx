@@ -1,5 +1,12 @@
 # @firsttx/devtools
 
+## 0.1.35
+
+### Patch Changes
+
+- Updated dependencies [d2be580]
+  - @firsttx/prepaint@0.13.1
+
 ## 0.1.34
 
 ### Patch Changes
