@@ -279,17 +279,17 @@
 
 ### 🐛 Bug Fixes
 
-- **Permissions**: Fixed permission issues in Chrome extension ([#375f9c6](commit-hash))
+- **Permissions**: Fixed permission issues in Chrome extension (`375f9c6`)
 
 ### 🔄 Refactoring
 
-- **BroadcastChannel Fallback**: Added fallback for unsupported environments ([#2612103](commit-hash))
+- **BroadcastChannel Fallback**: Added fallback for unsupported environments (`2612103`)
 
 ### 🎨 Chore
 
-- Fixed icon size in extension manifest ([#71759df](commit-hash))
-- Added metadata for Chrome Web Store listing ([#c834716](commit-hash))
-- Added devtools documentation link ([#9d15a79](commit-hash))
+- Fixed icon size in extension manifest (`71759df`)
+- Added metadata for Chrome Web Store listing (`c834716`)
+- Added devtools documentation link (`9d15a79`)
 
 ## 0.1.1
 

@@ -34,9 +34,9 @@ Anyone who submits issues, pull requests, or participates in discussions.
 For most changes (bug fixes, minor features, documentation):
 
 1. Submit a pull request
-2. Receive at least one approval from a maintainer
-3. Pass all CI checks
-4. Maintainer merges the PR
+2. Pass all required CI checks
+3. Resolve review conversations
+4. The maintainer merges the PR
 
 ### Significant Changes
 
@@ -45,7 +45,7 @@ For changes that affect public API, architecture, or add new packages:
 1. Open a GitHub Discussion or Issue first
 2. Gather feedback from maintainers and community
 3. Submit PR with detailed description of the change
-4. Receive maintainer approval after review
+4. Record the maintainer's decision after review
 
 ### Breaking Changes
 
@@ -54,38 +54,34 @@ Breaking changes require:
 1. GitHub Discussion for design review
 2. Clear migration guide in PR description
 3. Changelog entry documenting the break
-4. Explicit maintainer approval
+4. An explicit maintainer decision
 
 ## Code Review
 
 ### Requirements
 
-- All PRs require at least one approval from a maintainer
-- CI must pass (lint, typecheck, test, build)
+- The repository is operated by one maintainer, so the ruleset requires zero approving reviews
+- CI must pass `Verify`, `Build`, `Security`, and `e2e-smoke`
+- Review conversations must be resolved
 - Changes to published packages require a changeset
 
 ### CODEOWNERS
 
 The [CODEOWNERS](.github/CODEOWNERS) file defines code ownership:
 
-- Package changes require approval from package maintainers
-- CI/workflow changes require maintainer approval
+- Package and workflow changes are routed to the maintainer
+- Code owner review is not a required ruleset condition while the repository has one maintainer
 
 ### Branch Protection
 
-The `main` branch is protected with the following rules:
+The active `main protection` ruleset protects the default branch:
 
 - Require pull request before merging
-- Require at least 1 approval
-- Require status checks to pass (lint, typecheck, test, build)
+- Require zero approving reviews
+- Require branches to be up to date
+- Require `Verify`, `Build`, `Security`, and `e2e-smoke`
 - Require conversation resolution before merging
-- Do not allow bypassing the above settings
-
-To configure (repository admins only):
-
-1. Go to Settings > Branches > Add branch protection rule
-2. Branch name pattern: `main`
-3. Enable the settings above
+- Disallow bypass, force pushes, and branch deletion
 
 ## Release Process
 

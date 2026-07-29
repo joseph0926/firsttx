@@ -260,11 +260,11 @@ function ContactsList() {
 
 ### 🐛 Bug Fixes
 
-- **BroadcastChannel Fallback**: Added fallback for environments where BroadcastChannel is not supported ([#2612103](commit-hash))
+- **BroadcastChannel Fallback**: Added fallback for environments where BroadcastChannel is not supported (`2612103`)
 
 ### 🔄 Refactoring
 
-- **SSR Compatibility**: Prevent crashes when using in SSR framework client components ([#7c498ff](commit-hash))
+- **SSR Compatibility**: Prevent crashes when using in SSR framework client components (`7c498ff`)
 
 ## 0.4.2
 

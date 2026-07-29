@@ -13,6 +13,10 @@
 
 **Reduce blank time on CSR revisits by replaying the last visual state**
 
+FirstTx is for frequently revisited React apps that need to stay client-rendered because
+adopting SSR or a Next.js runtime is not practical. For infrequently used apps, the snapshot
+and persistence layers are usually not worth the added complexity.
+
 ## TL;DR
 
 FirstTx combines three client-side layers for CSR revisits:

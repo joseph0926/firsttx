@@ -21,7 +21,7 @@ npm install @firsttx/local-first zod
 ```
 
 [![npm version](https://img.shields.io/npm/v/@firsttx/local-first.svg)](https://www.npmjs.com/package/@firsttx/local-first)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/joseph0926/firsttx/blob/main/LICENSE)
 
 > Module format: ESM-only. CommonJS users should use `import()` (dynamic import).
 
