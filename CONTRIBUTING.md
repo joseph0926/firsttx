@@ -41,22 +41,6 @@ This project adheres to the [Contributor Covenant Code of Conduct](./CODE_OF_CON
    git checkout -b feat/your-feature-name
    ```
 
-### Project Structure
-
-```
-firsttx/
-├── apps/
-│   ├── docs/          # Documentation site
-│   └── playground/    # Interactive demo
-├── packages/
-│   ├── prepaint/      # Screen capture & restore
-│   ├── local-first/   # IndexedDB sync
-│   ├── tx/            # Transaction management
-│   ├── devtools/      # Chrome DevTools extension
-│   └── shared/        # Shared utilities
-└── docs/              # Additional documentation
-```
-
 ## Development Workflow
 
 ### Running Development Server
@@ -79,7 +63,7 @@ pnpm test
 pnpm test:run
 
 # Run tests for specific package
-pnpm --filter @firsttx/local-first test
+pnpm test:run --filter=@firsttx/local-first
 ```
 
 ### Linting and Type Checking
@@ -128,9 +112,9 @@ pnpm --filter @firsttx/tx build
 
 ### Review Process
 
-1. A maintainer will review your PR
-2. Address any feedback
-3. Once approved, a maintainer will merge the PR
+1. Pass all required CI checks
+2. Address maintainer feedback and resolve review conversations, if any
+3. The maintainer merges the PR
 
 ## Coding Standards
 

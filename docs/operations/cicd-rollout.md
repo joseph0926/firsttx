@@ -1,53 +1,56 @@
 # CI/CD rollout checklist
 
-Use this checklist after the infrastructure pull request has passed the new checks. Do not
-enable the ruleset or the Vercel production deployment checks before the check names have
-appeared on `main` at least once.
+> Status checked on 2026-07-29 against GitHub repository settings, recent `main` runs, and
+> npm registry provenance. Vercel project settings and the npm Trusted Publisher mapping
+> require direct checks in their respective consoles.
 
 ## 1. GitHub security settings
 
-- Enable CodeQL default setup for JavaScript/TypeScript.
-- Confirm that there are no open High or Medium code scanning alerts.
-- Enable Dependabot alerts and Dependabot security updates.
-- Enable grouped Dependabot security updates in repository settings.
-- Keep Dependabot version updates disabled; this repository intentionally does not include
-  `.github/dependabot.yml` because routine update pull requests are not part of its maintenance
-  workflow.
-- Review npm dependencies and pinned GitHub Action SHAs manually at least once per quarter.
-- Change the Actions policy to require actions to be pinned to a full commit SHA.
-- Allow only GitHub-owned actions plus the pnpm, Changesets, Vitest coverage, and OpenSSF
-  Scorecard actions used by this repository.
+- [x] CodeQL default setup is configured for Actions and JavaScript/TypeScript.
+- [x] Secret scanning and push protection are enabled.
+- [ ] Resolve open code-scanning alerts. The current set includes 3 Critical, 3 High, 1 Medium,
+      and 1 Low alert.
+- [ ] Enable Dependabot alerts and Dependabot security updates; both are currently disabled.
+- [ ] Enable grouped Dependabot security updates after Dependabot alerts are active.
+- [x] Keep routine Dependabot version updates disabled. The solo maintainer does not review the
+      weekly version pull requests, so their repeated creation and refresh is noise. The trade-off
+      is that non-security version updates are not raised automatically.
+- [ ] Review non-security dependency drift and pinned GitHub Action revisions before each package
+      release.
+- [ ] Require actions to be pinned to full commit SHAs and restrict the allowed action set.
+      Repository policy currently allows all actions and does not require SHA pinning.
 
 ## 2. Main ruleset
 
-Create and enable a ruleset targeting the `main` branch with these requirements:
-
-- Pull requests are required, with zero required approvals.
-- Branches must be up to date before merging.
-- Required status checks are `Verify`, `Build`, `Security`, and `e2e-smoke`.
-- Conversations must be resolved before merging.
-- Bypass is disabled, including for repository administrators.
-- Force pushes and branch deletion are blocked.
-
-Verify the ruleset with a failing required check and an administrator direct-push attempt.
-Remove the old classic branch protection only after the ruleset has been verified.
+- [x] The active `main protection` ruleset targets the default branch.
+- [x] Pull requests are required with zero required approvals.
+- [x] Branches must be up to date before merging.
+- [x] Required checks are `Verify`, `Build`, `Security`, and `e2e-smoke`.
+- [x] Conversations must be resolved before merging.
+- [x] Bypass is disabled and force pushes and branch deletion are blocked.
+- [x] The old classic branch protection is absent.
 
 ## 3. Vercel deployment checks
 
-Keep Git Integration and pull request previews enabled for both `firsttx-docs` and
-`firsttx-playground`. Add GitHub Actions deployment checks to Production so that promotion
-waits for `Verify`, `Build`, `Security`, and `e2e-smoke`.
-
-Verify that a pull request preview is available while checks are running and that the
-Production domain is promoted only after all four checks succeed.
+- [x] GitHub records Vercel Production deployments for `firsttx-docs` and
+      `firsttx-playground`, and Preview environments exist for both projects.
+- [ ] Confirm in Vercel that pull request previews remain available while checks run.
+- [ ] Configure Production promotion to wait for `Verify`, `Build`, `Security`, and
+      `e2e-smoke`. For `main` revision `720fb0188572d60820bd26d3a78dea96b2052a98`,
+      Playground and Docs Production completed before the `e2e-playwright` and `Pull Request`
+      workflows, so the gate is not currently effective.
 
 ## 4. Trusted publishing
 
-- Confirm that the npm Trusted Publisher mapping points to `.github/workflows/release.yml`.
-- Confirm that the `npm-publish` GitHub environment exists and has no npm token secret.
-- Do not merge the existing Changesets release pull request until the new version job has
-  updated it and all required checks pass.
-- After merging it, verify npm package versions and provenance for every published package.
+- [ ] Confirm in npm that the Trusted Publisher mapping points to
+      `.github/workflows/release.yml`; GitHub cannot expose the npm-side mapping.
+- [x] The `npm-publish` GitHub environment exists and has no environment secrets.
+- [x] The release workflow publishes from the revision that passed the required checks and does
+      not provide an npm token.
+- [x] The latest `prepaint`, `local-first`, `tx`, `devtools`, and `shared` packages have npm
+      SLSA provenance.
+- [ ] For each future Changesets release pull request, wait for the version update and all
+      required checks before merging.
 
 Use [npm rollback](./npm-rollback.md) for a bad release. Do not test rollback by deprecating a
 real package during rollout.

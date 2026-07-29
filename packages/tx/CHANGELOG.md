@@ -250,20 +250,20 @@ No breaking changes. Existing code continues to work without modifications.
 
 ### ✨ Features
 
-- **AbortSignal Support**: Step functions now optionally receive an `AbortSignal` parameter, enabling explicit cancellation of in-flight operations when timeout occurs ([#ce6230e](commit-hash))
+- **AbortSignal Support**: Step functions now optionally receive an `AbortSignal` parameter, enabling explicit cancellation of in-flight operations when timeout occurs (`ce6230e`)
   - Prevents resource waste from abandoned operations
   - Native integration with `fetch()` API
   - 100% backward compatible (signal parameter is optional)
 
 ### 🐛 Bug Fixes
 
-- **Timeout Cancellation**: Fixed bug where operations continued running in background after timeout ([#ce6230e](commit-hash))
+- **Timeout Cancellation**: Fixed bug where operations continued running in background after timeout (`ce6230e`)
   - Previously, `Promise.race()` would reject but the losing promise continued executing
   - Now properly aborts ongoing operations via `AbortController`
 
 ### 🔄 Refactoring
 
-- **SSR Compatibility**: Prevent crashes when using FirstTx in SSR framework client components ([#7c498ff](commit-hash))
+- **SSR Compatibility**: Prevent crashes when using FirstTx in SSR framework client components (`7c498ff`)
 
 ### 📚 Documentation
 

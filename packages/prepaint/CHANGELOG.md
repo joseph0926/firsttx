@@ -176,11 +176,11 @@ Add route-key override and sensitive-field scrubbing to snapshot capture; make c
 
 ### 🔄 Refactoring
 
-- **SSR Compatibility**: Prevent crashes when using in SSR framework client components ([#7c498ff](commit-hash))
+- **SSR Compatibility**: Prevent crashes when using in SSR framework client components (`7c498ff`)
 
 ### 🐛 Bug Fixes
 
-- **Node Version**: Fixed compatibility with Node.js version constraints ([#5a28b43](commit-hash))
+- **Node Version**: Fixed compatibility with Node.js version constraints (`5a28b43`)
 
 ## 0.4.1
 

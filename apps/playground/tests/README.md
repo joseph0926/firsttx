@@ -22,43 +22,6 @@ Regression guard는 다음 evidence를 함께 가져야 합니다.
 
 완료 보고에는 특정한 counterexample, 이전 구현이 보인 결과, 이를 거부하는 guard, 보존한 기존 coverage를 포함합니다. dirty worktree를 되돌려 failure witness를 만들지 않으며, 현재 source 대조나 안전한 negative fixture로 증명합니다.
 
-## 현재 테스트
-
-| 파일                               | 범위                                                              |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| `home.smoke.spec.ts`               | 홈, 투어 진입, 검증 기준, 모바일 reflow                           |
-| `prepaint-handoff.spec.ts`         | Prepaint 오버레이와 React 전환 계약                               |
-| `prepaint-heavy.spec.ts`           | Heavy Page의 cold/warm 브라우저 측정                              |
-| `prepaint-route-switching.spec.ts` | 경로별 방문·측정·서버 동기화                                      |
-| `instant-cart.metrics.spec.ts`     | 요청 우선 방식과 낙관적 반영의 측정값                             |
-| `sync-staleness.spec.ts`           | stale/never mount 계약과 schema v1 artifact                       |
-| `sync-timing.contract.spec.ts`     | replace-before/during/after rollback의 고정 interleaving          |
-| `instant-cart.contract.spec.ts`    | optimistic paint, acknowledgement, rejection rollback의 고정 순서 |
-| `metric-artifact.test.ts`          | artifact·manifest·loader 경계                                     |
-| `tx-concurrent.limitation.spec.ts` | seeded overlap 결과와 shared cancel limitation                    |
-| `tx-concurrent.metrics.spec.ts`    | 겹치는 호출의 결과와 공유 상태 측정                               |
-| `tx-rollback.spec.ts`              | 실패 뒤 역순 보상 처리                                            |
-| `tx-network-chaos.spec.ts`         | 고정 실패 사례의 재시도·소진·롤백                                 |
-
-`Suspense Cache Flow`의 전용 계약 테스트는 아직 추가하지 않았습니다. 해당 항목은 [`docs/architecture/roadmap.md`](../../../docs/architecture/roadmap.md)의 1-C(P0-I)에서 추적합니다.
-
-## 실행
-
-저장소 루트에서 실행합니다.
-
-```bash
-pnpm --filter playground test:contract
-pnpm --filter playground test:e2e --workers=2
-```
-
-특정 파일만 실행할 때는 Playwright executable을 직접 호출합니다.
-
-```bash
-pnpm --filter playground exec playwright test \
-  tests/tx-rollback.spec.ts \
-  --reporter=line
-```
-
 ## 측정 결과
 
 측정값을 기록하는 테스트는 `tests/utils/metrics.ts`를 사용하며 저장소 루트의 `.metrics/`에 결과를 생성합니다. `sync-staleness`와 `sync-instant-cart`는 source, package fingerprint, 실행 환경, 측정 시각과 current/last-success 상태를 포함하는 schema v1 artifact를 생성합니다. Instant Cart benchmark는 3회 warm-up 뒤 20개 raw sample, 실패 sample 수, median과 nearest-rank p95를 기록합니다. 기존 benchmark 파일은 schema 전환 전까지 legacy로 분리합니다.
@@ -69,4 +32,4 @@ pnpm --filter playground exec playwright test \
 pnpm --filter playground metrics:sync
 ```
 
-GitHub Pages의 `https://joseph0926.github.io/firsttx/`가 canonical metric host입니다. `/lab`은 `sync-staleness` artifact를 표시하고, source mismatch·24시간 만료·fetch/schema 오류와 미게시 scenario를 성공값으로 대체하지 않습니다. 실제 `main` 배포와 production smoke 확인 전까지 P0-E 전체 상태는 진행 중입니다.
+GitHub Pages의 `https://joseph0926.github.io/firsttx/`가 canonical metric host입니다. `/lab`은 manifest에 게시된 artifact의 source, freshness와 current/last-success 상태를 읽으며, fetch/schema 오류와 미게시 scenario를 성공값으로 대체하지 않습니다. 현재 rollout 상태와 남은 시나리오는 [Playground 계약](../../../docs/playground-contract.md)이 소유합니다.
