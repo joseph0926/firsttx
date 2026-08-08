@@ -114,7 +114,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
         model
           .getSnapshot()
           .then(async (data) => {
-            if (data) {
+            if (data !== null) {
               const history = await model.getHistory();
               cacheManager.updateWithData(data, history.updatedAt);
               cacheManager.setHistory(history);
@@ -157,7 +157,7 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
   emitModelEvent('init', {
     modelName: model.name,
     ttl: model.ttl,
-    hasInitialData: !!options.initialData,
+    hasInitialData: options.initialData !== undefined,
     version: options.version,
   });
 

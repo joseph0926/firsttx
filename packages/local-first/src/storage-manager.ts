@@ -43,10 +43,10 @@ export class StorageManager<T> {
       return null;
     }
 
-    if (this.version && stored._v !== this.version) {
+    if (this.version !== undefined && stored._v !== this.version) {
       await storage.delete(this.name);
 
-      if (this.initialData) {
+      if (this.initialData !== undefined) {
         const now = Date.now();
         await this.save(this.initialData);
         return {
