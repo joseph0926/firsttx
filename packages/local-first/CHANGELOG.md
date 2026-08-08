@@ -1,5 +1,11 @@
 # @firsttx/local-first
 
+## 0.12.0
+
+### Minor Changes
+
+- 383426f: Add the `tx_journal` and `settings` object stores to the local-first IndexedDB schema and bump the database to version 2. The upgrade is additive: existing v1 `models` data is preserved untouched, and the two new stores are created only when absent, so the same upgrade path also covers databases that already carry them. `tx_journal` uses an in-line `id` key and stores `TxJournalEntry` records (`id`, `status`, `updatedAt`, and an opaque consumer-owned `payload`); `settings` is a key/value store like `models`. `Storage` exposes minimal accessors for both: `putJournalEntry()`, `getJournalEntries()`, `deleteJournalEntry()`, `getSetting()`, and `setSetting()`. `TxJournalEntry` and `TxJournalStatus` are exported from the package root. Nothing writes to the journal yet — the transaction-journaling consumer lands separately. Note that IndexedDB cannot downgrade a database, so once a client opens the store at version 2, an older version of this package can no longer open it.
+
 ## 0.11.5
 
 ### Patch Changes
