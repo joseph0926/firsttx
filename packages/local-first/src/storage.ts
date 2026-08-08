@@ -1,10 +1,17 @@
-import { convertDOMException, StorageError } from './errors';
-import type { StoredModel } from './types';
+import {
+  convertDOMException,
+  StorageError,
+  type StorageErrorContext,
+  type StorageOperation,
+} from './errors';
+import type { StoredModel, TxJournalEntry } from './types';
 
 const STORAGE_CONFIG = {
   DB_NAME: 'firsttx-local-first',
-  DB_VERSION: 1,
+  DB_VERSION: 2,
   STORE_MODELS: 'models',
+  STORE_TX_JOURNAL: 'tx_journal',
+  STORE_SETTINGS: 'settings',
 } as const;
 
 /**
@@ -70,11 +77,55 @@ class Storage {
             db.createObjectStore(STORAGE_CONFIG.STORE_MODELS);
           }
 
-          // TODO: Phase 1 - tx_journal, settings stores
+          if (!db.objectStoreNames.contains(STORAGE_CONFIG.STORE_TX_JOURNAL)) {
+            db.createObjectStore(STORAGE_CONFIG.STORE_TX_JOURNAL, { keyPath: 'id' });
+          }
+
+          if (!db.objectStoreNames.contains(STORAGE_CONFIG.STORE_SETTINGS)) {
+            db.createObjectStore(STORAGE_CONFIG.STORE_SETTINGS);
+          }
         };
       });
     }
     return this.dbPromise;
+  }
+
+  private async run<R>(
+    storeName: string,
+    mode: IDBTransactionMode,
+    operation: StorageOperation,
+    key: string | undefined,
+    exec: (store: IDBObjectStore) => IDBRequest,
+  ): Promise<R> {
+    const db = await this.getDB();
+
+    return new Promise<R>((resolve, reject) => {
+      const tx = db.transaction(storeName, mode);
+      const request = exec(tx.objectStore(storeName));
+
+      request.onsuccess = () => {
+        resolve(request.result as R);
+      };
+
+      request.onerror = () => {
+        const err = request.error;
+        const context: StorageErrorContext = { key, operation };
+        const target = key ? `key "${key}"` : `store "${storeName}"`;
+
+        if (err) {
+          reject(convertDOMException(err, context));
+        } else {
+          reject(
+            new StorageError(
+              `Failed to ${operation} ${target}: Unknown error`,
+              'UNKNOWN',
+              true,
+              context,
+            ),
+          );
+        }
+      };
+    });
   }
 
   async get<T>(key: string): Promise<StoredModel<T> | null> {
@@ -162,6 +213,52 @@ class Storage {
         }
       };
     });
+  }
+
+  async putJournalEntry<T>(entry: TxJournalEntry<T>): Promise<void> {
+    await this.run<IDBValidKey>(
+      STORAGE_CONFIG.STORE_TX_JOURNAL,
+      'readwrite',
+      'set',
+      entry.id,
+      (store) => store.put(entry),
+    );
+  }
+
+  async getJournalEntries<T>(): Promise<TxJournalEntry<T>[]> {
+    const entries = await this.run<TxJournalEntry<T>[] | undefined>(
+      STORAGE_CONFIG.STORE_TX_JOURNAL,
+      'readonly',
+      'get',
+      undefined,
+      (store) => store.getAll(),
+    );
+
+    return entries ?? [];
+  }
+
+  async deleteJournalEntry(id: string): Promise<void> {
+    await this.run<undefined>(STORAGE_CONFIG.STORE_TX_JOURNAL, 'readwrite', 'delete', id, (store) =>
+      store.delete(id),
+    );
+  }
+
+  async getSetting<T>(key: string): Promise<T | null> {
+    const value = await this.run<T | undefined>(
+      STORAGE_CONFIG.STORE_SETTINGS,
+      'readonly',
+      'get',
+      key,
+      (store) => store.get(key),
+    );
+
+    return value ?? null;
+  }
+
+  async setSetting<T>(key: string, value: T): Promise<void> {
+    await this.run<IDBValidKey>(STORAGE_CONFIG.STORE_SETTINGS, 'readwrite', 'set', key, (store) =>
+      store.put(value, key),
+    );
   }
 }
 

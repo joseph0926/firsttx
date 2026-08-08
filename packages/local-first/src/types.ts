@@ -13,6 +13,26 @@ export type StoredModel<T> = {
 };
 
 /**
+ * TxJournalStatus
+ * @description Lifecycle status recorded for a journaled transaction.
+ */
+export type TxJournalStatus = 'pending' | 'running' | 'committed' | 'rolled-back' | 'failed';
+
+/**
+ * TxJournalEntry
+ * @description Durable transaction journal record persisted to IndexedDB.
+ */
+export type TxJournalEntry<T = unknown> = {
+  /** Unique entry id, used as the object store key. */
+  id: string;
+  status: TxJournalStatus;
+  /** Unix timestamp in milliseconds (epoch ms) when this entry was written. */
+  updatedAt: number;
+  /** Journaling consumer's payload (e.g. step state). Opaque to storage. */
+  payload: T;
+};
+
+/**
  * ModelOptions
  * @description Options you can pass to `defineModel()` when declaring a model.
  */
