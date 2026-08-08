@@ -1,8 +1,8 @@
 # T1 — deterministic index plan
 
-- 상태: 질문 필요, 구현 미시작
-- 현재 작업 분류: L-A (계획과 SPEC 문서화)
-- 후속 구현 예상 분류: M-C
+- 상태: 구현 완료, native 검증 통과
+- 현재 작업 분류: M-C (구현과 검증)
+- 최초 작업 분류: L-A (계획과 SPEC 문서화)
 - packet mode: interactive
 - 작성일: 2026-08-07
 - 상위 계획: [FirstTx Docs RAG defense plan](../plans/2026-08-07-rag-defense-plan.md)
@@ -29,18 +29,14 @@ T1은 locale별 canonical source를 읽고 content revision, versioned namespace
 - 기존 `ai` 명령의 이름과 reset-first 실행 순서는 T1에서 유지한다.
 - 새 dependency를 추가하지 않는다.
 
-## 미정 질문
+## 해소된 질문
 
-아래 질문은 future T1 implementation의 load-bearing behavior다.
+두 질문 모두 2026-08-08 사용자가 권장안으로 확정했다.
 
-1. 해당 locale의 canonical 문서가 0개일 때 `ai:plan`이 non-zero exit로 실패해야 하는가, 아니면 count 0의 plan을 출력해야 하는가?
-   - 권장: 실패. 빈 staging namespace를 정상 plan으로 취급하지 않는 편이 이후 activation 경계와 일치한다.
-2. T1의 CLI가 항상 KO/EN plan을 함께 출력해야 하는가, `--locale ko|en` 선택도 처음부터 지원해야 하는가?
-   - 권장: KO/EN을 항상 함께 출력. 첫 task의 CLI surface와 test matrix를 줄이고 locale별 실행은 실제 index task에서 결정한다.
+1. 해당 locale의 canonical 문서가 0개일 때 `ai:plan` 동작 → **non-zero exit로 실패**. 빈 staging namespace를 정상 plan으로 취급하지 않아 이후 activation 경계와 일치시킨다. `createIndexPlan`이 stable message로 throw하고 CLI가 stderr + exit 1로 변환한다.
+2. T1의 CLI surface → **KO/EN 항상 함께 출력**. 인자를 받지 않으며 `--locale` 선택은 실제 index task에서 다시 판단한다.
 
-사용자 답변 전에는 권장안을 임시 가정으로만 유지하고 production/test code를 수정하지 않는다.
-
-## 임시 가정
+## 확정 가정
 
 - 빈 locale 입력은 stable error message와 non-zero exit로 거절한다.
 - `ai:plan`은 인자를 받지 않고 KO, EN 순서의 JSON array 하나를 stdout에 출력한다.
@@ -218,8 +214,8 @@ pnpm --filter @firsttx/docs ai:plan
 - AC-T9: 기존 `ai` package script와 reset-first orchestration diff가 없다.
 - AC-T10: README가 `ai:plan` read-only와 기존 `ai` mutation 경계를 구분한다.
 - AC-T11: 관련 unit test, docs typecheck, lint와 전체 unit test가 통과한다.
-
-AC-T8의 빈 locale 성공/실패 기대값은 미정 질문 1의 답에 따라 구현 전에 추가한다. AC-T8의 locale 선택 입력은 미정 질문 2의 답에 따라 갱신한다.
+- AC-T12: 해당 locale의 canonical 문서가 0개이면 stable message를 stderr로 보내고 non-zero exit로 종료한다.
+- AC-T13: `ai:plan`은 인자를 받지 않고 KO, EN 순서의 JSON array 하나만 출력한다.
 
 ## Edge cases
 
@@ -248,21 +244,21 @@ AC-T8의 빈 locale 성공/실패 기대값은 미정 질문 1의 답에 따라 
 
 | Claim                                                        | Type              | 연결 AC    | Planned evidence                                               | Safety        | 현재 coverage |
 | ------------------------------------------------------------ | ----------------- | ---------- | -------------------------------------------------------------- | ------------- | ------------- |
-| C1 revision/namespace가 결정적이고 입력 변화에 민감함        | executable        | AC-T1~T5   | pure unit test                                                 | safe-no-write | uncovered     |
-| C2 source/chunk 수와 model contract가 실제 producer와 일치함 | executable/static | AC-T6~T7   | canonical fixture unit test, call-site diff review             | safe-no-write | uncovered     |
-| C3 `ai:plan`이 JSON-only이고 외부 side effect가 없음         | executable        | AC-T8~T9   | credential-unset CLI, import graph와 existing `ai` diff review | safe-no-write | uncovered     |
-| C4 문서와 native checks가 T1 경계를 보존함                   | static/executable | AC-T10~T11 | README inspection, docs typecheck/lint/full unit test          | safe-no-write | uncovered     |
+| C1 revision/namespace가 결정적이고 입력 변화에 민감함        | executable        | AC-T1~T5   | pure unit test                                                 | safe-no-write | covered       |
+| C2 source/chunk 수와 model contract가 실제 producer와 일치함 | executable/static | AC-T6~T7   | canonical fixture unit test, call-site diff review             | safe-no-write | covered       |
+| C3 `ai:plan`이 JSON-only이고 외부 side effect가 없음         | executable        | AC-T8~T9   | credential-unset CLI, import graph와 existing `ai` diff review | safe-no-write | covered       |
+| C4 문서와 native checks가 T1 경계를 보존함                   | static/executable | AC-T10~T11 | README inspection, docs typecheck/lint/full unit test          | safe-no-write | covered       |
+| C5 빈 locale과 CLI surface가 확정 계약대로 동작함            | executable        | AC-T12~T13 | throw unit test, 인자 없는 CLI 실행                            | safe-no-write | covered       |
 
 ## 계획 검증 명령
 
 구현 뒤에만 실행한다.
 
 ```bash
-asdf current nodejs
+if command -v asdf >/dev/null 2>&1; then asdf current nodejs; else node --version; fi
 command -v node
 command -v pnpm
-corepack --version
-pnpm --pm-on-fail=error --version
+[ "pnpm@$(pnpm --version)" = "$(node -p "require('./package.json').packageManager")" ]
 pnpm --filter @firsttx/docs test:run
 pnpm --filter @firsttx/docs typecheck
 pnpm --filter @firsttx/docs lint
@@ -279,21 +275,30 @@ credential을 제거한 `ai:plan` 실행은 `tsx` IPC sandbox 제약이 있으�
 | 2026-08-07 | evidence | indexing과 runtime query embedding은 같은 model ID를 사용하지만 현재 literal owner가 두 곳이다.                                  |
 | 2026-08-07 | evidence | 기존 `ai` 명령은 cache 삭제와 active locale namespace reset을 수행하므로 T1에서 실행하지 않는다.                                 |
 | 2026-08-07 | gap      | 빈 locale과 CLI locale selection behavior는 사용자 결정이 필요하다.                                                              |
+| 2026-08-08 | evidence | 사용자가 두 미정 질문을 권장안으로 확정해 gate를 닫았다.                                                                         |
+| 2026-08-08 | evidence | `scripts/docs-anchors.ts -> lib/docs/anchor-contract` 선례에 맞춰 공유 계약을 `lib/ai/index-contract.ts`에 배치했다.             |
+| 2026-08-08 | evidence | `readCanonicalMdxDocuments`의 `localeCompare` 정렬에 의존하지 않고 planner가 codepoint 비교로 다시 정렬해 결정성을 소유한다.     |
+| 2026-08-08 | evidence | credential 5개를 제거한 `ai:plan`이 KO 9 source/88 chunk, EN 9 source/99 chunk plan을 출력하고 2회 실행 결과가 동일했다.         |
+| 2026-08-08 | evidence | `plan.ts` import graph에 env, provider, cache, vector module이 없다. `main.ts` diff는 0이고 `ai` script 값도 그대로다.           |
 
 ## Closure
 
-- 현재 verdict: OPEN — documentation only
-- implementation: NOT_STARTED
-- verification evidence: NOT_RUN
-- change risk: future implementation normal, 전체 lifecycle high
-- evidence confidence: unavailable until implementation
-- state drift: N/A
-- native review: N/A
-- 다음 gate: 미정 질문 2개 답변과 구현 시작 신호
+- 현재 verdict: CLOSED — AC-T1~T13 충족
+- implementation: DONE
+- verification evidence: typecheck, lint, format:check, `test:run` 5 files 23 tests, production build, credential-unset `ai:plan` 2회 모두 통과
+- change risk: normal — 신규 read-only 경로이며 기존 mutation orchestration diff 없음
+- evidence confidence: high — 결정성, revision sensitivity, count parity, side-effect 부재를 각각 실행으로 확인
+- state drift: 없음 — 외부 provider 상태 미변경
+- native review: 통과
+- 다음 gate: T2 versioned run manifest SPEC 작성. 시작 전 상위 계획의 Upstash activation postcondition gate를 닫는다.
 
 ## Reconciliation log
 
-| 날짜       | 변경                                             | 이유                                        | 영향                              |
-| ---------- | ------------------------------------------------ | ------------------------------------------- | --------------------------------- |
-| 2026-08-07 | T1을 전체 lifecycle 문서에서 분리                | 전체 plan과 첫 구현 계약의 ownership을 구분 | T1 구현은 이 packet만 gate로 사용 |
-| 2026-08-07 | 구현을 시작하지 않는 interactive packet으로 고정 | 사용자 요청이 문서화까지만 허용             | production/test/package 변경 없음 |
+| 날짜       | 변경                                                | 이유                                                                          | 영향                                                             |
+| ---------- | --------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 2026-08-07 | T1을 전체 lifecycle 문서에서 분리                   | 전체 plan과 첫 구현 계약의 ownership을 구분                                   | T1 구현은 이 packet만 gate로 사용                                |
+| 2026-08-07 | 구현을 시작하지 않는 interactive packet으로 고정    | 사용자 요청이 문서화까지만 허용                                               | production/test/package 변경 없음                                |
+| 2026-08-08 | 미정 질문 2개를 권장안으로 확정하고 AC-T12~T13 추가 | 사용자 답변으로 gate 종료                                                     | 빈 locale은 throw, CLI는 인자 없는 KO/EN 출력으로 고정           |
+| 2026-08-08 | 검증 명령의 asdf 전제와 무효한 pnpm 플래그 교체     | 이 머신은 fnm을 쓰고 `--pm-on-fail`이 아무것도 검증하지 않음                  | asdf 있으면 우선 사용, packageManager pin 직접 비교              |
+| 2026-08-08 | T1 구현과 native 검증 완료                          | 사용자 구현 시작 신호                                                         | packet verdict를 CLOSED로 전환, 다음 gate는 T2                   |
+| 2026-08-08 | `IndexPlan.namespace`와 `buildIndexNamespace` 제거  | T2′ build artifact 결정으로 vector namespace 개념이 폐기됨 (code review 후속) | ai:plan 출력에서 namespace 필드 제거, revision·count 계약은 불변 |

@@ -27,7 +27,7 @@ The Prepaint overlay is non-interactive. Clicks being unavailable during replay 
 
 ## Local-First data is not ready
 
-- `useModel` synchronously returns the in-memory external-store snapshot, while IndexedDB loading is asynchronous. Handle the initial `loading` state.
+- `useModel` synchronously returns the in-memory external-store snapshot, while IndexedDB loading is asynchronous. The data can therefore look empty on the very first render. Handle the initial `loading` state.
 - When stored data fails the Zod schema, a `validation.error` event is emitted and the stored value may be removed.
 - `useSuspenseSyncedModel` throws the Promise returned by `getSyncPromise()` when both data and error are absent. Provide both an ErrorBoundary and a Suspense fallback.
 - When `broadcast.fallback` or `broadcast.skipped` appears, do not assume live cross-tab updates. Provide refresh or manual sync.

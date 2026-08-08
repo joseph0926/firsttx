@@ -27,7 +27,7 @@ Prepaint overlay는 상호작용을 받지 않습니다. replay 중 클릭이 �
 
 ## Local-First data가 준비되지 않음
 
-- `useModel`은 메모리의 external-store snapshot을 동기 반환하지만 IndexedDB load는 비동기입니다. 초기 `loading` 상태를 처리하세요.
+- `useModel`은 메모리의 external-store snapshot을 동기 반환하지만 IndexedDB load는 비동기입니다. 그래서 첫 렌더에서는 data가 비어 보일 수 있습니다. 초기 `loading` 상태를 처리하세요.
 - 저장 data가 Zod schema와 맞지 않으면 `validation.error`가 기록되고 해당 저장 값이 삭제될 수 있습니다.
 - `useSuspenseSyncedModel`은 data와 error가 없을 때 `getSyncPromise()`이 반환한 Promise를 throw합니다. ErrorBoundary와 Suspense fallback을 함께 두세요.
 - `broadcast.fallback` 또는 `broadcast.skipped`가 보이면 실시간 탭 동기화를 가정하지 말고 새로고침이나 수동 sync를 제공하세요.
