@@ -1,4 +1,5 @@
-import { Index } from "@upstash/vector";
+import artifactJson from "./index-artifact.json";
+import { cosineSimilarity, decodeEmbeddings, normalizeScore, type PackedIndexArtifact } from "./artifact-contract";
 
 export type Locale = "ko" | "en";
 
@@ -13,39 +14,55 @@ export interface SearchResult {
   };
 }
 
-let indexInstance: Index | null = null;
+const artifact = artifactJson as unknown as PackedIndexArtifact;
 
-function getIndex() {
-  if (indexInstance) {
-    return indexInstance;
+let packedEmbeddings: Float32Array | null = null;
+
+function getEmbeddings(): Float32Array {
+  if (!packedEmbeddings) {
+    packedEmbeddings = decodeEmbeddings(artifact.embeddings, artifact.chunks.length, artifact.dimensions);
+    if (!Object.isFrozen(artifact)) {
+      artifact.embeddings = "";
+    }
   }
 
-  const url = process.env.UPSTASH_VECTOR_REST_URL;
-  const token = process.env.UPSTASH_VECTOR_REST_TOKEN;
-
-  if (!url || !token) {
-    throw new Error("UPSTASH_VECTOR_REST_URL and UPSTASH_VECTOR_REST_TOKEN are required");
-  }
-
-  indexInstance = new Index({ url, token });
-  return indexInstance;
+  return packedEmbeddings;
 }
 
-export async function searchDocs(embedding: number[], topK = 5, minScore = 0.5, locale: Locale = "ko"): Promise<SearchResult[]> {
-  const index = getIndex();
+export function getIndexSummary() {
+  return {
+    embeddingModel: artifact.embeddingModel,
+    indexContractVersion: artifact.indexContractVersion,
+    dimensions: artifact.dimensions,
+    chunkCount: artifact.chunks.length,
+    revisions: artifact.revisions,
+  };
+}
 
-  const results = await index.namespace(locale).query({
-    vector: embedding,
-    topK,
-    includeMetadata: true,
-  });
+export function searchDocs(embedding: number[], topK = 5, minScore = 0.5, locale: Locale = "ko"): SearchResult[] {
+  const packed = getEmbeddings();
+  const scored: SearchResult[] = [];
 
-  return results
-    .filter((r) => r.metadata)
-    .filter((r) => r.score >= minScore)
-    .map((r) => ({
-      id: String(r.id),
-      score: r.score,
-      metadata: r.metadata as SearchResult["metadata"],
-    }));
+  for (let index = 0; index < artifact.chunks.length; index++) {
+    const chunk = artifact.chunks[index];
+    if (chunk.locale !== locale) continue;
+
+    const similarity = cosineSimilarity(embedding, packed, index * artifact.dimensions, artifact.dimensions);
+
+    scored.push({
+      id: chunk.id,
+      score: normalizeScore(similarity),
+      metadata: {
+        title: chunk.title,
+        section: chunk.section,
+        content: chunk.content,
+        source: chunk.source,
+      },
+    });
+  }
+
+  return scored
+    .sort((left, right) => right.score - left.score)
+    .slice(0, topK)
+    .filter((result) => result.score >= minScore);
 }

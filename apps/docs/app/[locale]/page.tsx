@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LandingRedesign } from "@/components/landing/landing-redesign";
-import { routing } from "@/i18n/routing";
+import { routing, isSupportedLocale } from "@/i18n/routing";
+import { notFound } from "next/navigation";
 
 type LandingPageProps = {
   params: Promise<{
@@ -78,10 +79,14 @@ function LandingJsonLd({ locale }: { locale: string }) {
 export default async function LandingPage({ params }: LandingPageProps) {
   const { locale } = await params;
 
+  if (!isSupportedLocale(locale)) {
+    notFound();
+  }
+
   return (
     <>
       <LandingJsonLd locale={locale} />
-      <LandingRedesign locale={locale as "ko" | "en"} />
+      <LandingRedesign locale={locale} />
     </>
   );
 }

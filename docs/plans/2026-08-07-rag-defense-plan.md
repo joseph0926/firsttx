@@ -16,7 +16,7 @@
 
 현재 RAG는 canonical MDX를 정규화하고 locale별로 chunk와 embedding을 만든 뒤 Upstash Vector의 `ko`, `en` namespace에 저장한다. Chat runtime은 같은 locale namespace를 직접 검색한다.
 
-현재 indexing 명령은 embedding cache를 전체 삭제하고 활성 namespace를 reset한 뒤 upsert한다. reset 이후 embedding 또는 upsert가 실패하면 사용자가 읽는 index가 비거나 부분 상태가 될 수 있다. 또한 어떤 content revision이 활성인지, 마지막 run이 왜 실패했는지, 실제 query가 어떤 문서를 검색했는지, 고정 질문에서 retrieval 품질이 유지되는지를 확인할 durable artifact가 없다.
+현재 indexing 명령은 `emb:` prefix의 embedding cache를 전체 삭제하고(이 prefix는 runtime query embedding cache가 함께 사용) 활성 namespace를 reset한 뒤 upsert한다. reset 이후 embedding 또는 upsert가 실패하면 사용자가 읽는 index가 비거나 부분 상태가 될 수 있다. 또한 어떤 content revision이 활성인지, 마지막 run이 왜 실패했는지, 실제 query가 어떤 문서를 검색했는지, 고정 질문에서 retrieval 품질이 유지되는지를 확인할 durable artifact가 없다.
 
 이 계획의 핵심은 새 chatbot을 만드는 것이 아니라 다음 producer-consumer 경로를 방어하는 것이다.
 
@@ -38,17 +38,18 @@ IndexRun + ActiveIndexPointer
 
 ## 현재 기준선
 
-| 경로                                   | 현재 책임                               | 기준선                                                            |
-| -------------------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
-| `apps/docs/content/docs/*.{ko,en}.mdx` | 화면과 RAG가 공유하는 canonical content | 9개 document id의 KO/EN pair 18개                                 |
-| `apps/docs/scripts/canonical-mdx.ts`   | MDX normalization                       | 화면 전용 metadata와 JSX를 검색 가능한 Markdown으로 변환          |
-| `apps/docs/scripts/chunk-md.ts`        | chunking                                | H1/H2/H3 경계, 최소 100자, 최대 2,000자                           |
-| `apps/docs/scripts/main.ts`            | indexing orchestration                  | cache 삭제 후 locale별 reset, embedding, upsert                   |
-| `apps/docs/scripts/vector.ts`          | vector mutation                         | locale namespace reset, batch upsert, query                       |
-| `apps/docs/lib/vector/search.ts`       | runtime retrieval                       | 고정 locale namespace, 기본 topK 5, minScore 0.5                  |
-| `apps/docs/lib/ai/rag.ts`              | prompt context                          | 최대 4,000자 context, locale prompt, UNKNOWN 규칙                 |
-| `apps/docs/app/api/chat/route.ts`      | Chat HTTP API                           | 입력/locale 검증, rate limit, retrieval, streaming, typed failure |
-| `apps/docs/README.md`                  | 운영 경계                               | `ai`가 외부 상태 변경 명령임을 명시                               |
+| 경로                                     | 현재 책임                               | 기준선                                                                    |
+| ---------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
+| `apps/docs/content/docs/*.{ko,en}.mdx`   | 화면과 RAG가 공유하는 canonical content | 9개 document id의 KO/EN pair 18개                                         |
+| `apps/docs/scripts/canonical-mdx.ts`     | MDX normalization                       | 화면 전용 metadata와 JSX를 검색 가능한 Markdown으로 변환                  |
+| `apps/docs/scripts/chunk-md.ts`          | chunking                                | H1/H2/H3 경계, 최소 100자, 최대 2,000자                                   |
+| `apps/docs/scripts/main.ts`              | indexing orchestration                  | cache 삭제 후 locale별 reset, embedding, upsert                           |
+| `apps/docs/scripts/vector.ts`            | vector mutation                         | locale namespace reset, batch upsert, query                               |
+| `apps/docs/lib/vector/search.ts`         | runtime retrieval                       | 고정 locale namespace, 함수 기본 topK 5(Chat 실호출 topK 8), minScore 0.5 |
+| `apps/docs/lib/cache/embedding-cache.ts` | runtime query embedding cache           | `emb:` prefix, model 미포함 text hash key, TTL 7일                        |
+| `apps/docs/lib/ai/rag.ts`                | prompt context                          | 최대 4,000자 context, locale prompt, UNKNOWN 규칙                         |
+| `apps/docs/app/api/chat/route.ts`        | Chat HTTP API                           | 입력/locale 검증, rate limit, retrieval, streaming, typed failure         |
+| `apps/docs/README.md`                    | 운영 경계                               | `ai`가 외부 상태 변경 명령임을 명시                                       |
 
 보존할 강점:
 
@@ -88,7 +89,7 @@ IndexRun + ActiveIndexPointer
 - 이전 성공 run으로 명시적 rollback하는 CLI
 - 최근 run history
 - Chat citation link
-- model/version을 포함한 embedding cache key와 선택적 reuse
+- indexing과 runtime query가 공유하는 `emb:` prefix 캐시 소유 분리, model/version을 포함한 cache key와 선택적 reuse
 - retrieval/indexing latency 관찰값
 - 수동 namespace retention/cleanup 절차
 
@@ -110,7 +111,17 @@ IndexRun + ActiveIndexPointer
 
 `content/docs/*.{ko,en}.mdx`를 화면과 RAG의 유일한 content source로 유지한다. 별도 corpus나 upload database를 만들지 않는다.
 
-### 실패 안전 index 전환
+### 실패 안전 index 전환 — 2026-08-08 결정으로 대체됨
+
+> **결정: 인덱스를 외부 vector DB가 아니라 코드와 함께 배포되는 build artifact로 둔다.**
+>
+> 근거는 실측이다. 검색은 embedding 유지가 맞지만(Hit@3 85.7% vs BM25 57.1%), 187 chunk의 brute-force 검색은 **0.38ms**이고 float32 packed 크기는 **1.10MB**다. 네트워크 왕복을 없애면서 같은 품질이 나온다. 성장 한계는 약 3,300 chunk(현재의 18배)이며 그 이상은 Vercel Fluid Compute로 열린다.
+>
+> 결정적이었던 것은 **무료 티어 DB가 미사용으로 삭제된 실제 사건**이다. 아래 staging/pointer 설계는 *빌드 실패*를 막지만 *공급자 삭제*와 *문서-인덱스 drift*는 막지 못한다. artifact로 두면 두 실패 모드가 존재할 수 없고, Vercel의 원자적 배포와 즉시 롤백이 그대로 pointer 전환 역할을 한다.
+>
+> artifact는 저장소에 커밋한다. 빌드에 provider credential이 필요 없고, 인덱스 변경이 PR diff에 보이며, T1의 content revision으로 staleness를 CI에서 강제할 수 있다.
+>
+> 아래 원래 설계는 역사적 기록으로 남긴다. T2와 T3는 이 결정으로 폐기된다.
 
 활성 namespace를 reset하지 않는다. 새 versioned namespace를 staging으로 만들고 source 수, expected/indexed chunk 수, metadata shape와 locale retrieval smoke를 검증한 뒤 active pointer만 전환한다.
 
@@ -122,6 +133,8 @@ IndexRun + ActiveIndexPointer
 - 새 staging namespace는 activation 전 사용자 retrieval에 노출되지 않는다.
 - pointer가 없는 migration 상태에서만 legacy `ko`, `en` namespace를 읽는다.
 - pointer와 manifest가 불일치하면 임의의 staging namespace를 선택하지 않는다.
+- runtime query embedding model이 active pointer의 `embeddingModel`과 다르면 해당 locale은 degraded로 보고하며, 같은 model로 만든 run의 activation만 이를 해소한다.
+- locale별 activation은 독립이므로 partial failure 뒤 KO/EN이 서로 다른 contentRevision을 서빙하는 기간은 오류가 아니다. 이 skew는 status API가 locale별 stale/degraded로 표면화한다.
 
 ### Authority 분리
 
@@ -158,9 +171,15 @@ interface IndexRun {
   indexedChunkCount: number;
   previousActiveRunId?: string;
   failureCause?:
-    'embedding_failed' | 'vector_upsert_failed' | 'validation_failed' | 'activation_failed';
+    | 'prepare_failed'
+    | 'embedding_failed'
+    | 'vector_upsert_failed'
+    | 'validation_failed'
+    | 'activation_failed';
 }
 ```
+
+canonical read 또는 chunk 실패가 run manifest 생성 전이면 manifest 없이 종료하고, 생성 후면 `prepare_failed`로 기록한다. 두 경우 모두 active pointer는 바뀌지 않는다.
 
 ### `ActiveIndexPointer`
 
@@ -170,6 +189,7 @@ interface ActiveIndexPointer {
   runId: string;
   namespace: string;
   contentRevision: string;
+  embeddingModel: string;
   activatedAt: string;
 }
 ```
@@ -197,7 +217,7 @@ interface RetrievalEvaluationCase {
   - active revision, source/chunk 수, activation 시각과 latest run summary
 - `POST /api/rag/retrievals`
   - 생성 모델을 호출하지 않는 retrieval query
-  - trim 후 query 1~~500자, locale allowlist, topK 1~~8
+  - trim 후 query 1~~500자, locale allowlist, topK 1~~8 (기본값은 Chat runtime 유효값 8)
   - runId, rank, score, title, section, canonical href, contextChars, truncated
   - rate limit과 제한된 public preview
 
@@ -216,19 +236,21 @@ pnpm --filter @firsttx/docs ai:rollback -- --locale ko --run <runId>
 - `ai:index`: staging build, validation, active pointer 전환
 - `ai:evaluate`: 현재 active index에 고정 retrieval case 실행
 - `ai:rollback`: P1, 이전 성공 run 재활성화
-- 기존 `ai`: P0 전환 완료 뒤 `ai:index` alias로 보존
+- 기존 `ai`: T3에서 `ai:index` alias로 전환하고 제거 gate를 함께 고정
 
 ## 작업 순서
 
-| Task | 목표                          | 주요 산출물                                                      | 선행 조건                                                                     | 완료 gate                                         |
-| ---- | ----------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
-| T1   | deterministic index plan      | pure revision/plan contract, `ai:plan`, unit test, README        | [T1 SPEC](../spec-packets/2026-08-07-deterministic-index-plan.md) 사용자 확정 | T1 AC 전체                                        |
-| T2   | versioned run manifest        | `IndexRun` repository, 상태 전이, staging write                  | pointer 저장소와 retention 결정                                               | 실패 run이 stable cause를 남기고 active 불변      |
-| T3   | validation과 activation       | count/metadata/smoke validation, active pointer, legacy fallback | provider postcondition 확정                                                   | 성공 run만 active, failure 후 기존 retrieval 유지 |
-| T4   | runtime resolution과 status   | active resolver, status API, stale/degraded projection           | T3                                                                            | runtime과 status가 같은 pointer 계약 사용         |
-| T5   | retrieval inspection과 평가   | retrieval API, KO/EN case, Hit@3/MRR runner                      | canonical href와 artifact 위치 결정                                           | 재현 가능한 metric/miss artifact                  |
-| T6   | 최소 ops UI와 failure defense | `/{locale}/ops/rag`, fixture, contract/E2E/build 검증            | T4, T5                                                                        | ops failure가 Docs/Chat을 막지 않음               |
-| T7   | 운영 마감                     | README, operations guide, P1 rollback/cleanup 판단               | P0 evidence                                                                   | 명령, 권한, 실패, metric과 한계가 일치            |
+| Task   | 목표                            | 주요 산출물                                                         | 선행 조건                                                                     | 완료 gate                                       |
+| ------ | ------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------- |
+| T1     | deterministic index plan (완료) | pure revision/plan contract, `ai:plan`, unit test, README           | [T1 SPEC](../spec-packets/2026-08-07-deterministic-index-plan.md) 사용자 확정 | T1 AC 전체 — 2026-08-08 충족                    |
+| ~~T2~~ | ~~versioned run manifest~~      | 2026-08-08 결정으로 **폐기** — 추적할 외부 mutable index가 없다     | —                                                                             | —                                               |
+| ~~T3~~ | ~~validation과 activation~~     | 2026-08-08 결정으로 **폐기** — Vercel 배포가 activation이다         | —                                                                             | —                                               |
+| T2′    | build artifact 전환             | packed artifact 형식, runtime brute-force search, CI staleness gate | 호스팅 결정 (완료)                                                            | Upstash 의존 제거, 배포된 앱에서 retrieval 동작 |
+| T4′    | 최소 status                     | 현재 배포의 artifact revision·chunk 수 노출                         | T2′                                                                           | 무엇이 라이브인지 코드 밖에서 확인 가능         |
+| T5a    | 고정 질문 평가 (구현 완료)      | KO/EN 14개 case, Hit@3/MRR runner, `ai:evaluate`                    | 없음 — lifecycle 기계장치에 의존하지 않음                                     | 재현 가능한 metric/miss artifact — 측정 대기    |
+| T5b    | retrieval inspection            | retrieval API와 ops 소비                                            | canonical href helper, rate limit 예산 gate                                   | 공개 metadata만 노출하는 read-only API          |
+| T6     | 최소 ops UI와 failure defense   | `/{locale}/ops/rag`, fixture, contract/E2E/build 검증               | T4, T5                                                                        | ops failure가 Docs/Chat을 막지 않음             |
+| T7     | 운영 마감                       | README, operations guide, P1 rollback/cleanup 판단                  | P0 evidence                                                                   | 명령, 권한, 실패, metric과 한계가 일치          |
 
 ### T1 — deterministic index plan
 
@@ -302,11 +324,10 @@ LLM generation을 호출하지 않는 retrieval API와 고정 case runner를 만
 ### 외부 상태를 바꾸지 않는 검증
 
 ```bash
-asdf current nodejs
+if command -v asdf >/dev/null 2>&1; then asdf current nodejs; else node --version; fi
 command -v node
 command -v pnpm
-corepack --version
-pnpm --pm-on-fail=error --version
+[ "pnpm@$(pnpm --version)" = "$(node -p "require('./package.json').packageManager")" ]
 pnpm --filter @firsttx/docs typecheck
 pnpm --filter @firsttx/docs lint
 pnpm --filter @firsttx/docs test:run
@@ -328,25 +349,27 @@ pnpm --filter @firsttx/docs ai:evaluate
 
 ## Open decision gates
 
-| Gate                                                 | 닫아야 하는 시점 | 기본 방향                                                        | 미확정 영향                             |
-| ---------------------------------------------------- | ---------------- | ---------------------------------------------------------------- | --------------------------------------- |
-| Upstash activation postcondition과 pointer atomicity | T2 시작 전       | Redis pointer를 단일 locale key로 관리하고 전환 후 재조회        | manifest/pointer 저장 계약              |
-| current build revision의 runtime 제공 방식           | T4 시작 전       | build artifact를 읽음                                            | stale projection과 deploy contract      |
-| canonical href helper                                | T5 시작 전       | 기존 locale route/anchor owner 재사용                            | retrieval response 계약                 |
-| evaluation result 위치                               | T5 시작 전       | case는 repo, raw result는 timestamped artifact, 문서는 최신 요약 | diff 크기와 CI artifact 보존            |
-| ops route production 노출                            | T6 시작 전       | feature flag, read-only, public metadata만 제공                  | route discoverability와 security review |
-| legacy namespace retention                           | T7 시작 전       | 자동 cleanup 없음                                                | storage cost와 rollback window          |
+| Gate                                                 | 닫아야 하는 시점 | 기본 방향                                                                                                                                                                                         | 미확정 영향                                            |
+| ---------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Upstash activation postcondition과 pointer atomicity | T2 시작 전       | Redis pointer를 단일 locale key로 관리하고 전환 후 재조회. upsert 직후 count/query의 pending 반영 지연을 공식 문서와 read-only probe로 확정하고 count 안정화 대기/재시도 정책을 validation에 포함 | manifest/pointer 저장 계약과 validation false-negative |
+| retrieval API rate limit 예산                        | T5 시작 전       | 기존 checkRateLimit 인프라 재사용, Chat 일일 global 한도와의 공유 여부 결정                                                                                                                       | embedding 호출 비용과 runtime query cache 오염         |
+| current build revision의 runtime 제공 방식           | T4 시작 전       | build artifact를 읽음                                                                                                                                                                             | stale projection과 deploy contract                     |
+| canonical href helper                                | T5 시작 전       | 기존 locale route/anchor owner 재사용                                                                                                                                                             | retrieval response 계약                                |
+| evaluation result 위치                               | T5 시작 전       | case는 repo, raw result는 timestamped artifact, 문서는 최신 요약                                                                                                                                  | diff 크기와 CI artifact 보존                           |
+| ops route production 노출                            | T6 시작 전       | feature flag, read-only, public metadata만 제공                                                                                                                                                   | route discoverability와 security review                |
+| legacy namespace retention                           | T7 시작 전       | 자동 cleanup 없음                                                                                                                                                                                 | storage cost와 rollback window                         |
 
 ## 위험과 범위 축소 순서
 
-| 위험                                   | 대응                                                         |
-| -------------------------------------- | ------------------------------------------------------------ |
-| reset-first 경로와 새 경로가 함께 남음 | 기존 `ai` alias 전환 시점과 제거 gate를 T3에 고정            |
-| provider capability를 추측             | T2 전에 공식 SDK/실환경 read-only probe로 postcondition 확인 |
-| 평가 case를 현재 결과에 과적합         | 사용자 증상/계약 질문과 expected source를 실행 전에 고정     |
-| ops UI가 auth 작업으로 확장            | mutation 금지, 공개 metadata 제한, feature flag 유지         |
-| 기존 Chat recovery 회귀                | Chat route contract와 기존 unit/E2E를 필수 gate로 유지       |
-| 여러 task가 한 diff에 섞임             | task별 SPEC, ownership과 acceptance 단위로 구현/검증         |
+| 위험                                   | 대응                                                                                                                   |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| reset-first 경로와 새 경로가 함께 남음 | 기존 `ai` alias 전환 시점과 제거 gate를 T3에 고정                                                                      |
+| provider capability를 추측             | T2 전에 공식 SDK/실환경 read-only probe로 postcondition 확인                                                           |
+| 평가 case를 현재 결과에 과적합         | 사용자 증상/계약 질문과 expected source를 실행 전에 고정                                                               |
+| 문서에 없는 질문에 답을 지어냄         | retrieval 임계값으로는 막을 수 없음이 실측됨. UNKNOWN 규칙이 유일한 방어선이므로 `ai:probe-unknown`을 회귀 gate로 유지 |
+| ops UI가 auth 작업으로 확장            | mutation 금지, 공개 metadata 제한, feature flag 유지                                                                   |
+| 기존 Chat recovery 회귀                | Chat route contract와 기존 unit/E2E를 필수 gate로 유지                                                                 |
+| 여러 task가 한 diff에 섞임             | task별 SPEC, ownership과 acceptance 단위로 구현/검증                                                                   |
 
 일정이 밀리면 최근 run history, rollback CLI, Chat citation, latency, embedding cache 개선 순서로 제외한다. 다음은 끝까지 유지한다.
 
@@ -360,8 +383,26 @@ pnpm --filter @firsttx/docs ai:evaluate
 
 - [x] 전체 engineering plan을 FirstTx 저장소에 정규화
 - [x] 첫 구현 task의 SPEC packet 작성
-- [ ] T1 packet의 미정 질문 사용자 확정
-- [ ] T1 구현 시작 신호
-- [ ] T1~T7 구현과 검증
+- [x] T1 packet의 미정 질문 사용자 확정 (2026-08-08, 둘 다 권장안)
+- [x] T1 구현 시작 신호
+- [x] T1 구현과 native 검증
+- [x] T5a 평가 러너 구현·측정 완료 ([T5a SPEC](../spec-packets/2026-08-08-retrieval-evaluation.md)) — **Hit@3 85.7%, MRR 0.643** (초기 100%는 느슨한 source 판정 탓이며 섹션 고정 후 정정)
+- [x] out-of-domain 8건 추가 측정 — retrieval 층에 방어선이 없음을 확인
+- [x] UNKNOWN 규칙 강화 — 프롬프트의 충돌 문구 제거와 3갈래 판정으로 violated 2/32 → 0/56
+- [x] retrieval miss 2건 진단 — 검색 방식 문제가 아니라 **문서 어휘 공백**. `ko-6`은 embedding/keyword 모두 miss("진입점" vs "엔트리 포인트"), `en-2`는 9위/99로 근소 miss
+- [x] keyword-only recall probe — BM25 Hit@3 57.1% vs embedding 85.7%. **임베딩 검색이 이 corpus에서 값어치 실증.** keyword도 OOD 8/8 반환(자연 필터 가설 기각)
+- [x] retrieval 구조 결정 — 검색 방식은 **임베딩 유지**, 호스팅은 **커밋된 build artifact**로 확정 (2026-08-08)
+- [x] T2′ build artifact 전환 구현 — Upstash Vector 의존 제거, CI staleness gate 가동
+- [x] canonical 문서 어휘 보강 — heading 불변, 본문에만 동의어 병기. **Hit@3 85.7% → 100%, MRR 0.643 → 0.750**, keyword도 57.1% → 71.4%
+- [x] Chat 재활성화 **코드 준비** — rate limiter 장애 시 typed 503 fail-closed로 교정, route 회귀 테스트 4건 추가
+- [x] Chat 재활성화 **로컬 검증** — Redis 재생성 확인(remaining 9→8), Chat 위젯·전체 대화 경로·UNKNOWN 규칙 end-to-end 통과
+- [ ] Chat 재활성화 **프로덕션** — Vercel 환경변수 4종 설정 (사용자 작업)
+- [ ] T2~~T4, T5b, T6~~T7 구현과 검증
 
-이 문서 작성 시점에는 production/test code, package script와 외부 provider 상태를 변경하지 않았다.
+2026-08-08 chat model을 `gpt-4o-mini`에서 `gpt-5.6-luna`로 올렸다. embedding model은 `text-embedding-3-small`이 여전히 OpenAI 최신이라 유지했고, 따라서 index와 측정된 Hit@3는 영향을 받지 않는다. Luna는 reasoning model이라 `temperature`를 지원하지 않아 chat route의 `temperature: 0.1`을 제거했다. 실측 usage에서 `reasoningTokens`는 0이었다.
+
+2026-08-08 기준 Upstash Vector와 Redis 무료 티어 DB는 미사용으로 삭제된 상태다. 프로덕션 `firsttx.store`는 정상이며 Chat이 노출되지 않아 사용자 영향은 없다. 이 계획이 방어하려는 **기존 활성 index가 현재 존재하지 않으므로**, 구조 변경 비용이 가장 낮은 시점이다.
+
+T1은 `ai:plan` read-only 경로와 공유 index contract를 추가했고 기존 `ai` mutation orchestration은 diff 없이 보존했다. 외부 provider 상태는 아직 변경하지 않았다.
+
+T2 착수 전에 `Open decision gates`의 Upstash activation postcondition과 pointer atomicity를 read-only probe로 닫는다.

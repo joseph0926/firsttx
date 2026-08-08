@@ -18,7 +18,11 @@
     "test:e2e": "playwright test",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "ai": "tsx scripts/main.ts"
+    "ai:build-index": "tsx scripts/build-index.ts",
+    "ai:check-index": "tsx scripts/check-index-freshness.ts",
+    "ai:plan": "tsx scripts/plan.ts",
+    "ai:evaluate": "tsx scripts/evaluate-retrieval.ts",
+    "ai:probe-unknown": "tsx scripts/probe-unknown-rule.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.75",
@@ -32,7 +36,6 @@
     "@types/mdx": "^2.0.13",
     "@upstash/ratelimit": "^2.0.7",
     "@upstash/redis": "^1.35.7",
-    "@upstash/vector": "^1.2.2",
     "@vercel/analytics": "^1.5.0",
     "ai": "^5.0.104",
     "class-variance-authority": "^0.7.1",

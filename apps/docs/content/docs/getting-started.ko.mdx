@@ -90,7 +90,7 @@ export default defineConfig({
 
 ## 3. 엔트리 포인트 교체 (`createFirstTxRoot`) – ⭐ 필수
 
-이제 기존 `ReactDOM.createRoot` 대신 `createFirstTxRoot`를 사용합니다.
+앱의 진입점에서 기존 `ReactDOM.createRoot` 대신 `createFirstTxRoot`를 사용합니다. 진입점을 바꾸는 곳은 보통 `main.tsx`입니다.
 
 ```tsx
 // main.tsx

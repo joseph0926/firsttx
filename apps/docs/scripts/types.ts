@@ -8,7 +8,3 @@ export interface Chunk {
   source: string;
   locale: Locale;
 }
-
-export interface ChunkWithEmbedding extends Chunk {
-  embedding: number[];
-}

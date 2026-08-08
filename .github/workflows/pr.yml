@@ -39,6 +39,9 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-pnpm
 
+      - name: Verify docs index artifact matches canonical content
+        run: pnpm --filter @firsttx/docs ai:check-index
+
       - name: Run repository verification
         run: pnpm run verify
 

@@ -1,6 +1,6 @@
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
-import { chatModel } from "@/lib/ai/openai";
-import { retrieveContext, buildSystemPrompt, type Locale } from "@/lib/ai/rag";
+import { CHAT_GENERATION_SETTINGS, chatModel } from "@/lib/ai/openai";
+import { retrieveContext, buildSystemPrompt, RETRIEVAL_TOP_K, type Locale } from "@/lib/ai/rag";
 import { checkRateLimit, getClientIP, type RateLimitType } from "@/lib/ratelimit";
 import type { ChatErrorCause, ChatErrorPayload } from "@/lib/ai/chat-error";
 
@@ -33,7 +33,16 @@ function errorResponse(status: number, cause: Exclude<ChatErrorCause, "network_e
 
 export async function POST(req: Request) {
   const ip = getClientIP(req);
-  const { success, remaining, reset, limitType } = await checkRateLimit(ip);
+
+  let rateLimit: Awaited<ReturnType<typeof checkRateLimit>>;
+  try {
+    rateLimit = await checkRateLimit(ip);
+  } catch (err) {
+    console.error("Rate limit unavailable:", err);
+    return errorResponse(503, "server_error", "Chat is temporarily unavailable");
+  }
+
+  const { success, remaining, reset, limitType } = rateLimit;
 
   if (!success && limitType) {
     const body = await req
@@ -83,15 +92,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { contextText } = await retrieveContext(userQuery, 8, locale);
+    const { contextText } = await retrieveContext(userQuery, RETRIEVAL_TOP_K, locale);
 
     const systemPrompt = buildSystemPrompt(contextText, locale);
 
     const result = streamText({
       model: chatModel,
+      ...CHAT_GENERATION_SETTINGS,
       system: systemPrompt,
       messages: convertToModelMessages(messages),
-      temperature: 0.1,
     });
 
     return result.toUIMessageStreamResponse();

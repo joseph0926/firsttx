@@ -3,6 +3,8 @@ import GettingStartedEn from "@/content/docs/getting-started.en.mdx";
 import GettingStartedKo from "@/content/docs/getting-started.ko.mdx";
 import { createDocsMetadata } from "@/lib/docs/metadata";
 import { SetupSelector } from "@/components/setup-selector";
+import { isSupportedLocale } from "@/i18n/routing";
+import { notFound } from "next/navigation";
 
 type DocsGettingStartedPageParams = {
   locale: string;
@@ -29,6 +31,10 @@ export async function generateMetadata({ params }: { params: Promise<DocsGetting
 
 export default async function DocsGettingStartedPage({ params }: { params: Promise<DocsGettingStartedPageParams> }) {
   const { locale } = await params;
+
+  if (!isSupportedLocale(locale)) {
+    notFound();
+  }
   const MDX = locale === "ko" ? GettingStartedKo : GettingStartedEn;
 
   return (
@@ -39,7 +45,7 @@ export default async function DocsGettingStartedPage({ params }: { params: Promi
           {locale === "ko" ? "먼저 도입 범위를 선택하세요" : "Choose your adoption scope first"}
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{locale === "ko" ? "선택은 아래 가이드의 기술 계약을 바꾸지 않고, 필요한 설치와 검증 경로만 좁혀 줍니다." : "Your choice keeps the guide's technical contract intact and narrows the install and verification path."}</p>
-        <SetupSelector locale={locale as "ko" | "en"} compact />
+        <SetupSelector locale={locale} compact />
       </section>
     </main>
   );
