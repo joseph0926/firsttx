@@ -1,6 +1,7 @@
 import { getRedis } from "./redis";
+import { EMBEDDING_MODEL_ID } from "../ai/index-contract";
 
-const CACHE_PREFIX = "emb:";
+const CACHE_PREFIX = `emb:${EMBEDDING_MODEL_ID}:`;
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 function hashKey(text: string): string {
