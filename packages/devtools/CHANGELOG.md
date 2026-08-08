@@ -1,5 +1,12 @@
 # @firsttx/devtools
 
+## 0.1.37
+
+### Patch Changes
+
+- Updated dependencies [383426f]
+  - @firsttx/local-first@0.12.0
+
 ## 0.1.36
 
 ### Patch Changes
