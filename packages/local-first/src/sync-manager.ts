@@ -38,7 +38,7 @@ export class SyncManager<T> {
   ): Promise<T> {
     const cached = this.cacheManager.getCachedSnapshot();
 
-    if (cached && this.cachedDataPromise) {
+    if (cached !== null && this.cachedDataPromise) {
       return this.cachedDataPromise;
     }
 
@@ -46,7 +46,7 @@ export class SyncManager<T> {
       return this.syncPromise;
     }
 
-    if (cached) {
+    if (cached !== null) {
       this.cachedDataPromise = Promise.resolve(cached);
       return this.cachedDataPromise;
     }
@@ -193,7 +193,7 @@ export class SyncManager<T> {
         draft = structuredClone(existing.data);
       } else {
         const initialData = this.storageManager.getInitialData();
-        if (!initialData) {
+        if (initialData === undefined) {
           throw new Error(
             `[FirstTx] Cannot patch model "${this.name}" - no data exists and no initialData provided`,
           );

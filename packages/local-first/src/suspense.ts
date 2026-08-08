@@ -21,7 +21,7 @@ export function useSuspenseSyncedModel<T>(
     () => model.getCombinedSnapshot(),
   );
 
-  if (!snapshot.data && !snapshot.error) {
+  if (snapshot.data === null && !snapshot.error) {
     const currentOptions = optionsRef.current;
     // eslint-disable-next-line
     throw model.getSyncPromise(stableFetcher, {
@@ -35,7 +35,7 @@ export function useSuspenseSyncedModel<T>(
     throw snapshot.error;
   }
 
-  if (!snapshot.data) {
+  if (snapshot.data === null) {
     throw new Error(
       `[useSuspenseSyncedModel] Model "${model.name}" returned null after sync. ` +
         `This indicates the fetcher returned null/undefined.`,
