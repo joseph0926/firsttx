@@ -4,4 +4,7 @@ dist
 build
 .turbo
 coverage
+test-results
+playwright-report
 pnpm-lock.yaml
+lib/vector/index-artifact.json
