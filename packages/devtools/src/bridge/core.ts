@@ -6,6 +6,16 @@ import type {
   BridgeConfig,
 } from './types';
 import { EventPriority } from './types';
+import { CircularBuffer } from './circular-buffer';
+import { createEventStore, type EventStore } from './event-store';
+import {
+  BRIDGE_CHANNEL,
+  BRIDGE_MESSAGE_SOURCE,
+  getCurrentOrigin,
+  isExtensionMessage,
+  type BridgeMessage,
+  type ExtensionMessage,
+} from './messaging';
 
 const DEFAULT_CONFIG: Required<BridgeConfig> = {
   maxBufferSize: 500,
@@ -14,93 +24,6 @@ const DEFAULT_CONFIG: Required<BridgeConfig> = {
   lowBatchInterval: 500,
   debug: false,
 };
-
-const BRIDGE_CHANNEL = 'firsttx-devtools';
-const STORAGE_DB_NAME = 'firsttx-devtools-events';
-const STORAGE_STORE_NAME = 'high-priority-events';
-const STORAGE_VERSION = 1;
-
-const EXTENSION_MESSAGE_SOURCE = '__FIRSTTX_EXTENSION__';
-const BRIDGE_MESSAGE_SOURCE = '__FIRSTTX_BRIDGE__';
-
-function getCurrentOrigin(): string {
-  if (typeof window === 'undefined') return '*';
-  try {
-    const { location } = window;
-    if (location?.origin && location.origin !== 'null') {
-      return location.origin;
-    }
-  } catch {
-    // Security error in cross-origin context
-  }
-  return '*';
-}
-
-interface ExtensionMessage {
-  source: typeof EXTENSION_MESSAGE_SOURCE;
-  type: 'command' | 'buffer-request' | 'ping';
-  data?: unknown;
-}
-
-interface BridgeMessage {
-  source: typeof BRIDGE_MESSAGE_SOURCE;
-  type: 'event' | 'batch' | 'buffer-dump' | 'pong' | 'command-response';
-  event?: DevToolsEvent;
-  events?: DevToolsEvent[];
-  response?: CommandResponse;
-  timestamp?: number;
-}
-
-function isExtensionMessage(data: unknown): data is ExtensionMessage {
-  if (!data || typeof data !== 'object') return false;
-  const msg = data as Record<string, unknown>;
-  return (
-    msg.source === EXTENSION_MESSAGE_SOURCE &&
-    typeof msg.type === 'string' &&
-    ['command', 'buffer-request', 'ping'].includes(msg.type)
-  );
-}
-
-class CircularBuffer<T> {
-  private buffer: T[];
-  private head = 0;
-  private size = 0;
-  private readonly capacity: number;
-
-  constructor(capacity: number) {
-    this.capacity = capacity;
-    this.buffer = [];
-  }
-
-  push(item: T): void {
-    const index = (this.head + this.size) % this.capacity;
-    this.buffer[index] = item;
-
-    if (this.size < this.capacity) {
-      this.size++;
-    } else {
-      this.head = (this.head + 1) % this.capacity;
-    }
-  }
-
-  getAll(): T[] {
-    const result: T[] = [];
-    for (let i = 0; i < this.size; i++) {
-      const index = (this.head + i) % this.capacity;
-      result.push(this.buffer[index]);
-    }
-    return result;
-  }
-
-  clear(): void {
-    this.head = 0;
-    this.size = 0;
-  }
-
-  get length(): number {
-    return this.size;
-  }
-}
 
 export class FirstTxDevToolsBridge implements DevToolsBridge {
   private config: Required<BridgeConfig>;
@@ -113,14 +36,17 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
   private normalTimer: ReturnType<typeof setTimeout> | null = null;
   private lowTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private db: IDBDatabase | null = null;
-  private dbReady: Promise<void>;
+  private store: EventStore | null = null;
+  private windowMessageListener: ((event: MessageEvent) => void) | null = null;
 
   constructor(config?: BridgeConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.buffer = new CircularBuffer(this.config.maxBufferSize);
 
-    this.dbReady = this.initDB();
+    if (this.config.persistHighPriority) {
+      this.store = createEventStore({ debug: this.config.debug });
+    }
+
     this.initChannel();
     this.initWindowMessaging();
 
@@ -132,13 +58,15 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
   private initWindowMessaging(): void {
     if (typeof window === 'undefined') return;
 
-    window.addEventListener('message', (event: MessageEvent) => {
+    this.windowMessageListener = (event: MessageEvent) => {
       if (event.source !== window) return;
 
       if (!isExtensionMessage(event.data)) return;
 
       this.handleExtensionMessage(event.data);
-    });
+    };
+
+    window.addEventListener('message', this.windowMessageListener);
 
     if (this.config.debug) {
       console.log('[FirstTx Bridge] Window messaging initialized');
@@ -207,48 +135,6 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     }
   }
 
-  private async initDB(): Promise<void> {
-    if (!this.config.persistHighPriority) {
-      return;
-    }
-
-    if (typeof indexedDB === 'undefined') {
-      console.warn('[FirstTx Bridge] IndexedDB not supported');
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(STORAGE_DB_NAME, STORAGE_VERSION);
-
-      request.onerror = () => {
-        const error = request.error;
-        const message = error
-          ? `Failed to open IndexedDB: ${error.message}`
-          : 'Failed to open IndexedDB: Unknown error';
-        console.error('[FirstTx Bridge]', message);
-        reject(new Error(message));
-      };
-
-      request.onsuccess = () => {
-        this.db = request.result;
-        if (this.config.debug) {
-          console.log('[FirstTx Bridge] IndexedDB ready');
-        }
-        resolve();
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-
-        if (!db.objectStoreNames.contains(STORAGE_STORE_NAME)) {
-          const store = db.createObjectStore(STORAGE_STORE_NAME, { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-          store.createIndex('category', 'category', { unique: false });
-        }
-      };
-    });
-  }
-
   emit(event: DevToolsEvent): void {
     this.buffer.push(event);
 
@@ -272,8 +158,12 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
 
     this.sendToExtension({ type: 'event', event });
 
-    if (this.config.persistHighPriority) {
-      void this.persistEvent(event);
+    if (this.store) {
+      void this.store.persist(event).catch((error: unknown) => {
+        if (this.config.debug) {
+          console.warn('[FirstTx Bridge] Failed to persist event:', error);
+        }
+      });
     }
 
     if (this.config.debug) {
@@ -302,6 +192,8 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
   }
 
   private flushNormalQueue(): void {
+    this.normalTimer = null;
+
     if (this.normalQueue.length === 0) return;
 
     this.sendToChannel({
@@ -318,10 +210,11 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     }
 
     this.normalQueue = [];
-    this.normalTimer = null;
   }
 
   private flushLowQueue(): void {
+    this.lowTimer = null;
+
     if (this.lowQueue.length === 0) return;
 
     this.sendToChannel({
@@ -338,7 +231,6 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     }
 
     this.lowQueue = [];
-    this.lowTimer = null;
   }
 
   private sendToChannel(message: unknown): void {
@@ -406,12 +298,14 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
     }
 
     const promises = Array.from(this.commandHandlers).map((handler) =>
-      handler(command).catch((error) => ({
-        commandId: command.id,
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: Date.now(),
-      })),
+      Promise.resolve()
+        .then(() => handler(command))
+        .catch((error: unknown) => ({
+          commandId: command?.id,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now(),
+        })),
     );
 
     const responses = await Promise.all(promises);
@@ -429,110 +323,6 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
         response,
       });
     }
-  }
-
-  private async persistEvent(event: DevToolsEvent): Promise<void> {
-    if (!this.db) {
-      await this.dbReady;
-      if (!this.db) return;
-    }
-
-    try {
-      return new Promise((resolve, reject) => {
-        try {
-          const tx = this.db!.transaction(STORAGE_STORE_NAME, 'readwrite');
-          const store = tx.objectStore(STORAGE_STORE_NAME);
-
-          const addRequest = store.add(event);
-
-          addRequest.onsuccess = () => {
-            if (this.config.debug) {
-              console.log('[FirstTx Bridge] Persisted HIGH priority event:', event.id);
-            }
-            resolve();
-          };
-
-          addRequest.onerror = () => {
-            const error = addRequest.error;
-            const message = error
-              ? `Failed to persist event: ${error.message}`
-              : 'Failed to persist event: Unknown error';
-            reject(new Error(message));
-          };
-
-          tx.oncomplete = () => {
-            void this.cleanupOldEvents();
-          };
-
-          tx.onerror = () => {
-            const error = tx.error;
-            const message = error
-              ? `Transaction failed: ${error.message}`
-              : 'Transaction failed: Unknown error';
-            reject(new Error(message));
-          };
-        } catch (error) {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        }
-      });
-    } catch (error) {
-      if (this.config.debug) {
-        console.warn('[FirstTx Bridge] Failed to persist event:', error);
-      }
-    }
-  }
-
-  private async cleanupOldEvents(): Promise<void> {
-    if (!this.db) return;
-
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db!.transaction(STORAGE_STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORAGE_STORE_NAME);
-        const index = store.index('timestamp');
-
-        let deleteCount = 0;
-        const TARGET_DELETE_COUNT = 200;
-
-        const cursorRequest = index.openCursor();
-
-        cursorRequest.onsuccess = (event) => {
-          const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
-
-          if (cursor && deleteCount < TARGET_DELETE_COUNT) {
-            cursor.delete();
-            deleteCount++;
-            cursor.continue();
-          } else {
-            if (this.config.debug) {
-              console.log(`[FirstTx Bridge] Cleaned up ${deleteCount} old events`);
-            }
-          }
-        };
-
-        cursorRequest.onerror = () => {
-          const error = cursorRequest.error;
-          const message = error
-            ? `Failed to cleanup old events: ${error.message}`
-            : 'Failed to cleanup old events: Unknown error';
-          reject(new Error(message));
-        };
-
-        tx.oncomplete = () => {
-          resolve();
-        };
-
-        tx.onerror = () => {
-          const error = tx.error;
-          const message = error
-            ? `Transaction failed during cleanup: ${error.message}`
-            : 'Transaction failed during cleanup: Unknown error';
-          reject(new Error(message));
-        };
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
   }
 
   isConnected(): boolean {
@@ -562,14 +352,19 @@ export class FirstTxDevToolsBridge implements DevToolsBridge {
   destroy(): void {
     this.clearBuffer();
 
+    if (this.windowMessageListener && typeof window !== 'undefined') {
+      window.removeEventListener('message', this.windowMessageListener);
+      this.windowMessageListener = null;
+    }
+
     if (this.channel) {
       this.channel.close();
       this.channel = null;
     }
 
-    if (this.db) {
-      this.db.close();
-      this.db = null;
+    if (this.store) {
+      this.store.close();
+      this.store = null;
     }
 
     this.commandHandlers.clear();
