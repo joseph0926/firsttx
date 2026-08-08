@@ -3,6 +3,8 @@ import OverviewEn from "@/content/docs/overview.en.mdx";
 import OverviewKo from "@/content/docs/overview.ko.mdx";
 import { createDocsMetadata } from "@/lib/docs/metadata";
 import { SetupSelector } from "@/components/setup-selector";
+import { isSupportedLocale } from "@/i18n/routing";
+import { notFound } from "next/navigation";
 
 type DocsOverviewPageParams = {
   locale: string;
@@ -29,6 +31,10 @@ export async function generateMetadata({ params }: { params: Promise<DocsOvervie
 
 export default async function DocsOverviewPage({ params }: { params: Promise<DocsOverviewPageParams> }) {
   const { locale } = await params;
+
+  if (!isSupportedLocale(locale)) {
+    notFound();
+  }
   const MDX = locale === "ko" ? OverviewKo : OverviewEn;
 
   return (
@@ -39,7 +45,7 @@ export default async function DocsOverviewPage({ params }: { params: Promise<Doc
           {locale === "ko" ? "해결할 문제에서 도입 경로로" : "From the problem to an adoption path"}
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{locale === "ko" ? "필요한 레이어를 선택하면 같은 구성 모델로 설치 명령과 검증 경로를 확인할 수 있습니다." : "Choose the layer you need to see its install command and verification path in the shared setup model."}</p>
-        <SetupSelector locale={locale as "ko" | "en"} compact />
+        <SetupSelector locale={locale} compact />
       </section>
     </main>
   );

@@ -23,6 +23,8 @@ const geistMono = Geist_Mono({
 const SITE_URL = "https://firsttx.store";
 const OG_IMAGE = `${SITE_URL}/opengraph-image.png`;
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -83,7 +85,7 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <AppShell>{children}</AppShell>
-            <ChatWidget locale={locale as "ko" | "en"} />
+            <ChatWidget locale={locale} />
             <Analytics />
           </ThemeProvider>
         </NextIntlClientProvider>

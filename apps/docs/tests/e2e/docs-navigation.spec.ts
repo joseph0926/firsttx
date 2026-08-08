@@ -56,3 +56,16 @@ test("keeps landing compatibility aliases at the combined setup section", async 
     await expectTargetNearTop(page, alias);
   }
 });
+
+test("serves only configured locale segments and keeps the real ones reachable", async ({ request }) => {
+  for (const path of ["/definitely-not-a-locale", "/mockServiceWorker.js", "/xx/docs/overview"]) {
+    const response = await request.get(path);
+
+    expect(response.status(), `${path} should not be served`).toBe(404);
+    expect(await response.text(), `${path} should not render landing copy`).not.toContain("production-hero");
+  }
+
+  for (const path of ["/ko", "/en", "/ko/docs/overview"]) {
+    expect((await request.get(path)).status(), `${path} should still be served`).toBe(200);
+  }
+});
