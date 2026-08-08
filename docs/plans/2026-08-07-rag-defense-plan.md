@@ -36,20 +36,28 @@ IndexRun + ActiveIndexPointer
   -> fixed-case evaluation
 ```
 
-## 현재 기준선
+## 착수 시점 기준선 (2026-08-07)
 
-| 경로                                     | 현재 책임                               | 기준선                                                                    |
+이 표는 계획을 세운 시점의 상태이며 현재 코드가 아니다. 아래 「폐기된 항목」이 이후 변경을 요약한다.
+
+| 경로                                     | 착수 시점 책임                          | 기준선                                                                    |
 | ---------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
 | `apps/docs/content/docs/*.{ko,en}.mdx`   | 화면과 RAG가 공유하는 canonical content | 9개 document id의 KO/EN pair 18개                                         |
 | `apps/docs/scripts/canonical-mdx.ts`     | MDX normalization                       | 화면 전용 metadata와 JSX를 검색 가능한 Markdown으로 변환                  |
 | `apps/docs/scripts/chunk-md.ts`          | chunking                                | H1/H2/H3 경계, 최소 100자, 최대 2,000자                                   |
-| `apps/docs/scripts/main.ts`              | indexing orchestration                  | cache 삭제 후 locale별 reset, embedding, upsert                           |
-| `apps/docs/scripts/vector.ts`            | vector mutation                         | locale namespace reset, batch upsert, query                               |
+| `apps/docs/scripts/main.ts` (삭제됨)     | indexing orchestration                  | cache 삭제 후 locale별 reset, embedding, upsert                           |
+| `apps/docs/scripts/vector.ts` (삭제됨)   | vector mutation                         | locale namespace reset, batch upsert, query                               |
 | `apps/docs/lib/vector/search.ts`         | runtime retrieval                       | 고정 locale namespace, 함수 기본 topK 5(Chat 실호출 topK 8), minScore 0.5 |
 | `apps/docs/lib/cache/embedding-cache.ts` | runtime query embedding cache           | `emb:` prefix, model 미포함 text hash key, TTL 7일                        |
 | `apps/docs/lib/ai/rag.ts`                | prompt context                          | 최대 4,000자 context, locale prompt, UNKNOWN 규칙                         |
 | `apps/docs/app/api/chat/route.ts`        | Chat HTTP API                           | 입력/locale 검증, rate limit, retrieval, streaming, typed failure         |
 | `apps/docs/README.md`                    | 운영 경계                               | `ai`가 외부 상태 변경 명령임을 명시                                       |
+
+### 폐기된 항목
+
+- `scripts/main.ts`·`scripts/vector.ts`와 `ai` 명령은 T2′에서 삭제됐다. 인덱스는 `scripts/build-index.ts`가 만드는 커밋된 artifact이고 runtime 검색은 `lib/vector/search.ts`의 brute-force cosine이다.
+- `emb:` prefix는 model을 포함하도록 바뀌어 모델 교체 시 옛 embedding이 재사용되지 않는다.
+- Chat route는 rate limiter 장애 시 typed 503으로 fail-closed한다.
 
 보존할 강점:
 
@@ -227,16 +235,19 @@ interface RetrievalEvaluationCase {
 
 ```text
 pnpm --filter @firsttx/docs ai:plan
-pnpm --filter @firsttx/docs ai:index
+pnpm --filter @firsttx/docs ai:build-index
+pnpm --filter @firsttx/docs ai:check-index
 pnpm --filter @firsttx/docs ai:evaluate
-pnpm --filter @firsttx/docs ai:rollback -- --locale ko --run <runId>
+pnpm --filter @firsttx/docs ai:probe-unknown
 ```
 
-- `ai:plan`: read-only source/chunk/revision/namespace plan
-- `ai:index`: staging build, validation, active pointer 전환
-- `ai:evaluate`: 현재 active index에 고정 retrieval case 실행
-- `ai:rollback`: P1, 이전 성공 run 재활성화
-- 기존 `ai`: T3에서 `ai:index` alias로 전환하고 제거 gate를 함께 고정
+- `ai:plan`: read-only source/chunk/revision plan
+- `ai:build-index`: canonical MDX를 재임베딩해 커밋 대상 artifact를 재생성
+- `ai:check-index`: artifact revision과 canonical 문서 일치 검사. CI가 매 PR에서 실행
+- `ai:evaluate`: 고정 retrieval case로 Hit@3/MRR과 keyword baseline 측정
+- `ai:probe-unknown`: 문서에 답이 없는 질문에서 UNKNOWN 규칙 준수 확인 (생성 호출 발생)
+
+`ai:index`와 `ai:rollback`은 T2/T3 폐기와 함께 만들어지지 않았다. artifact를 되돌리는 것이 곧 rollback이다.
 
 ## 작업 순서
 
@@ -284,23 +295,22 @@ LLM generation을 호출하지 않는 retrieval API와 고정 case runner를 만
 
 실제 task 시작 전에 같은 책임의 기존 파일과 naming을 다시 대조해 신규 파일 수를 줄인다.
 
-| 경로                                        | 예상 책임                                                     |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| `apps/docs/package.json`                    | `ai:plan`, `ai:index`, `ai:evaluate`, 조건부 rollback scripts |
-| `apps/docs/scripts/main.ts`                 | reset-first orchestration을 lifecycle 단계로 교체             |
-| `apps/docs/scripts/vector.ts`               | versioned namespace mutation과 validation primitive           |
-| `apps/docs/lib/ai/index-contract.ts`        | plan, run, pointer와 evaluation의 공유 계약                   |
-| `apps/docs/lib/ai/index-run.ts`             | manifest 저장/조회와 상태 전이                                |
-| `apps/docs/lib/vector/active-index.ts`      | pointer resolve, activate와 legacy fallback                   |
-| `apps/docs/lib/vector/search.ts`            | active namespace와 search metadata 적용                       |
-| `apps/docs/app/api/rag/status/route.ts`     | status read API                                               |
-| `apps/docs/app/api/rag/retrievals/route.ts` | rate-limited retrieval read API                               |
-| `apps/docs/app/[locale]/ops/rag/page.tsx`   | 최소 ops page                                                 |
-| `apps/docs/components/rag-ops/*`            | status, inspector와 evaluation UI                             |
-| `apps/docs/evaluations/*`                   | KO/EN case와 결과 schema                                      |
-| `apps/docs/scripts/evaluate-retrieval.ts`   | Hit@3와 MRR runner                                            |
-| `apps/docs/README.md`                       | 명령과 mutation boundary                                      |
-| `docs/operations/rag-index-operations.md`   | lifecycle, failure와 운영 절차                                |
+| 경로                                         | 예상 책임                                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| `apps/docs/package.json`                     | `ai:plan`, `ai:build-index`, `ai:check-index`, `ai:evaluate`, `ai:probe-unknown` |
+| `apps/docs/scripts/build-index.ts`           | canonical MDX 재임베딩과 artifact 생성 (구현됨)                                  |
+| `apps/docs/scripts/check-index-freshness.ts` | artifact와 문서 revision 대조 (구현됨)                                           |
+| `apps/docs/lib/vector/artifact-contract.ts`  | packed artifact 형식과 cosine 계약 (구현됨)                                      |
+| `apps/docs/lib/ai/index-contract.ts`         | plan과 evaluation의 공유 계약 (구현됨)                                           |
+| `apps/docs/lib/vector/search.ts`             | artifact brute-force 검색 (구현됨)                                               |
+| `apps/docs/app/api/rag/status/route.ts`      | status read API (T4′, 미착수)                                                    |
+| `apps/docs/app/api/rag/retrievals/route.ts`  | rate-limited retrieval read API (T5b, 미착수)                                    |
+| `apps/docs/app/[locale]/ops/rag/page.tsx`    | 최소 ops page (T6, 미착수)                                                       |
+| `apps/docs/components/rag-ops/*`             | status, inspector와 evaluation UI (T6, 미착수)                                   |
+| `apps/docs/evaluations/*`                    | KO/EN case와 결과 schema (구현됨)                                                |
+| `apps/docs/scripts/evaluate-retrieval.ts`    | Hit@3와 MRR runner (구현됨)                                                      |
+| `apps/docs/README.md`                        | 명령과 mutation boundary (구현됨)                                                |
+| `docs/operations/rag-index-operations.md`    | lifecycle, failure와 운영 절차 (T7, 미착수)                                      |
 
 ## 전체 Acceptance Criteria
 
@@ -338,14 +348,15 @@ pnpm --filter @firsttx/docs ai:plan
 
 ### 외부 상태를 읽거나 바꾸는 검증
 
-provider credential을 사용하는 query/evaluation과 Redis/Vector mutation은 별도 승인을 받은 뒤 실행한다.
+provider credential을 사용하는 embedding·generation 호출은 별도 승인을 받은 뒤 실행한다. 외부 저장소 상태를 바꾸는 명령은 더 이상 없다.
 
 ```bash
-pnpm --filter @firsttx/docs ai:index
+pnpm --filter @firsttx/docs ai:build-index
 pnpm --filter @firsttx/docs ai:evaluate
+pnpm --filter @firsttx/docs ai:probe-unknown
 ```
 
-실행 전후 active pointer, 새 run manifest, 기존 namespace 보존, Chat smoke, status/ops와 evaluation artifact를 함께 기록한다. `ai:index` 실패 뒤 active pointer가 유지되지 않으면 P0 전체는 실패다.
+`ai:build-index`는 저장소 파일만 바꾸므로 되돌리기는 그 파일을 되돌리는 것으로 끝난다. 실행 뒤 `ai:check-index` 통과와 evaluation artifact를 함께 기록한다.
 
 ## Open decision gates
 
@@ -397,12 +408,10 @@ pnpm --filter @firsttx/docs ai:evaluate
 - [x] Chat 재활성화 **코드 준비** — rate limiter 장애 시 typed 503 fail-closed로 교정, route 회귀 테스트 4건 추가
 - [x] Chat 재활성화 **로컬 검증** — Redis 재생성 확인(remaining 9→8), Chat 위젯·전체 대화 경로·UNKNOWN 규칙 end-to-end 통과
 - [ ] Chat 재활성화 **프로덕션** — Vercel 환경변수 4종 설정 (사용자 작업)
-- [ ] T2~~T4, T5b, T6~~T7 구현과 검증
+- [ ] T4′ 최소 status, T5b retrieval API, T6 ops UI, T7 운영 문서 — 판단 대기
 
 2026-08-08 chat model을 `gpt-4o-mini`에서 `gpt-5.6-luna`로 올렸다. embedding model은 `text-embedding-3-small`이 여전히 OpenAI 최신이라 유지했고, 따라서 index와 측정된 Hit@3는 영향을 받지 않는다. Luna는 reasoning model이라 `temperature`를 지원하지 않아 chat route의 `temperature: 0.1`을 제거했다. 실측 usage에서 `reasoningTokens`는 0이었다.
 
 2026-08-08 기준 Upstash Vector와 Redis 무료 티어 DB는 미사용으로 삭제된 상태다. 프로덕션 `firsttx.store`는 정상이며 Chat이 노출되지 않아 사용자 영향은 없다. 이 계획이 방어하려는 **기존 활성 index가 현재 존재하지 않으므로**, 구조 변경 비용이 가장 낮은 시점이다.
 
-T1은 `ai:plan` read-only 경로와 공유 index contract를 추가했고 기존 `ai` mutation orchestration은 diff 없이 보존했다. 외부 provider 상태는 아직 변경하지 않았다.
-
-T2 착수 전에 `Open decision gates`의 Upstash activation postcondition과 pointer atomicity를 read-only probe로 닫는다.
+`Open decision gates`의 Upstash activation postcondition, pointer atomicity, legacy namespace retention은 T2/T3 폐기와 함께 닫혔다. 외부 vector 저장소가 없으므로 판정할 대상이 없다.
