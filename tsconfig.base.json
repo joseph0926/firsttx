@@ -18,10 +18,8 @@
       "@firsttx/prepaint": ["packages/prepaint/src/index.ts"],
       "@firsttx/prepaint/*": ["packages/prepaint/src/*"],
       "@firsttx/local-first": ["packages/local-first/src/index.ts"],
-      "@firsttx/local-first/*": ["packages/local-first/src/*"],
-      "@firsttx/tx": ["packages/tx/src/index.ts"],
-      "@firsttx/tx/*": ["packages/tx/src/*"]
+      "@firsttx/local-first/*": ["packages/local-first/src/*"]
     }
   },
-  "exclude": ["node_modules", "dist", "coverage", ".turbo"]
+  "exclude": ["node_modules", "dist", ".turbo"]
 }

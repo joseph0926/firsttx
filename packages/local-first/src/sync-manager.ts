@@ -1,7 +1,6 @@
 import type { ModelHistory } from './types';
 import type { CacheManager } from './cache-manager';
 import type { StorageManager } from './storage-manager';
-import { emitModelEvent } from './devtools';
 import { ValidationError } from './errors';
 
 export type RevalidateMode = 'always' | 'stale' | 'never';
@@ -109,11 +108,6 @@ export class SyncManager<T> {
           expectedMutationVersion,
         });
 
-        emitModelEvent('revalidate', {
-          modelName: this.name,
-          source: 'background',
-        });
-
         options?.onSuccess?.(fresh);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -130,7 +124,6 @@ export class SyncManager<T> {
 
   async replace(data: T, options?: ReplaceOptions): Promise<void> {
     return this.storageManager.enqueue(async () => {
-      const replaceStartTime = performance.now();
       const source = options?.source ?? 'manual';
 
       if (
@@ -143,12 +136,6 @@ export class SyncManager<T> {
 
       const validation = this.storageManager.validate(data);
       if (!validation.success) {
-        emitModelEvent('validation.error', {
-          modelName: this.name,
-          error: validation.error.message,
-          path: validation.error.issues[0]?.path.join('.'),
-        });
-
         throw new ValidationError(
           `[FirstTx] Invalid data for model "${this.name}"`,
           this.name,
@@ -171,21 +158,11 @@ export class SyncManager<T> {
       if (source === 'manual') {
         this.mutationVersion++;
       }
-
-      const replaceDuration = performance.now() - replaceStartTime;
-      emitModelEvent('replace', {
-        modelName: this.name,
-        dataSize: JSON.stringify(merged).length,
-        source,
-        duration: replaceDuration,
-      });
     });
   }
 
   async patch(mutator: (draft: T) => void): Promise<void> {
     return this.storageManager.enqueue(async () => {
-      const patchStartTime = performance.now();
-
       const existing = await this.storageManager.load();
       let draft: T;
 
@@ -205,12 +182,6 @@ export class SyncManager<T> {
 
       const validation = this.storageManager.validate(draft);
       if (!validation.success) {
-        emitModelEvent('validation.error', {
-          modelName: this.name,
-          error: validation.error.message,
-          path: validation.error.issues[0]?.path.join('.'),
-        });
-
         throw new ValidationError(
           `[FirstTx] Patch validation failed for model "${this.name}"`,
           this.name,
@@ -222,13 +193,6 @@ export class SyncManager<T> {
       this.cacheManager.updateWithData(validation.data, updatedAt);
       this.cachedDataPromise = Promise.resolve(validation.data);
       this.mutationVersion++;
-
-      const patchDuration = performance.now() - patchStartTime;
-      emitModelEvent('patch', {
-        modelName: this.name,
-        operation: 'mutate',
-        duration: patchDuration,
-      });
     });
   }
 

@@ -1,5 +1,3 @@
-import { BaseFirstTxError } from '@firsttx/shared';
-
 export type PrepaintErrorCode =
   | 'BOOT_DB_OPEN'
   | 'BOOT_SNAPSHOT_READ'
@@ -16,9 +14,36 @@ export type PrepaintErrorCode =
   | 'STORAGE_CORRUPTED_DATA'
   | 'STORAGE_UNKNOWN';
 
-export abstract class PrepaintError extends BaseFirstTxError {
+export abstract class PrepaintError extends Error {
   readonly domain = 'prepaint' as const;
+  readonly timestamp: number;
+  readonly context?: Record<string, unknown>;
   abstract readonly code: PrepaintErrorCode;
+
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message);
+    this.timestamp = Date.now();
+    this.context = context;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  abstract getUserMessage(): string;
+
+  abstract getDebugInfo(): string;
+
+  abstract isRecoverable(): boolean;
+
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      domain: this.domain,
+      code: this.code,
+      message: this.message,
+      timestamp: this.timestamp,
+      context: this.context,
+      recoverable: this.isRecoverable(),
+    };
+  }
 }
 
 export class BootError extends PrepaintError {

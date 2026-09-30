@@ -1,14 +1,14 @@
 import type { z } from 'zod';
-import { DEFAULT_TTL_MS } from '@firsttx/shared';
 import type { ModelHistory, ModelOptions } from './types';
 import { FirstTxError, StorageError } from './errors';
 import { ModelBroadcaster } from './broadcast';
-import { emitModelEvent } from './devtools';
 import { CacheManager } from './cache-manager';
 import type { CombinedSnapshot } from './cache-manager';
 import { StorageManager } from './storage-manager';
 import { SyncManager } from './sync-manager';
 import type { SyncPromiseOptions } from './sync-manager';
+
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 export type { CacheState, CombinedSnapshot } from './cache-manager';
 export type { SyncPromiseOptions } from './sync-manager';
@@ -153,13 +153,6 @@ export function defineModel<T>(name: string, options: ModelOptions<T>): Model<T>
       return syncManager.getSyncPromise(fetcher, syncOptions);
     },
   };
-
-  emitModelEvent('init', {
-    modelName: model.name,
-    ttl: model.ttl,
-    hasInitialData: options.initialData !== undefined,
-    version: options.version,
-  });
 
   return model;
 }

@@ -2,14 +2,14 @@
 
 ## Documentation
 
-- Official Docs: https://www.firsttx.store
+- Package docs: [Prepaint](./packages/prepaint/README.md) | [Local-First](./packages/local-first/README.md)
 - README: [English](./README.md) | [Korean](./docs/README.ko.md)
 
 ## Getting Help
 
 ### Before Asking
 
-1. Check the [documentation](https://www.firsttx.store)
+1. Check the [package docs](./packages/prepaint/README.md)
 2. Search [existing issues](https://github.com/joseph0926/firsttx/issues)
 3. Review the [Troubleshooting section](./README.md#troubleshooting) in README
 

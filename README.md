@@ -7,8 +7,6 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/joseph0926/firsttx/badge)](https://scorecard.dev/viewer/?uri=github.com/joseph0926/firsttx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Docs](https://firsttx.store/en) | [Playground](https://firsttx-playground.vercel.app) | [DevTools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)
-
 > 한국어 버전은 [docs/README.ko.md](./docs/README.ko.md)를 확인해주세요.
 
 **Reduce blank time on CSR revisits by replaying the last visual state**
@@ -17,68 +15,33 @@ FirstTx is for frequently revisited React apps that need to stay client-rendered
 adopting SSR or a Next.js runtime is not practical. For infrequently used apps, the snapshot
 and persistence layers are usually not worth the added complexity.
 
-## TL;DR
-
-FirstTx combines three client-side layers for CSR revisits:
-
-- **Prepaint**: Replay a sanitized visual snapshot before the app bundle starts
-- **Local-First**: Persist React model snapshots in IndexedDB and revalidate them from the server
-- **Tx**: Run optimistic steps with retry and reverse-order compensating rollback
-
-## Demo
-
 <table>
 <tr>
-<td align="center">Scenario overview</td>
-<td align="center">Verification criteria</td>
+<td align="center">Without Prepaint</td>
+<td align="center">With Prepaint</td>
 </tr>
 <tr>
-<td><img src="./docs/assets/playground/home-en-light.jpg" alt="FirstTx Playground scenario overview" /></td>
-<td><img src="./docs/assets/playground/lab-en-light.jpg" alt="FirstTx Playground verification criteria" /></td>
+<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-01_vi2svy.gif" alt="Blank screen on a slow 4G revisit" /></td>
+<td><img src="https://res.cloudinary.com/dx25hswix/image/upload/v1760316819/firsttx-02_tfmsy7.gif" alt="Snapshot replay on a slow 4G revisit" /></td>
 </tr>
 </table>
 
-The Playground contains nine scenarios across Prepaint, Local-First, and Tx. Each scenario identifies one of three states: behavior that matches the current contract, a known limitation, or a demo that still needs revision. Runtime metrics are shown only when a measurement artifact is connected.
+## Packages
 
-> Run the scenarios in [Playground](https://firsttx-playground.vercel.app) or review the [Playground guide](./apps/playground/README.md).
+| Package                                          | Role                                                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| [`@firsttx/prepaint`](./packages/prepaint)       | Replays a sanitized visual snapshot from IndexedDB before the app bundle starts            |
+| [`@firsttx/local-first`](./packages/local-first) | Optional. Persists React model snapshots in IndexedDB and revalidates them from the server |
 
-## Documentation
-
-<table>
-<tr>
-<td align="center">Choose a setup</td>
-<td align="center">Navigate by task</td>
-</tr>
-<tr>
-<td><img src="./docs/assets/docs/landing-desktop-en-light.png" alt="FirstTx Docs setup selection" /></td>
-<td><img src="./docs/assets/docs/navigation-mobile-en-dark.png" alt="FirstTx Docs mobile task navigation" /></td>
-</tr>
-</table>
-
-The documentation is organized around adoption tasks: start with product fit, choose a setup, build each layer, verify behavior, troubleshoot failures, and look up exact public contracts.
-
-[Overview](https://firsttx.store/en/docs/overview) · [Getting Started](https://firsttx.store/en/docs/getting-started) · [Patterns](https://firsttx.store/en/docs/patterns) · [Troubleshooting](https://firsttx.store/en/docs/troubleshooting) · [Reference](https://firsttx.store/en/docs/reference)
-
-## Why FirstTx?
-
-FirstTx adds reusable visual snapshot, persistent client cache, and compensation primitives while keeping a CSR architecture.
+Prepaint works on its own; Local-First is an optional companion.
 
 ## Installation
 
 ```bash
-pnpm add @firsttx/prepaint @firsttx/local-first @firsttx/tx
+pnpm add @firsttx/prepaint
 ```
 
-<details>
-<summary>Partial installation</summary>
-
-- Revisit only: `pnpm add @firsttx/prepaint`
-- Revisit + Sync: `pnpm add @firsttx/prepaint @firsttx/local-first`
-- Sync + Tx: `pnpm add @firsttx/local-first @firsttx/tx`
-
-> Tx requires Local-First as a dependency.
-
-</details>
+Add `@firsttx/local-first` when you also want persisted model data.
 
 > ESM-only. For CommonJS, use dynamic `import()`.
 
@@ -99,7 +62,7 @@ export default defineConfig({
 });
 ```
 
-> Prepaint is off until `policy.routes` explicitly opts paths in. Snapshot restore always uses a non-interactive overlay outside the React root.
+> Prepaint is off until `policy.routes` explicitly opts paths in. Matching is exact. Snapshot restore always uses a non-interactive overlay outside the React root.
 
 ### 2. Entry Point
 
@@ -110,7 +73,7 @@ import { createFirstTxRoot } from '@firsttx/prepaint';
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-### 3. Use in Component
+### 3. Persisted Data (optional)
 
 ```tsx
 import { useSyncedModel } from '@firsttx/local-first';
@@ -122,7 +85,8 @@ function CartPage() {
 }
 ```
 
-> For optimistic updates with Tx, see the [Tx API reference](https://firsttx.store/en/docs/reference#tx).
+See each package README for the full API: [Prepaint](./packages/prepaint/README.md),
+[Local-First](./packages/local-first/README.md).
 
 ## When to Use
 
@@ -149,14 +113,6 @@ function CartPage() {
 **TypeScript errors**: Add `declare const __FIRSTTX_DEV__: boolean`.
 
 More at [GitHub Issues](https://github.com/joseph0926/firsttx/issues).
-
-## Links
-
-- [API Reference](https://firsttx.store/en/docs/reference)
-- [Playground](https://firsttx-playground.vercel.app)
-- [DevTools](https://chromewebstore.google.com/detail/firsttx-devtools/onpdifkipmmkajdhodmpphmlpbnopkdd)
-- [GitHub](https://github.com/joseph0926/firsttx)
-- [Issues](https://github.com/joseph0926/firsttx/issues)
 
 ## License
 

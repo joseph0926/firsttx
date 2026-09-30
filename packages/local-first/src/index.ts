@@ -5,8 +5,6 @@ export { Storage } from './storage';
 
 export type {
   StoredModel,
-  TxJournalEntry,
-  TxJournalStatus,
   ModelOptions,
   ModelHistory,
   SyncOptions,

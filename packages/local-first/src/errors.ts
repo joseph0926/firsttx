@@ -1,14 +1,38 @@
 import type { z } from 'zod';
-import { BaseFirstTxError } from '@firsttx/shared';
 
 export type LocalFirstErrorCode =
   'STORAGE_QUOTA_EXCEEDED' | 'STORAGE_PERMISSION_DENIED' | 'STORAGE_UNKNOWN' | 'VALIDATION_FAILED';
 
-export abstract class FirstTxError extends BaseFirstTxError {
+export abstract class FirstTxError extends Error {
   readonly domain = 'local-first' as const;
+  readonly timestamp: number;
+  readonly context?: Record<string, unknown>;
   abstract readonly code: LocalFirstErrorCode;
 
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message);
+    this.timestamp = Date.now();
+    this.context = context;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  abstract getUserMessage(): string;
+
+  abstract getDebugInfo(): string;
+
   abstract isRecoverable(): boolean;
+
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      domain: this.domain,
+      code: this.code,
+      message: this.message,
+      timestamp: this.timestamp,
+      context: this.context,
+      recoverable: this.isRecoverable(),
+    };
+  }
 }
 
 export type StorageErrorCode = 'QUOTA_EXCEEDED' | 'PERMISSION_DENIED' | 'UNKNOWN';

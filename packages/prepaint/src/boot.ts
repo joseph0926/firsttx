@@ -5,7 +5,6 @@ import { STORAGE_CONFIG, type PrepaintPolicy, type Snapshot } from './types';
 import { openDB, pruneSnapshots, resolveRouteKey } from './utils';
 import { mountOverlay } from './overlay';
 import { BootError, PrepaintStorageError, convertDOMException } from './errors';
-import { emitDevToolsEvent } from './devtools';
 
 function getSnapshot(db: IDBDatabase, route: string): Promise<Snapshot | null> {
   return new Promise((resolve, reject) => {
@@ -65,7 +64,6 @@ function deleteSnapshot(db: IDBDatabase, route: string): Promise<void> {
  * The app will continue with a cold start if boot fails.
  */
 export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
-  const restoreStartTime = performance.now();
   const route = resolveRouteKey();
   const resolvedPolicy = resolvePrepaintPolicy(policy);
   let db: IDBDatabase | null = null;
@@ -73,13 +71,6 @@ export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
   try {
     db = await openDB();
   } catch (error) {
-    emitDevToolsEvent('storage.error', {
-      operation: 'read',
-      code: error instanceof Error ? error.name : 'UNKNOWN',
-      recoverable: true,
-      route,
-    });
-
     const bootError = new BootError('Failed to open IndexedDB', 'db-open', error as Error);
     console.error(bootError.getDebugInfo());
     return;
@@ -89,12 +80,6 @@ export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
     await pruneSnapshots(db, resolvedPolicy);
   } catch (error) {
     db.close();
-    emitDevToolsEvent('storage.error', {
-      operation: 'write',
-      code: error instanceof Error ? error.name : 'UNKNOWN',
-      recoverable: true,
-      route,
-    });
     const bootError = new BootError(
       'Failed to prune ineligible snapshots',
       'snapshot-read',
@@ -128,13 +113,6 @@ export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
       db.close();
     }
 
-    emitDevToolsEvent('storage.error', {
-      operation: 'read',
-      code: error instanceof Error ? error.name : 'UNKNOWN',
-      recoverable: true,
-      route,
-    });
-
     const bootError =
       error instanceof PrepaintStorageError
         ? new BootError(error.message, 'snapshot-read', error)
@@ -167,12 +145,6 @@ export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
 
   const age = Date.now() - snapshot.timestamp;
   if (age > resolvedPolicy.ttlMs) {
-    emitDevToolsEvent('restore', {
-      route,
-      strategy: 'cold-start',
-      snapshotAge: age,
-      restoreDuration: 0,
-    });
     if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
       console.log(
         `[FirstTx] Snapshot too old (age: ${age}ms, max: ${resolvedPolicy.ttlMs}ms), skipping restore`,
@@ -186,14 +158,6 @@ export async function boot(policy?: PrepaintPolicy | null): Promise<void> {
     document.documentElement.setAttribute('data-prepaint', 'true');
     document.documentElement.setAttribute('data-prepaint-overlay', 'true');
     document.documentElement.setAttribute('data-prepaint-timestamp', String(snapshot.timestamp));
-
-    const restoreDuration = performance.now() - restoreStartTime;
-    emitDevToolsEvent('restore', {
-      route,
-      strategy: 'has-prepaint',
-      snapshotAge: age,
-      restoreDuration,
-    });
 
     if (typeof __FIRSTTX_DEV__ !== 'undefined' && __FIRSTTX_DEV__) {
       console.log(`[FirstTx] Snapshot restored as overlay (age: ${age}ms)`);

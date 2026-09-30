@@ -61,7 +61,7 @@ Breaking changes require:
 ### Requirements
 
 - The repository is operated by one maintainer, so the ruleset requires zero approving reviews
-- CI must pass `Verify`, `Build`, `Security`, and `e2e-smoke`
+- CI must pass `Verify`
 - Review conversations must be resolved
 - Changes to published packages require a changeset
 
@@ -79,7 +79,7 @@ The active `main protection` ruleset protects the default branch:
 - Require pull request before merging
 - Require zero approving reviews
 - Require branches to be up to date
-- Require `Verify`, `Build`, `Security`, and `e2e-smoke`
+- Require `Verify`
 - Require conversation resolution before merging
 - Disallow bypass, force pushes, and branch deletion
 

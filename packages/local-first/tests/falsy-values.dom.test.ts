@@ -15,7 +15,6 @@ describe('falsy primitive values (DOM)', () => {
   });
 
   afterEach(() => {
-    delete window.__FIRSTTX_DEVTOOLS__;
     vi.restoreAllMocks();
   });
 
@@ -84,41 +83,6 @@ describe('falsy primitive values (DOM)', () => {
       );
 
       expect(fetcher).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('devtools init event', () => {
-    it('should report hasInitialData=true for falsy initialData', () => {
-      const emit = vi.fn();
-      window.__FIRSTTX_DEVTOOLS__ = { emit };
-
-      defineModel('devtools-zero', {
-        schema: z.number(),
-        initialData: 0,
-        ttl: 5000,
-      });
-
-      const initEvent = emit.mock.calls
-        .map(([event]) => event as { type: string; data: { hasInitialData: boolean } })
-        .find((event) => event.type === 'init');
-
-      expect(initEvent?.data.hasInitialData).toBe(true);
-    });
-
-    it('should report hasInitialData=false when initialData is absent', () => {
-      const emit = vi.fn();
-      window.__FIRSTTX_DEVTOOLS__ = { emit };
-
-      defineModel('devtools-absent', {
-        schema: z.number(),
-        ttl: 5000,
-      });
-
-      const initEvent = emit.mock.calls
-        .map(([event]) => event as { type: string; data: { hasInitialData: boolean } })
-        .find((event) => event.type === 'init');
-
-      expect(initEvent?.data.hasInitialData).toBe(false);
     });
   });
 });

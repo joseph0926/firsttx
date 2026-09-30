@@ -86,18 +86,16 @@ pnpm format
 pnpm build
 
 # Build specific package
-pnpm --filter @firsttx/tx build
+pnpm --filter @firsttx/prepaint build
 ```
 
 ## Pull Request Process
 
 ### Before Submitting
 
-1. Ensure all tests pass: `pnpm test:run`
-2. Ensure no lint errors: `pnpm lint`
-3. Ensure type checking passes: `pnpm typecheck`
-4. Update documentation if needed
-5. Add changeset if your change affects published packages:
+1. Run `pnpm verify`, which runs type checking, lint, format check, and tests the same way CI does
+2. Update documentation if needed
+3. Add changeset if your change affects published packages:
    ```bash
    pnpm changeset
    ```
@@ -171,10 +169,6 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 | ------------- | ---------------------------- |
 | `prepaint`    | @firsttx/prepaint package    |
 | `local-first` | @firsttx/local-first package |
-| `tx`          | @firsttx/tx package          |
-| `devtools`    | @firsttx/devtools package    |
-| `shared`      | @firsttx/shared package      |
-| `playground`  | Playground app               |
 | `docs`        | Documentation                |
 | `deps`        | Dependencies                 |
 
@@ -215,7 +209,7 @@ For questions, please use [GitHub Discussions](https://github.com/joseph0926/fir
 ## Need Help?
 
 - Check existing [issues](https://github.com/joseph0926/firsttx/issues)
-- Read the [documentation](https://www.firsttx.store)
+- Read the [README](./README.md)
 - Email: joseph0926.dev@gmail.com
 
 Thank you for contributing!

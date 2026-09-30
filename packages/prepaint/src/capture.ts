@@ -1,6 +1,6 @@
 declare const __FIRSTTX_DEV__: boolean;
 
-import { DANGEROUS_ATTRIBUTES } from '@firsttx/shared';
+import { DANGEROUS_ATTRIBUTES } from './sanitize';
 import {
   getSnapshotPayloadBytes,
   isRouteAllowed,
@@ -10,7 +10,6 @@ import {
 import { STORAGE_CONFIG, type PrepaintPolicy, type Snapshot, type SnapshotStyle } from './types';
 import { openDB, pruneStoredSnapshots, resolveRouteKey, scrubSensitiveFields } from './utils';
 import { CaptureError, PrepaintStorageError, convertDOMException } from './errors';
-import { emitDevToolsEvent } from './devtools';
 
 const isTestEnv = typeof process !== 'undefined' && !!process.env?.VITEST;
 const DANGEROUS_ATTRIBUTE_SET = new Set<string>(DANGEROUS_ATTRIBUTES);
@@ -206,7 +205,6 @@ function serializeRoot(rootEl: HTMLElement): string {
  * ```
  */
 export async function captureSnapshot(policy?: PrepaintPolicy | null): Promise<Snapshot | null> {
-  const captureStartTime = performance.now();
   const route = resolveRouteKey();
   const resolvedPolicy = resolvePrepaintPolicy(policy);
   if (!resolvedPolicy || !isRouteAllowed(resolvedPolicy, route)) return null;
@@ -246,8 +244,6 @@ export async function captureSnapshot(policy?: PrepaintPolicy | null): Promise<S
     return null;
   }
 
-  const hasVolatile = root ? root.querySelectorAll('[data-firsttx-volatile]').length > 0 : false;
-
   const snapshot: Snapshot = {
     route,
     body,
@@ -269,24 +265,8 @@ export async function captureSnapshot(policy?: PrepaintPolicy | null): Promise<S
     db = await openDB();
     await saveSnapshot(db, snapshot);
     db.close();
-
-    const captureDuration = performance.now() - captureStartTime;
-    emitDevToolsEvent('capture', {
-      route,
-      bodySize: body.length,
-      styleCount: styles.length,
-      hasVolatile,
-      duration: captureDuration,
-    });
   } catch (error) {
     if (db) db.close();
-
-    emitDevToolsEvent('storage.error', {
-      operation: 'write',
-      code: error instanceof Error ? error.name : 'UNKNOWN',
-      recoverable: error instanceof PrepaintStorageError ? error.isRecoverable() : true,
-      route,
-    });
 
     const captureError =
       error instanceof PrepaintStorageError

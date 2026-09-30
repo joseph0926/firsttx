@@ -379,7 +379,6 @@ Measure boot execution, visual replay duration, snapshot size, and handoff timin
 | Issue                  | Workaround                           |
 | ---------------------- | ------------------------------------ |
 | Vite-only plugin       | Manual `<script>` for other bundlers |
-| Fixed 7-day TTL        | Override in source (config planned)  |
 | Full-page capture only | Sub-tree snapshots not supported yet |
 
 ---
@@ -463,7 +462,6 @@ This release introduces significant improvements to snapshot capture and hydrati
 ## Related Packages
 
 - [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
-- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Optimistic sagas with compensating rollback
 
 ---
 
