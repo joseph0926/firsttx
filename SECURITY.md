@@ -67,7 +67,6 @@ We only provide security updates for the latest version of each package. Please 
 ### Built-in Protections
 
 - **Snapshot sanitization**: Prepaint removes dangerous elements, event handlers, executable URL schemes, and navigation or submit targets before restoring a snapshot
-- **Schema validation**: Zod schemas validate data before storage
 - **No eval()**: No dynamic code execution
 
 ### Recommendations
@@ -83,7 +82,6 @@ We only provide security updates for the latest version of each package. Please 
 ## Known Limitations
 
 - IndexedDB data is not encrypted by default
-- Cross-tab sync uses BroadcastChannel (same-origin only)
 - Prepaint snapshots may contain visible DOM content
 
 ## Disclosure Policy

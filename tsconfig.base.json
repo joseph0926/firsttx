@@ -16,9 +16,7 @@
     "baseUrl": ".",
     "paths": {
       "@firsttx/prepaint": ["packages/prepaint/src/index.ts"],
-      "@firsttx/prepaint/*": ["packages/prepaint/src/*"],
-      "@firsttx/local-first": ["packages/local-first/src/index.ts"],
-      "@firsttx/local-first/*": ["packages/local-first/src/*"]
+      "@firsttx/prepaint/*": ["packages/prepaint/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", ".turbo"]

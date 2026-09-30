@@ -10,7 +10,6 @@ body:
       description: Which package is affected?
       options:
         - prepaint
-        - local-first
         - other
     validations:
       required: true
