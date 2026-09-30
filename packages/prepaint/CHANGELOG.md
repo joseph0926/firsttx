@@ -1,5 +1,11 @@
 # @firsttx/prepaint
 
+## 0.14.0
+
+### Minor Changes
+
+- 0f76800: Remove the DevTools bridge and stop depending on `@firsttx/shared`. Capture, restore, handoff, and storage errors no longer emit events to `window.__FIRSTTX_DEVTOOLS__`. `PrepaintError` keeps its public shape (`domain`, `code`, `timestamp`, `context`, `toJSON()`) but no longer extends the shared base class.
+
 ## 0.13.1
 
 ### Patch Changes
