@@ -2,7 +2,7 @@
 
 ## Documentation
 
-- Package docs: [Prepaint](./packages/prepaint/README.md) | [Local-First](./packages/local-first/README.md)
+- Package docs: [Prepaint](./packages/prepaint/README.md)
 - README: [English](./README.md) | [Korean](./docs/README.ko.md)
 
 ## Getting Help

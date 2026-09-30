@@ -12,8 +12,8 @@
 **마지막 시각적 상태를 재생해 CSR 재방문 시 빈 화면 시간을 줄입니다**
 
 FirstTx는 SSR이나 Next.js 런타임을 도입하기 어려워 클라이언트 렌더링을 유지해야 하는
-재방문 빈도가 높은 React 앱을 위한 도구입니다. 사용 빈도가 낮은 앱에서는 스냅샷과
-영속화 계층을 추가할 만큼의 이점이 크지 않습니다.
+재방문 빈도가 높은 React 앱을 위한 도구입니다. 사용 빈도가 낮은 앱에서는 스냅샷
+계층을 추가할 만큼의 이점이 크지 않습니다.
 
 <table>
 <tr>
@@ -26,22 +26,11 @@ FirstTx는 SSR이나 Next.js 런타임을 도입하기 어려워 클라이언트
 </tr>
 </table>
 
-## 패키지
-
-| 패키지                                            | 역할                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------- |
-| [`@firsttx/prepaint`](../packages/prepaint)       | 앱 번들이 시작되기 전에 IndexedDB의 정제된 시각적 스냅샷을 재생     |
-| [`@firsttx/local-first`](../packages/local-first) | 선택. React 모델 스냅샷을 IndexedDB에 저장하고 서버 데이터로 재검증 |
-
-Prepaint는 단독으로 동작하며, Local-First는 선택해서 함께 쓰는 패키지입니다.
-
 ## 설치
 
 ```bash
 pnpm add @firsttx/prepaint
 ```
-
-모델 데이터 영속화가 필요하면 `@firsttx/local-first`를 추가합니다.
 
 > ESM 전용입니다. CommonJS에서는 동적 `import()`를 사용하세요.
 
@@ -73,20 +62,7 @@ import { createFirstTxRoot } from '@firsttx/prepaint';
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-### 3. 영속 데이터 (선택)
-
-```tsx
-import { useSyncedModel } from '@firsttx/local-first';
-
-function CartPage() {
-  const { data: cart } = useSyncedModel(CartModel, () => fetch('/api/cart').then((r) => r.json()));
-  if (!cart) return <Skeleton />;
-  return <CartList items={cart.items} />;
-}
-```
-
-전체 API는 각 패키지 README를 참고하세요: [Prepaint](../packages/prepaint/README.md),
-[Local-First](../packages/local-first/README.md).
+전체 API는 [Prepaint README](../packages/prepaint/README.md)를 참고하세요.
 
 ## 사용 시점
 

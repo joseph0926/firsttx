@@ -13,7 +13,7 @@
 
 FirstTx is for frequently revisited React apps that need to stay client-rendered because
 adopting SSR or a Next.js runtime is not practical. For infrequently used apps, the snapshot
-and persistence layers are usually not worth the added complexity.
+layer is usually not worth the added complexity.
 
 <table>
 <tr>
@@ -26,22 +26,11 @@ and persistence layers are usually not worth the added complexity.
 </tr>
 </table>
 
-## Packages
-
-| Package                                          | Role                                                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [`@firsttx/prepaint`](./packages/prepaint)       | Replays a sanitized visual snapshot from IndexedDB before the app bundle starts            |
-| [`@firsttx/local-first`](./packages/local-first) | Optional. Persists React model snapshots in IndexedDB and revalidates them from the server |
-
-Prepaint works on its own; Local-First is an optional companion.
-
 ## Installation
 
 ```bash
 pnpm add @firsttx/prepaint
 ```
-
-Add `@firsttx/local-first` when you also want persisted model data.
 
 > ESM-only. For CommonJS, use dynamic `import()`.
 
@@ -73,20 +62,7 @@ import { createFirstTxRoot } from '@firsttx/prepaint';
 createFirstTxRoot(document.getElementById('root')!, <App />);
 ```
 
-### 3. Persisted Data (optional)
-
-```tsx
-import { useSyncedModel } from '@firsttx/local-first';
-
-function CartPage() {
-  const { data: cart } = useSyncedModel(CartModel, () => fetch('/api/cart').then((r) => r.json()));
-  if (!cart) return <Skeleton />;
-  return <CartList items={cart.items} />;
-}
-```
-
-See each package README for the full API: [Prepaint](./packages/prepaint/README.md),
-[Local-First](./packages/local-first/README.md).
+See the [Prepaint README](./packages/prepaint/README.md) for the full API.
 
 ## When to Use
 

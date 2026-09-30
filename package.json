@@ -2,7 +2,7 @@
   "name": "firsttx",
   "version": "0.0.0",
   "private": true,
-  "description": "Replay the last visual state on CSR revisits before the app bundle starts, with optional IndexedDB-backed React models. No SSR required.",
+  "description": "Replay the last visual state on CSR revisits before the app bundle starts. No SSR required.",
   "license": "MIT",
   "author": "joseph0926",
   "packageManager": "pnpm@11.17.0",
@@ -11,16 +11,11 @@
   },
   "keywords": [
     "prepaint",
-    "local-first",
-    "optimistic-ui",
-    "offline-first",
     "react",
     "csr",
     "indexeddb",
-    "state-management",
     "view-transitions",
-    "client-side-rendering",
-    "hydration"
+    "client-side-rendering"
   ],
   "scripts": {
     "dev": "turbo run dev --parallel",

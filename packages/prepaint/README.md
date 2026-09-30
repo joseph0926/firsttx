@@ -191,22 +191,6 @@ localStorage.removeItem('firsttx:overlayRoutes');
 
 ## Real-World Patterns
 
-### With Local-First
-
-```tsx
-import { useModel } from '@firsttx/local-first';
-
-function ProductsPage() {
-  const [products] = useModel(ProductsModel);
-
-  // Prepaint shows last snapshot
-  // useModel provides instant data from IndexedDB
-  if (!products) return <Skeleton />;
-
-  return <ProductList products={products} />;
-}
-```
-
 ### Mark Volatile Content
 
 ```tsx
@@ -254,13 +238,6 @@ createFirstTxRoot(root, <App />, { transition: true });
 
 ```html
 <span data-firsttx-volatile>{timestamp}</span>
-```
-
-✅ **Combine with Local-First**
-
-```tsx
-const [data] = useModel(Model);
-// Instant data from IndexedDB while network refreshes
 ```
 
 ### DON'T
@@ -456,12 +433,6 @@ This release introduces significant improvements to snapshot capture and hydrati
 // Vite plugin automatically injects __FIRSTTX_DEV__ flag
 // No changes needed to your vite.config.ts
 ```
-
----
-
-## Related Packages
-
-- [`@firsttx/local-first`](https://www.npmjs.com/package/@firsttx/local-first) - IndexedDB + React integration
 
 ---
 

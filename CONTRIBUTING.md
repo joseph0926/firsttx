@@ -63,7 +63,7 @@ pnpm test
 pnpm test:run
 
 # Run tests for specific package
-pnpm test:run --filter=@firsttx/local-first
+pnpm test:run --filter=@firsttx/prepaint
 ```
 
 ### Linting and Type Checking
@@ -165,19 +165,18 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Scopes
 
-| Scope         | Description                  |
-| ------------- | ---------------------------- |
-| `prepaint`    | @firsttx/prepaint package    |
-| `local-first` | @firsttx/local-first package |
-| `docs`        | Documentation                |
-| `deps`        | Dependencies                 |
+| Scope      | Description               |
+| ---------- | ------------------------- |
+| `prepaint` | @firsttx/prepaint package |
+| `docs`     | Documentation             |
+| `deps`     | Dependencies              |
 
 ### Examples
 
 ```
 feat(prepaint): add overlay option for duplicate prevention
-fix(local-first): resolve cross-tab sync race condition
-docs: update API reference for useSyncedModel
+fix(prepaint): skip capture when the route is not allowed
+docs: update the prepaint API reference
 chore(deps): bump typescript to 5.9
 ```
 
