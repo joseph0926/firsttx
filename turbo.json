@@ -1,20 +1,12 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalDependencies": [".env", "pnpm-lock.yaml", "tsconfig.base.json"],
+  "globalDependencies": ["pnpm-lock.yaml", "tsconfig.base.json"],
   "envMode": "strict",
   "concurrency": "100%",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": [
-        "NEXT_PUBLIC_ENABLE_CHAT",
-        "OPENAI_API_KEY",
-        "UPSTASH_REDIS_REST_TOKEN",
-        "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_VECTOR_REST_TOKEN",
-        "UPSTASH_VECTOR_REST_URL"
-      ]
+      "outputs": ["dist/**"]
     },
     "dev": {
       "cache": false,
@@ -39,10 +31,6 @@
     "test:run": {
       "dependsOn": ["^build"],
       "outputs": []
-    },
-    "test:coverage": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
     },
     "clean": {
       "cache": false

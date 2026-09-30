@@ -10,9 +10,6 @@ dist/
 out/
 build/
 .cache/
-coverage/
-playwright-report/
-test-results/
 *.tsbuildinfo
 
 # Turborepo
@@ -23,7 +20,6 @@ test-results/
 .next/
 storybook-static/
 .vite/
-apps/**/.vite/
 docs/temp.*
 
 # Env & secrets
