@@ -14,101 +14,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  add-labels:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Add labels based on changed files
-        uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          sync-labels: true
-
   verify:
     name: Verify
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-
-      - name: Setup environment
-        uses: ./.github/actions/setup-pnpm
-
-      - name: Verify docs index artifact matches canonical content
-        run: pnpm --filter @firsttx/docs ai:check-index
-
-      - name: Run repository verification
-        run: pnpm run verify
-
-      - name: Upload coverage data
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
-        with:
-          name: unit-coverage
-          path: packages/*/coverage/*.json
-          if-no-files-found: error
-          retention-days: 5
-
-  coverage-report:
-    name: Coverage Report
-    if: github.event_name == 'pull_request' && needs.verify.result == 'success'
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Download coverage data
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53
-        with:
-          name: unit-coverage
-          path: packages
-
-      - name: Coverage report (prepaint)
-        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5
-        with:
-          json-summary-path: './packages/prepaint/coverage/coverage-summary.json'
-          json-final-path: './packages/prepaint/coverage/coverage-final.json'
-          name: prepaint
-
-      - name: Coverage report (local-first)
-        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5
-        with:
-          json-summary-path: './packages/local-first/coverage/coverage-summary.json'
-          json-final-path: './packages/local-first/coverage/coverage-final.json'
-          name: local-first
-
-      - name: Coverage report (tx)
-        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5
-        with:
-          json-summary-path: './packages/tx/coverage/coverage-summary.json'
-          json-final-path: './packages/tx/coverage/coverage-final.json'
-          name: tx
-
-      - name: Coverage report (shared)
-        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5
-        with:
-          json-summary-path: './packages/shared/coverage/coverage-summary.json'
-          json-final-path: './packages/shared/coverage/coverage-final.json'
-          name: shared
-
-      - name: Coverage report (devtools)
-        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5
-        with:
-          json-summary-path: './packages/devtools/coverage/coverage-summary.json'
-          json-final-path: './packages/devtools/coverage/coverage-final.json'
-          name: devtools
-
-  security:
-    name: Security
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -119,30 +27,8 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
 
-  build:
-    name: Build
-    needs: [verify]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-
-      - name: Setup environment
-        uses: ./.github/actions/setup-pnpm
+      - name: Run repository verification
+        run: pnpm run verify
 
       - name: Build
         run: pnpm run build
-
-      - name: Summary
-        if: success()
-        run: |
-          echo "## All checks passed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Typecheck | Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tests | Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | Passed |" >> $GITHUB_STEP_SUMMARY

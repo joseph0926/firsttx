@@ -11,9 +11,6 @@ body:
       options:
         - prepaint
         - local-first
-        - tx
-        - playground
-        - devtools
         - other
     validations:
       required: true
