@@ -58,7 +58,7 @@ We only provide security updates for the latest version of each package. Please 
 
 ### Content Security
 
-- FirstTx uses DOMPurify for HTML sanitization
+- Prepaint sanitizes captured HTML with a built-in sanitizer before replaying it
 - Configure appropriate Content Security Policy (CSP) headers
 - Validate and sanitize all user inputs
 
@@ -66,7 +66,7 @@ We only provide security updates for the latest version of each package. Please 
 
 ### Built-in Protections
 
-- **DOMPurify integration**: HTML content is sanitized before restoration
+- **Snapshot sanitization**: Prepaint removes dangerous elements, event handlers, executable URL schemes, and navigation or submit targets before restoring a snapshot
 - **Schema validation**: Zod schemas validate data before storage
 - **No eval()**: No dynamic code execution
 

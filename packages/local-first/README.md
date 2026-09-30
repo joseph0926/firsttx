@@ -594,7 +594,6 @@ try {
 
 ## Related Packages
 
-- [`@firsttx/tx`](https://www.npmjs.com/package/@firsttx/tx) - Optimistic sagas with compensating rollback
 - [`@firsttx/prepaint`](https://www.npmjs.com/package/@firsttx/prepaint) - Boot-time visual snapshot replay
 
 ---
