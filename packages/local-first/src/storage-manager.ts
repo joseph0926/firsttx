@@ -2,7 +2,6 @@ import type { z } from 'zod';
 import type { StoredModel, ModelHistory } from './types';
 import { Storage } from './storage';
 import { ValidationError } from './errors';
-import { emitModelEvent } from './devtools';
 
 export type LoadResult<T> = {
   data: T;
@@ -35,7 +34,6 @@ export class StorageManager<T> {
   }
 
   async load(): Promise<LoadResult<T> | null> {
-    const loadStartTime = performance.now();
     const storage = Storage.getInstance();
     const stored = await storage.get<T>(this.name);
 
@@ -67,12 +65,6 @@ export class StorageManager<T> {
     if (!parseResult.success) {
       await storage.delete(this.name);
 
-      emitModelEvent('validation.error', {
-        modelName: this.name,
-        error: parseResult.error.message,
-        path: parseResult.error.issues[0]?.path.join('.'),
-      });
-
       if (process.env.NODE_ENV !== 'production') {
         throw new ValidationError(
           `[FirstTx] Invalid data for model "${this.name}" - removed corrupted data`,
@@ -84,16 +76,7 @@ export class StorageManager<T> {
       return null;
     }
 
-    const loadDuration = performance.now() - loadStartTime;
     const age = Date.now() - stored.updatedAt;
-
-    emitModelEvent('load', {
-      modelName: this.name,
-      dataSize: JSON.stringify(parseResult.data).length,
-      age,
-      isStale: age >= this.ttl,
-      duration: loadDuration,
-    });
 
     return {
       data: parseResult.data,

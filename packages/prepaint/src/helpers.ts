@@ -5,7 +5,6 @@ import { setupCapture } from './capture';
 import type { Snapshot } from './types';
 import { removeOverlay } from './overlay';
 import type { HydrationError } from './errors';
-import { emitDevToolsEvent } from './devtools';
 import { supportsViewTransition } from './utils';
 
 /**
@@ -119,11 +118,6 @@ export function createFirstTxRoot(
 
   setupCapture({ onCapture });
   const strategy = handoff();
-
-  emitDevToolsEvent('handoff', {
-    strategy,
-    canHydrate: false,
-  });
 
   onHandoff?.(strategy);
 

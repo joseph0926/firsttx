@@ -1,17 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Storage } from '../src/storage';
-import type { StoredModel, TxJournalEntry } from '../src/types';
+import type { StoredModel } from '../src/types';
 
 const DB_NAME = 'firsttx-local-first';
 
-function seedV1Database(key: string, value: StoredModel<unknown>): Promise<void> {
+function seedDatabase(
+  version: number,
+  storeNames: readonly string[],
+  key: string,
+  value: StoredModel<unknown>,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, version);
 
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains('models')) {
-        db.createObjectStore('models');
+      for (const storeName of storeNames) {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName);
+        }
       }
     };
 
@@ -23,12 +30,19 @@ function seedV1Database(key: string, value: StoredModel<unknown>): Promise<void>
         db.close();
         resolve();
       };
-      tx.onerror = () => reject(tx.error ?? new Error('Failed to seed v1 models store'));
+      tx.onerror = () => reject(tx.error ?? new Error(`Failed to seed v${version} models store`));
     };
 
-    request.onerror = () => reject(request.error ?? new Error('Failed to open v1 database'));
+    request.onerror = () =>
+      reject(request.error ?? new Error(`Failed to open v${version} database`));
   });
 }
+
+const seedV1Database = (key: string, value: StoredModel<unknown>) =>
+  seedDatabase(1, ['models'], key, value);
+
+const seedV2Database = (key: string, value: StoredModel<unknown>) =>
+  seedDatabase(2, ['models', 'tx_journal', 'settings'], key, value);
 
 function openRawDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -46,7 +60,7 @@ describe('Storage schema upgrade', () => {
     storage = Storage.getInstance();
   });
 
-  describe('v1 -> v2', () => {
+  describe('v1 -> v3', () => {
     it('should preserve existing models data after upgrade', async () => {
       const legacy: StoredModel<{ count: number }> = {
         _v: 1,
@@ -61,19 +75,17 @@ describe('Storage schema upgrade', () => {
       expect(result).toEqual(legacy);
     });
 
-    it('should upgrade the database to v2 with all stores present', async () => {
+    it('should upgrade the database to v3 with models and settings stores', async () => {
       await seedV1Database('legacy-model', { _v: 1, updatedAt: 1000, data: { count: 7 } });
 
       await storage.get('legacy-model');
 
       const db = await openRawDatabase();
-      const storeNames = Array.from(db.objectStoreNames);
+      const storeNames = Array.from(db.objectStoreNames).sort();
       db.close();
 
-      expect(db.version).toBe(2);
-      expect(storeNames).toContain('models');
-      expect(storeNames).toContain('tx_journal');
-      expect(storeNames).toContain('settings');
+      expect(db.version).toBe(3);
+      expect(storeNames).toEqual(['models', 'settings']);
     });
 
     it('should keep models writable after upgrade', async () => {
@@ -85,18 +97,11 @@ describe('Storage schema upgrade', () => {
       expect(updated?.data.count).toBe(8);
     });
 
-    it('should expose the new stores to a v1 upgraded database', async () => {
+    it('should expose the settings store to a v1 upgraded database', async () => {
       await seedV1Database('legacy-model', { _v: 1, updatedAt: 1000, data: { count: 7 } });
 
-      await storage.putJournalEntry({
-        id: 'tx-1',
-        status: 'pending',
-        updatedAt: 1000,
-        payload: { step: 'charge' },
-      });
       await storage.setSetting('debug', true);
 
-      await expect(storage.getJournalEntries()).resolves.toHaveLength(1);
       await expect(storage.getSetting<boolean>('debug')).resolves.toBe(true);
       await expect(storage.get<{ count: number }>('legacy-model')).resolves.toEqual({
         _v: 1,
@@ -106,67 +111,23 @@ describe('Storage schema upgrade', () => {
     });
   });
 
-  describe('tx_journal', () => {
-    it('should append and read entries', async () => {
-      const entry: TxJournalEntry<{ step: string }> = {
-        id: 'tx-1',
-        status: 'pending',
+  describe('v2 -> v3', () => {
+    it('should drop the unused tx_journal store and keep models', async () => {
+      const legacy: StoredModel<{ count: number }> = {
+        _v: 1,
         updatedAt: 1000,
-        payload: { step: 'charge' },
+        data: { count: 7 },
       };
+      await seedV2Database('legacy-model', legacy);
 
-      await storage.putJournalEntry(entry);
-      const entries = await storage.getJournalEntries<{ step: string }>();
+      await expect(storage.get<{ count: number }>('legacy-model')).resolves.toEqual(legacy);
 
-      expect(entries).toEqual([entry]);
-    });
+      const db = await openRawDatabase();
+      const storeNames = Array.from(db.objectStoreNames).sort();
+      db.close();
 
-    it('should overwrite an entry with the same id', async () => {
-      await storage.putJournalEntry({
-        id: 'tx-1',
-        status: 'pending',
-        updatedAt: 1000,
-        payload: null,
-      });
-      await storage.putJournalEntry({
-        id: 'tx-1',
-        status: 'committed',
-        updatedAt: 2000,
-        payload: null,
-      });
-
-      const entries = await storage.getJournalEntries();
-
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.status).toBe('committed');
-    });
-
-    it('should return an empty list when no entries exist', async () => {
-      await expect(storage.getJournalEntries()).resolves.toEqual([]);
-    });
-
-    it('should delete an entry', async () => {
-      await storage.putJournalEntry({
-        id: 'tx-1',
-        status: 'pending',
-        updatedAt: 1000,
-        payload: null,
-      });
-      await storage.putJournalEntry({
-        id: 'tx-2',
-        status: 'pending',
-        updatedAt: 2000,
-        payload: null,
-      });
-
-      await storage.deleteJournalEntry('tx-1');
-      const entries = await storage.getJournalEntries();
-
-      expect(entries.map((entry) => entry.id)).toEqual(['tx-2']);
-    });
-
-    it('should not throw when deleting a non-existent entry', async () => {
-      await expect(storage.deleteJournalEntry('missing')).resolves.toBeUndefined();
+      expect(db.version).toBe(3);
+      expect(storeNames).toEqual(['models', 'settings']);
     });
   });
 

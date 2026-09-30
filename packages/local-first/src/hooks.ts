@@ -1,7 +1,6 @@
 import { useSyncExternalStore, useState, useEffect, useCallback, useRef } from 'react';
 import type { SyncOptions, SyncedModelResult, Fetcher } from './types';
 import type { Model } from './model';
-import { emitModelEvent } from './devtools';
 import { supportsViewTransition } from './utils';
 
 /**
@@ -66,15 +65,6 @@ export function useSyncedModel<T>(
     setIsSyncing(true);
     setSyncError(null);
 
-    const startTime = performance.now();
-    const currentHistory = await model.getHistory();
-
-    emitModelEvent('sync.start', {
-      modelName: model.name,
-      trigger: syncTriggerRef.current,
-      currentAge: currentHistory.age,
-    });
-
     try {
       const currentData = model.getCachedSnapshot();
       const data = await fetcherRef.current(currentData);
@@ -85,30 +75,10 @@ export function useSyncedModel<T>(
         await model.replace(data);
       }
 
-      const duration = performance.now() - startTime;
-      const dataSize = JSON.stringify(data).length;
-      const hadChanges = JSON.stringify(currentData) !== JSON.stringify(data);
-
-      emitModelEvent('sync.success', {
-        modelName: model.name,
-        dataSize,
-        duration,
-        hadChanges,
-      });
-
       optionsRef.current?.onSuccess?.(data);
     } catch (e) {
       const error = e as Error;
       setSyncError(error);
-
-      const duration = performance.now() - startTime;
-
-      emitModelEvent('sync.error', {
-        modelName: model.name,
-        error: error.message,
-        duration,
-        willRetry: false,
-      });
 
       optionsRef.current?.onError?.(error);
 

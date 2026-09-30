@@ -1,5 +1,3 @@
-import { emitModelEvent } from './devtools';
-
 declare const __FIRSTTX_DEV__: boolean;
 
 /**
@@ -76,11 +74,6 @@ class ModelBroadcaster {
             'Data will sync on page refresh via IndexedDB.',
         );
       }
-
-      emitModelEvent('broadcast.fallback', {
-        reason: 'BroadcastChannel not supported',
-        environment: typeof window !== 'undefined' ? 'browser' : 'ssr',
-      });
     }
 
     this.senderId = generateSenderId();
@@ -124,11 +117,6 @@ class ModelBroadcaster {
     this.channel.postMessage(fullMessage);
 
     if (this.usingFallback) {
-      emitModelEvent('broadcast.skipped', {
-        modelName: message.key,
-        operation: message.type,
-        reason: 'Fallback mode active',
-      });
     }
   }
 
@@ -139,13 +127,6 @@ class ModelBroadcaster {
       if (message.senderId === this.senderId) {
         return;
       }
-
-      emitModelEvent('broadcast', {
-        modelName: message.key,
-        operation: message.type === 'model-patched' ? 'patch' : 'replace',
-        senderId: message.senderId,
-        receivedAt: Date.now(),
-      });
 
       const callbacks = this.listeners.get(message.key);
       if (callbacks) {

@@ -4,14 +4,15 @@ import {
   type StorageErrorContext,
   type StorageOperation,
 } from './errors';
-import type { StoredModel, TxJournalEntry } from './types';
+import type { StoredModel } from './types';
 
 const STORAGE_CONFIG = {
   DB_NAME: 'firsttx-local-first',
-  DB_VERSION: 2,
+  DB_VERSION: 3,
   STORE_MODELS: 'models',
-  STORE_TX_JOURNAL: 'tx_journal',
   STORE_SETTINGS: 'settings',
+  // v2 shipped a tx journal store that nothing consumed; v3 drops it.
+  LEGACY_STORE_TX_JOURNAL: 'tx_journal',
 } as const;
 
 /**
@@ -77,8 +78,8 @@ class Storage {
             db.createObjectStore(STORAGE_CONFIG.STORE_MODELS);
           }
 
-          if (!db.objectStoreNames.contains(STORAGE_CONFIG.STORE_TX_JOURNAL)) {
-            db.createObjectStore(STORAGE_CONFIG.STORE_TX_JOURNAL, { keyPath: 'id' });
+          if (db.objectStoreNames.contains(STORAGE_CONFIG.LEGACY_STORE_TX_JOURNAL)) {
+            db.deleteObjectStore(STORAGE_CONFIG.LEGACY_STORE_TX_JOURNAL);
           }
 
           if (!db.objectStoreNames.contains(STORAGE_CONFIG.STORE_SETTINGS)) {
@@ -213,34 +214,6 @@ class Storage {
         }
       };
     });
-  }
-
-  async putJournalEntry<T>(entry: TxJournalEntry<T>): Promise<void> {
-    await this.run<IDBValidKey>(
-      STORAGE_CONFIG.STORE_TX_JOURNAL,
-      'readwrite',
-      'set',
-      entry.id,
-      (store) => store.put(entry),
-    );
-  }
-
-  async getJournalEntries<T>(): Promise<TxJournalEntry<T>[]> {
-    const entries = await this.run<TxJournalEntry<T>[] | undefined>(
-      STORAGE_CONFIG.STORE_TX_JOURNAL,
-      'readonly',
-      'get',
-      undefined,
-      (store) => store.getAll(),
-    );
-
-    return entries ?? [];
-  }
-
-  async deleteJournalEntry(id: string): Promise<void> {
-    await this.run<undefined>(STORAGE_CONFIG.STORE_TX_JOURNAL, 'readwrite', 'delete', id, (store) =>
-      store.delete(id),
-    );
   }
 
   async getSetting<T>(key: string): Promise<T | null> {

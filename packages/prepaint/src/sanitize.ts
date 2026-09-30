@@ -1,5 +1,3 @@
-import { DANGEROUS_ATTRIBUTES } from '@firsttx/shared';
-
 /**
  * snapshot은 비대화형 overlay로만 재생된다. 따라서 제거 대상은
  * "코드를 실행하거나 원격 리소스를 불러오는 태그"로 한정한다.
@@ -35,6 +33,64 @@ const STRIPPED_ATTRIBUTES = new Set([
   'formtarget',
   'autocomplete',
 ]);
+
+export const DANGEROUS_ATTRIBUTES = [
+  'onload',
+  'onerror',
+  'onclick',
+  'onmouseover',
+  'onmouseout',
+  'onmouseenter',
+  'onmouseleave',
+  'onfocus',
+  'onblur',
+  'onchange',
+  'onsubmit',
+  'onkeydown',
+  'onkeyup',
+  'onkeypress',
+  'ontouchstart',
+  'ontouchend',
+  'ontouchmove',
+  'onpointerdown',
+  'onpointerup',
+  'onpointermove',
+  'ondrag',
+  'ondrop',
+  'ondragstart',
+  'ondragend',
+  'onanimationstart',
+  'onanimationend',
+  'onanimationiteration',
+  'ontransitionend',
+  'onwheel',
+  'onscroll',
+  'oncontextmenu',
+  'oninput',
+  'onreset',
+  'onselect',
+  'onabort',
+  'oncanplay',
+  'oncanplaythrough',
+  'ondurationchange',
+  'onemptied',
+  'onended',
+  'onloadeddata',
+  'onloadedmetadata',
+  'onloadstart',
+  'onpause',
+  'onplay',
+  'onplaying',
+  'onprogress',
+  'onratechange',
+  'onseeked',
+  'onseeking',
+  'onstalled',
+  'onsuspend',
+  'ontimeupdate',
+  'onvolumechange',
+  'onwaiting',
+] as const;
 
 const DANGEROUS_ATTRIBUTE_SET = new Set<string>(DANGEROUS_ATTRIBUTES);
 const URL_ATTRIBUTE_SET = new Set(['background', 'cite', 'poster', 'src']);

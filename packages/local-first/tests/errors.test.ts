@@ -13,6 +13,26 @@ describe('Errors', () => {
       expect(storageError).toBeInstanceOf(FirstTxError);
       expect(storageError).toBeInstanceOf(Error);
     });
+
+    it('should record creation time and serialize to JSON', () => {
+      const before = Date.now();
+      const error = new StorageError('Quota exceeded', 'QUOTA_EXCEEDED', false, {
+        key: 'cart',
+        operation: 'set',
+      });
+      const after = Date.now();
+
+      expect(error.timestamp).toBeGreaterThanOrEqual(before);
+      expect(error.timestamp).toBeLessThanOrEqual(after);
+      expect(error.toJSON()).toMatchObject({
+        name: 'StorageError',
+        domain: 'local-first',
+        code: 'STORAGE_QUOTA_EXCEEDED',
+        message: 'Quota exceeded',
+        timestamp: error.timestamp,
+        recoverable: false,
+      });
+    });
   });
 
   describe('StorageError', () => {
