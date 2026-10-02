@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
-import { build } from 'esbuild';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFile } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { serializePrepaintPolicy } from '../policy';
 import type { PrepaintPolicy } from '../types';
 
@@ -45,38 +45,21 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
     },
     async buildStart() {
       const minify = userMinify ?? !isDev;
+      // Prebuilt by tsup.config.ts; dist/plugin/vite.js reads from dist/boot/.
+      const bootFileName = `boot.${isDev ? 'dev' : 'prod'}${minify ? '.min' : ''}.js`;
       try {
-        const currentDir = dirname(fileURLToPath(import.meta.url));
-        const distDir = resolve(currentDir, '..');
-        const bootPath = resolve(distDir, 'boot.js');
-        const define = {
-          'process.env.NODE_ENV': JSON.stringify(isDev ? 'development' : 'production'),
-          __FIRSTTX_DEV__: JSON.stringify(isDev),
-        };
-        const result = await build({
-          entryPoints: [bootPath],
-          bundle: true,
-          write: false,
-          format: 'iife',
-          minify,
-          target: 'es2020',
-          platform: 'browser',
-          globalName: '__firsttx_boot__',
-          define,
-        });
-        if (result.outputFiles && result.outputFiles[0]) {
-          bootScriptCode = result.outputFiles[0].text;
-          if (!inline && isBuild && this?.emitFile) {
-            this.emitFile({
-              type: 'asset',
-              fileName: 'firsttx-boot.js',
-              source: createExecutableBootScript(bootScriptCode, serializedPolicy),
-            });
-          }
-        }
+        const distDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+        bootScriptCode = await readFile(resolve(distDir, 'boot', bootFileName), 'utf8');
       } catch (error) {
-        console.error('[FirstTx] Failed to build boot script:', error);
+        console.error('[FirstTx] Failed to load boot script:', error);
         throw error;
+      }
+      if (!inline && isBuild && this?.emitFile) {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'firsttx-boot.js',
+          source: createExecutableBootScript(bootScriptCode, serializedPolicy),
+        });
       }
     },
     transformIndexHtml: {

@@ -1,33 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ResolvedConfig } from 'vite';
 
-// Mock esbuild before importing the plugin
-vi.mock('esbuild', () => ({
-  build: vi.fn().mockResolvedValue({
-    outputFiles: [
-      { text: 'console.log("boot script");', path: '', contents: new Uint8Array(), hash: '' },
-    ],
-  }),
-}));
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  const readFile = vi.fn();
+  return { ...actual, readFile, default: { ...actual, readFile } };
+});
 
 // Import after mocking
 import { firstTx, type FirstTxPluginOptions } from '../src/plugin/vite';
-import { build } from 'esbuild';
+import { readFile } from 'node:fs/promises';
 
-const mockedBuild = vi.mocked(build);
+const mockedReadFile = vi.mocked(readFile);
+
+function readBootFileName(): string | undefined {
+  const path = mockedReadFile.mock.calls[0]?.[0];
+  return typeof path === 'string' ? path.split(/[\\/]/).slice(-2).join('/') : undefined;
+}
 
 describe('firstTx Vite Plugin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedBuild.mockResolvedValue({
-      outputFiles: [
-        { text: 'console.log("boot script");', path: '', contents: new Uint8Array(), hash: '' },
-      ],
-      errors: [],
-      warnings: [],
-      metafile: undefined,
-      mangleCache: undefined,
-    });
+    mockedReadFile.mockResolvedValue('console.log("boot script");');
   });
 
   afterEach(() => {
@@ -65,22 +59,19 @@ describe('firstTx Vite Plugin', () => {
   });
 
   describe('configResolved', () => {
-    it('sets isDev to true in development mode', async () => {
+    it('loads the unminified dev boot script in development mode', async () => {
       const plugin = firstTx();
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
 
       configResolved({ mode: 'development' } as ResolvedConfig);
 
-      // Verify by checking buildStart behavior
       const buildStart = plugin.buildStart as () => Promise<void>;
       await buildStart();
 
-      const buildCall = mockedBuild.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
-      expect(buildCall?.minify).toBe(false);
-      expect((buildCall?.define as Record<string, unknown>)?.__FIRSTTX_DEV__).toBe('true');
+      expect(readBootFileName()).toBe('boot/boot.dev.js');
     });
 
-    it('sets isDev to false in production mode', async () => {
+    it('loads the minified prod boot script in production mode', async () => {
       const plugin = firstTx();
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
 
@@ -89,9 +80,7 @@ describe('firstTx Vite Plugin', () => {
       const buildStart = plugin.buildStart as () => Promise<void>;
       await buildStart();
 
-      const buildCall = mockedBuild.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
-      expect(buildCall?.minify).toBe(true);
-      expect((buildCall?.define as Record<string, unknown>)?.__FIRSTTX_DEV__).toBe('false');
+      expect(readBootFileName()).toBe('boot/boot.prod.min.js');
     });
 
     it('respects devFlagOverride option', async () => {
@@ -103,32 +92,11 @@ describe('firstTx Vite Plugin', () => {
       const buildStart = plugin.buildStart as () => Promise<void>;
       await buildStart();
 
-      const buildCall = mockedBuild.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
-      expect((buildCall?.define as Record<string, unknown>)?.__FIRSTTX_DEV__).toBe('true');
+      expect(readBootFileName()).toBe('boot/boot.dev.js');
     });
   });
 
   describe('buildStart', () => {
-    it('builds boot script with esbuild', async () => {
-      const plugin = firstTx();
-      const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
-      configResolved({ mode: 'production' } as ResolvedConfig);
-
-      const buildStart = plugin.buildStart as () => Promise<void>;
-      await buildStart();
-
-      expect(mockedBuild).toHaveBeenCalledWith(
-        expect.objectContaining({
-          bundle: true,
-          write: false,
-          format: 'iife',
-          target: 'es2020',
-          platform: 'browser',
-          globalName: '__firsttx_boot__',
-        }),
-      );
-    });
-
     it('uses minify option from user config', async () => {
       const plugin = firstTx({ minify: false });
       const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
@@ -137,15 +105,11 @@ describe('firstTx Vite Plugin', () => {
       const buildStart = plugin.buildStart as () => Promise<void>;
       await buildStart();
 
-      expect(mockedBuild).toHaveBeenCalledWith(
-        expect.objectContaining({
-          minify: false,
-        }),
-      );
+      expect(readBootFileName()).toBe('boot/boot.prod.js');
     });
 
-    it('throws error when esbuild fails', async () => {
-      mockedBuild.mockRejectedValueOnce(new Error('esbuild failed'));
+    it('throws when the prebuilt boot script cannot be read', async () => {
+      mockedReadFile.mockRejectedValueOnce(new Error('ENOENT'));
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const plugin = firstTx();
@@ -154,38 +118,13 @@ describe('firstTx Vite Plugin', () => {
 
       const buildStart = plugin.buildStart as () => Promise<void>;
 
-      await expect(buildStart()).rejects.toThrow('esbuild failed');
+      await expect(buildStart()).rejects.toThrow('ENOENT');
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[FirstTx] Failed to build boot script:',
+        '[FirstTx] Failed to load boot script:',
         expect.any(Error),
       );
 
       consoleSpy.mockRestore();
-    });
-
-    it('handles empty output files gracefully', async () => {
-      mockedBuild.mockResolvedValueOnce({
-        outputFiles: [],
-        errors: [],
-        warnings: [],
-        metafile: undefined,
-        mangleCache: undefined,
-      });
-
-      const plugin = firstTx();
-      const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
-      configResolved({ mode: 'production' } as ResolvedConfig);
-
-      const buildStart = plugin.buildStart as () => Promise<void>;
-      await buildStart();
-
-      // transformIndexHtml should return original html when no boot script
-      const transformIndexHtml = plugin.transformIndexHtml as {
-        order: string;
-        handler: (html: string) => string;
-      };
-      const result = transformIndexHtml.handler('<html><head></head><body></body></html>');
-      expect(result).toBe('<html><head></head><body></body></html>');
     });
   });
 
@@ -394,13 +333,7 @@ describe('injectScript helper', () => {
     position: 'head' | 'head-prepend' | 'body' | 'body-prepend',
     html: string,
   ): Promise<string> {
-    vi.mocked(build).mockResolvedValueOnce({
-      outputFiles: [{ text: 'boot();', path: '', contents: new Uint8Array(), hash: '' }],
-      errors: [],
-      warnings: [],
-      metafile: undefined,
-      mangleCache: undefined,
-    });
+    vi.mocked(readFile).mockResolvedValueOnce('boot();');
 
     const plugin = firstTx({ injectTo: position, inline: true });
     const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
@@ -433,13 +366,7 @@ describe('injectScript helper', () => {
   });
 
   it('defaults to head-prepend for unknown position', async () => {
-    vi.mocked(build).mockResolvedValueOnce({
-      outputFiles: [{ text: 'boot();', path: '', contents: new Uint8Array(), hash: '' }],
-      errors: [],
-      warnings: [],
-      metafile: undefined,
-      mangleCache: undefined,
-    });
+    vi.mocked(readFile).mockResolvedValueOnce('boot();');
 
     const plugin = firstTx({ injectTo: 'unknown' as 'head', inline: true });
     const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
