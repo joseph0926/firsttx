@@ -38,6 +38,8 @@ pnpm add @firsttx/prepaint
 
 ### 1. Vite Plugin
 
+Supports Vite 7 and Vite 8.
+
 ```ts
 // vite.config.ts
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
@@ -85,8 +87,6 @@ See the [Prepaint README](./packages/prepaint/README.md) for the full API.
 **UI duplicates on refresh**: Upgrade to `@firsttx/prepaint@0.11.0` or later and mount React through `createFirstTxRoot`. No overlay option is required.
 
 **Frequently changing snapshot content**: Add `data-firsttx-volatile` to content that should be cleared from the captured visual snapshot.
-
-**TypeScript errors**: Add `declare const __FIRSTTX_DEV__: boolean`.
 
 More at [GitHub Issues](https://github.com/joseph0926/firsttx/issues).
 
