@@ -57,7 +57,7 @@ Prepaint captures DOM snapshots per route and replays them during boot on the ne
 
 ### 1. Vite Plugin
 
-Prepaint currently provides a Vite plugin only.
+Prepaint currently provides a Vite plugin only. It supports Vite 7 and Vite 8 and ships a prebuilt boot script, so it does not need esbuild in your project.
 
 ```ts
 // vite.config.ts
