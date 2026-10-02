@@ -38,6 +38,8 @@ pnpm add @firsttx/prepaint
 
 ### 1. Vite 플러그인
 
+Vite 7과 Vite 8을 지원합니다.
+
 ```ts
 // vite.config.ts
 import { firstTx } from '@firsttx/prepaint/plugin/vite';
@@ -85,8 +87,6 @@ createFirstTxRoot(document.getElementById('root')!, <App />);
 **새로고침 시 UI 중복**: `@firsttx/prepaint@0.11.0` 이상으로 업그레이드하고 `createFirstTxRoot`로 React를 마운트하세요. 별도 오버레이 옵션은 필요하지 않습니다.
 
 **자주 바뀌는 스냅샷 콘텐츠**: 캡처한 시각적 스냅샷에서 비워야 할 콘텐츠에 `data-firsttx-volatile`을 추가하세요.
-
-**TypeScript 오류**: `declare const __FIRSTTX_DEV__: boolean`을 추가하세요.
 
 더 많은 내용은 [GitHub Issues](https://github.com/joseph0926/firsttx/issues)에서 확인하세요.
 

@@ -58,6 +58,30 @@ describe('firstTx Vite Plugin', () => {
     });
   });
 
+  describe('config', () => {
+    type ConfigHook = (
+      config: Record<string, unknown>,
+      env: { mode: string; command: string },
+    ) => { define?: Record<string, string> };
+
+    function appDevFlag(options: FirstTxPluginOptions, mode: string): string | undefined {
+      const config = firstTx(options).config as unknown as ConfigHook;
+      return config({}, { mode, command: 'build' }).define?.__FIRSTTX_DEV__;
+    }
+
+    it('defines the dev flag for the app bundle in development mode', () => {
+      expect(appDevFlag({}, 'development')).toBe('true');
+    });
+
+    it('defines the dev flag as false in production mode', () => {
+      expect(appDevFlag({}, 'production')).toBe('false');
+    });
+
+    it('applies devFlagOverride to the app bundle the same way as the boot script', () => {
+      expect(appDevFlag({ devFlagOverride: true }, 'production')).toBe('true');
+    });
+  });
+
   describe('configResolved', () => {
     it('loads the unminified dev boot script in development mode', async () => {
       const plugin = firstTx();
@@ -263,6 +287,37 @@ describe('firstTx Vite Plugin', () => {
       expect(result).toContain('try{');
       expect(result).toContain('}catch(e){');
       expect(result).toContain('[FirstTx] Boot script failed:');
+    });
+  });
+
+  describe('dev flag global', () => {
+    it('sets the dev flag global in the inline boot script on the dev server', async () => {
+      const plugin = firstTx({ inline: true });
+      const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
+      configResolved({ mode: 'development', command: 'serve' } as ResolvedConfig);
+      await (plugin.buildStart as () => Promise<void>)();
+
+      const transformIndexHtml = plugin.transformIndexHtml as {
+        handler: (html: string) => string;
+      };
+      const result = transformIndexHtml.handler('<html><head></head><body></body></html>');
+
+      expect(result).toContain('globalThis.__FIRSTTX_DEV__=true;');
+    });
+
+    it('does not set the dev flag global in the emitted production boot asset', async () => {
+      const plugin = firstTx();
+      const configResolved = plugin.configResolved as (config: ResolvedConfig) => void;
+      configResolved({ mode: 'production', command: 'build' } as ResolvedConfig);
+
+      const emitFile = vi.fn();
+      const buildStart = plugin.buildStart as unknown as (this: {
+        emitFile: typeof emitFile;
+      }) => Promise<void>;
+      await buildStart.call({ emitFile });
+
+      const emitted = emitFile.mock.calls[0]?.[0] as { source?: unknown } | undefined;
+      expect(String(emitted?.source)).not.toContain('__FIRSTTX_DEV__');
     });
   });
 

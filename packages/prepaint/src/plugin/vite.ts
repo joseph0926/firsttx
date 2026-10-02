@@ -30,6 +30,9 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
   } = options;
   const serializedPolicy = serializePrepaintPolicy(options.policy);
 
+  const resolveIsDev = (mode: string) =>
+    typeof devFlagOverride === 'boolean' ? devFlagOverride : mode === 'development';
+
   let bootScriptCode: string | null = null;
   let isDev = false;
   let isBuild = false;
@@ -37,9 +40,13 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
 
   return {
     name: 'vite-plugin-firsttx',
+    config(_userConfig, env) {
+      // The runtime modules (handoff, capture) guard their dev logs with
+      // `__FIRSTTX_DEV__`, so the app bundle needs the same flag as the boot script.
+      return { define: { __FIRSTTX_DEV__: JSON.stringify(resolveIsDev(env.mode)) } };
+    },
     configResolved(config) {
-      isDev =
-        typeof devFlagOverride === 'boolean' ? devFlagOverride : config.mode === 'development';
+      isDev = resolveIsDev(config.mode);
       isBuild = config.command === 'build';
       base = config.base || '/';
     },
@@ -69,7 +76,9 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
         const nonceValue = resolveAndValidateNonce(nonce);
 
         if (inline) {
-          const executableCode = createExecutableBootScript(bootScriptCode, serializedPolicy);
+          const executableCode = createExecutableBootScript(bootScriptCode, serializedPolicy, {
+            exposeDevFlag: isDev && !isBuild,
+          });
           const bootTag = `<script${nonceValue ? ` nonce="${nonceValue}"` : ''}>${executableCode}</script>`;
           return injectScript(html, bootTag, injectTo);
         } else {
@@ -87,14 +96,28 @@ export function firstTx(options: FirstTxPluginOptions = {}): Plugin {
         }
         response.statusCode = 200;
         response.setHeader('Content-Type', 'text/javascript; charset=utf-8');
-        response.end(createExecutableBootScript(bootScriptCode, serializedPolicy));
+        response.end(
+          createExecutableBootScript(bootScriptCode, serializedPolicy, { exposeDevFlag: isDev }),
+        );
       });
     },
   };
 }
 
-function createExecutableBootScript(bootScriptCode: string, serializedPolicy: string): string {
-  return `${bootScriptCode};try{globalThis.__FIRSTTX_PREPAINT_POLICY__=${serializedPolicy};__firsttx_boot__.boot(globalThis.__FIRSTTX_PREPAINT_POLICY__);}catch(e){console.error('[FirstTx] Boot script failed:',e);}`;
+/**
+ * `exposeDevFlag` is for the dev server only. Vite pre-bundles dependencies in dev
+ * without applying custom `define` values, so the runtime modules would see
+ * `__FIRSTTX_DEV__` as undefined. The boot script is a classic script and runs
+ * before the app's module scripts, so setting the global here covers that gap.
+ * Builds rely on the static `define` replacement from the `config` hook instead.
+ */
+function createExecutableBootScript(
+  bootScriptCode: string,
+  serializedPolicy: string,
+  { exposeDevFlag = false }: { exposeDevFlag?: boolean } = {},
+): string {
+  const devFlag = exposeDevFlag ? 'globalThis.__FIRSTTX_DEV__=true;' : '';
+  return `${devFlag}${bootScriptCode};try{globalThis.__FIRSTTX_PREPAINT_POLICY__=${serializedPolicy};__firsttx_boot__.boot(globalThis.__FIRSTTX_PREPAINT_POLICY__);}catch(e){console.error('[FirstTx] Boot script failed:',e);}`;
 }
 
 function resolveAndValidateNonce(nonceOption: FirstTxPluginOptions['nonce']): string | undefined {
