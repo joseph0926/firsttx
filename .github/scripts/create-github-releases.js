@@ -7,6 +7,13 @@ const VERSION_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const PACKAGE_MANIFEST_PATTERN = /^packages\/[a-z0-9-]+\/package\.json$/;
+// The registry can answer 404 for a few seconds to minutes after `changeset publish`
+// succeeds, so the publish check polls instead of reading once.
+const DEFAULT_PUBLISH_WAIT = { attempts: 12, delayMs: 10_000 };
+
+function sleepSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
 
 function parsePackageManifests(value) {
   if (typeof value !== 'string' || value.length === 0 || value.length > 20_000) {
@@ -164,9 +171,14 @@ function commandError(command, result) {
   const details = `${result.stderr || result.stdout || ''}`.trim();
   const error = new Error(`${command} failed${details ? `: ${details}` : ''}`);
   const statusMatch = details.match(/HTTP (\d{3})/);
+  const npmCodeMatch = details.match(/npm error code (\S+)/);
 
   if (statusMatch) {
     error.httpStatus = Number(statusMatch[1]);
+  }
+
+  if (npmCodeMatch) {
+    error.npmCode = npmCodeMatch[1];
   }
 
   return error;
@@ -247,9 +259,17 @@ function createCliApi(repository) {
   }
 
   return {
+    /** Returns null while the registry does not show the version yet. */
     getPublishedVersion(name, version) {
-      const output = runCommand('npm', ['view', `${name}@${version}`, 'version', '--json']);
-      return JSON.parse(output);
+      try {
+        const output = runCommand('npm', ['view', `${name}@${version}`, 'version', '--json']);
+        return JSON.parse(output);
+      } catch (error) {
+        if (error.npmCode === 'E404') {
+          return null;
+        }
+        throw error;
+      }
     },
     getRelease(tag) {
       return optionalRequest(`repos/${repository}/releases/tags/${encodeURIComponent(tag)}`);
@@ -279,17 +299,43 @@ function validateExistingRelease(release, planned) {
   }
 }
 
-function createGithubReleases({ plan, releaseSha, api, dryRun = false, log = console.log }) {
+function waitForPublishedVersion(api, planned, { publishWait, sleep, log }) {
+  for (let attempt = 1; attempt <= publishWait.attempts; attempt += 1) {
+    const publishedVersion = api.getPublishedVersion(planned.name, planned.version);
+
+    if (publishedVersion === planned.version) {
+      return;
+    }
+
+    // A different version is a real mismatch, not a propagation delay.
+    if (publishedVersion !== null || attempt === publishWait.attempts) {
+      break;
+    }
+
+    log(
+      `npm does not show ${planned.name}@${planned.version} yet; retrying in ${publishWait.delayMs} ms (${attempt}/${publishWait.attempts})`,
+    );
+    sleep(publishWait.delayMs);
+  }
+
+  throw new Error(`npm does not contain ${planned.name}@${planned.version}`);
+}
+
+function createGithubReleases({
+  plan,
+  releaseSha,
+  api,
+  dryRun = false,
+  log = console.log,
+  publishWait = DEFAULT_PUBLISH_WAIT,
+  sleep = sleepSync,
+}) {
   if (!SHA_PATTERN.test(releaseSha)) {
     throw new Error('RELEASE_SHA must be a full lowercase commit SHA');
   }
 
   for (const planned of plan) {
-    const publishedVersion = api.getPublishedVersion(planned.name, planned.version);
-
-    if (publishedVersion !== planned.version) {
-      throw new Error(`npm does not contain ${planned.name}@${planned.version}`);
-    }
+    waitForPublishedVersion(api, planned, { publishWait, sleep, log });
 
     const existingRelease = api.getRelease(planned.tag);
     const existingTarget = api.getTagTarget(planned.tag);

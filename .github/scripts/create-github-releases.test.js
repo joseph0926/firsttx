@@ -222,3 +222,74 @@ test('rejects npm mismatches and conflicting tags', () => {
     /points to/,
   );
 });
+
+const PUBLISH_PLAN = [
+  {
+    name: '@firsttx/prepaint',
+    version: '1.2.3',
+    tag: '@firsttx/prepaint@1.2.3',
+    prerelease: false,
+    notes: '- Safe release\n',
+  },
+];
+
+function apiWithPublishedVersions(versions) {
+  const api = createApi();
+  api.getPublishedVersion = () => versions.shift();
+  return api;
+}
+
+test('waits for a just-published version to appear on npm', () => {
+  const api = apiWithPublishedVersions([null, null, '1.2.3']);
+  const sleeps = [];
+
+  createGithubReleases({
+    plan: PUBLISH_PLAN,
+    releaseSha: RELEASE_SHA,
+    api,
+    log() {},
+    publishWait: { attempts: 5, delayMs: 10 },
+    sleep: (milliseconds) => sleeps.push(milliseconds),
+  });
+
+  assert.deepEqual(sleeps, [10, 10]);
+  assert.equal(api.created.length, 1);
+});
+
+test('gives up when npm never shows the published version', () => {
+  const api = apiWithPublishedVersions([null, null, null]);
+  const sleeps = [];
+
+  assert.throws(
+    () =>
+      createGithubReleases({
+        plan: PUBLISH_PLAN,
+        releaseSha: RELEASE_SHA,
+        api,
+        log() {},
+        publishWait: { attempts: 3, delayMs: 10 },
+        sleep: (milliseconds) => sleeps.push(milliseconds),
+      }),
+    /npm does not contain @firsttx\/prepaint@1\.2\.3/,
+  );
+  assert.equal(sleeps.length, 2);
+  assert.equal(api.created.length, 0);
+});
+
+test('does not wait when npm reports a different version', () => {
+  const sleeps = [];
+
+  assert.throws(
+    () =>
+      createGithubReleases({
+        plan: PUBLISH_PLAN,
+        releaseSha: RELEASE_SHA,
+        api: apiWithPublishedVersions(['1.2.2']),
+        log() {},
+        publishWait: { attempts: 5, delayMs: 10 },
+        sleep: (milliseconds) => sleeps.push(milliseconds),
+      }),
+    /npm does not contain/,
+  );
+  assert.equal(sleeps.length, 0);
+});
